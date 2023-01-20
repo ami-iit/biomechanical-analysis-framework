@@ -13,3 +13,7 @@ find_package(OsqpEigen 0.4.0 REQUIRED)
 
 find_package(BipedalLocomotionFramework 0.11.200 REQUIRED) #TODO version
 
+########################## Optional dependencies  ##############################
+
+find_package(YARP QUIET)
+option(FRAMEWORK_COMPILE_YarpImplementation "Compile utilities for YARP" ${YARP_FOUND})
