@@ -1,0 +1,105 @@
+name: C++ CI Workflow
+
+# template derived from https://github.com/robotology/human-dynamics-estimation/blob/master/.github/workflows/ci.yml
+
+on:
+    push:
+    pull_request:
+    schedule:
+    # run a cron job for a nightly build
+    # * is a special character in YAML so you have to quote this string
+    # Execute a "nightly" build at 2 AM UTC
+    - cron: '0 2 * * *'
+    
+env:
+    #TODO change with first release after this commit
+    BipedalLocomotionFramework_TAG: c1cb3fa3329cae7515de6d453bc099dde2cd0645
+
+jobs:
+    build:
+        name: '[${{matrix.os}}@${{matrix.build_type}}]'
+        runs-on: ${{matrix.os}}
+        strategy:
+            matrix:
+                build_type: [Release]
+                os: [ubuntu-latest, windows-latest, macos-latest]  
+            fail-fast: false
+                
+        steps:
+        - uses: actions/checkout@v2
+
+        # Use conda for main dependencies
+        - uses: conda-incubator/setup-miniconda@v2
+          with:
+            miniforge-variant: Mambaforge
+            miniforge-version: latest
+        
+        # Print the environment variables to simplify development and debugging
+        - name: Environment Variables
+        # Use bash  in order to have same basic commands in all OSs
+          shell: bash
+          run: env
+          
+        # Remove apt repos on Ubuntu that are known to break from time to time 
+        # See https://github.com/actions/virtual-environments/issues/323 
+        - name: Remove broken apt repos [Ubuntu]
+          if: matrix.os == 'ubuntu-latest'
+          run: |
+            for apt_file in `grep -lr microsoft /etc/apt/sources.list.d/`; do sudo rm $apt_file; done
+        
+        # ============
+        # DEPENDENCIES
+        # ============
+
+        - name: Dependencies (using conda)
+          shell: bash -l {0}
+          run: |
+            # Compilation related dependencies 
+            mamba install cmake compilers make ninja pkg-config
+            # Actual dependencies
+            mamba install yarp idyntree
+            #TODO remove these one once blf is installed with conda
+            mamba install spdlog
+             
+        - name: Source-based Dependencies
+          if: steps.cache-source-deps.outputs.cache-hit != 'true'
+          shell: bash -l {0}
+          run: |
+            # bipedal-locomotion-framework
+            cd ${GITHUB_WORKSPACE}
+            git clone https://github.com/ami-iit/bipedal-locomotion-framework
+            cd bipedal-locomotion-framework
+            git checkout ${BipedalLocomotionFramework_TAG}
+            mkdir -p build
+            cd build
+            cmake -GNinja .. \
+                  -DCMAKE_PREFIX_PATH=${GITHUB_WORKSPACE}/install/deps \
+                  -DCMAKE_INSTALL_PREFIX=${GITHUB_WORKSPACE}/install/deps
+
+            cmake --build . --config ${{matrix.build_type}} --target install
+              
+        # ===================
+        # CMAKE-BASED PROJECT
+        # ===================
+        # We will just configure and build the project now. Further modifications and tests can be added
+        # Configure step
+        - name: Configure
+          shell: bash -l {0}
+          run: |
+            mkdir -p build
+            cd build
+            cmake -G"Ninja" .. \
+                  -DCMAKE_PREFIX_PATH=${GITHUB_WORKSPACE}/install/deps \
+                  -DCMAKE_BUILD_TYPE=${{matrix.build_type}} \
+                  -DFRAMEWORK_COMPILE_YarpImplementation=ON \
+                  -DCMAKE_INSTALL_PREFIX=${GITHUB_WORKSPACE}/install
+                    
+        # Build step          
+        - name: Build
+          shell: bash
+          run: |
+            cd build
+            # Attempt of fix for using YARP idl generators (that link ACE) in Windows 
+            # See https://github.com/robotology/idyntree/issues/569
+            export PATH=$PATH:${GITHUB_WORKSPACE}/install/bin:${VCPKG_INSTALLATION_ROOT}/install/x64-windows/bin:${VCPKG_INSTALLATION_ROOT}/installed/x64-windows/debug/bin
+            cmake --build . --config ${{matrix.build_type}}                    
