@@ -1,0 +1,12 @@
+#we use the default conda-incubator/setup-miniconda env name 
+name: test
+dependencies:
+  - cmake
+  - compilers
+  - make
+  - ninja
+  - pkg-config
+  - yarp
+  - idyntree
+  - spdlog
+
