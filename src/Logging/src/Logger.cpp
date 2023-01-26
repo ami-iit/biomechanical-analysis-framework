@@ -10,6 +10,11 @@ static std::shared_ptr<BipedalLocomotion::TextLogging::LoggerFactory> _bafFactor
 
 using namespace BiomechanicalAnalysis;
 
+void Logging::setLoggerFactory(const std::shared_ptr<Logging::LoggerFactory>& loggerFactory)
+{
+    _bafFactory = loggerFactory;
+}
+
 Logging::Logger* const log()
 {
     static auto _createLogger = [&]{BipedalLocomotion::TextLogging::LoggerBuilder::setFactory(_bafFactory); return true;};
