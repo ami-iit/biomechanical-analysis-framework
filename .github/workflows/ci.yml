@@ -126,6 +126,7 @@ jobs:
                   -DCMAKE_PREFIX_PATH=${GITHUB_WORKSPACE}/install/deps \
                   -DCMAKE_BUILD_TYPE=${{matrix.build_type}} \
                   -DFRAMEWORK_COMPILE_YarpImplementation=ON \
+                  -DBUILD_TESTING:BOOL=ON \
                   -DCMAKE_INSTALL_PREFIX=${GITHUB_WORKSPACE}/install
                     
         # Build step          
@@ -133,4 +134,12 @@ jobs:
           shell: bash -l {0}
           run: |
             cd build
-            cmake --build . --config ${{matrix.build_type}}                    
+            cmake --build . --config ${{matrix.build_type}}    
+            
+        # Test step
+        - name: Test
+          shell: bash
+          run: |
+            cd build
+            export PATH=$PATH:${GITHUB_WORKSPACE}/build/install/bin
+            ctest --output-on-failure -C ${{ matrix.build_type }} .
