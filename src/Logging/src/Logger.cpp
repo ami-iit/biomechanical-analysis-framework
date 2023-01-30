@@ -15,7 +15,7 @@ void Logging::setLoggerFactory(const std::shared_ptr<Logging::LoggerFactory>& lo
     _bafFactory = loggerFactory;
 }
 
-Logging::Logger* const log()
+Logging::Logger* const BiomechanicalAnalysis::log()
 {
     static auto _createLogger = [&]{BipedalLocomotion::TextLogging::LoggerBuilder::setFactory(_bafFactory); return true;};
     static bool _loggerCreated = _createLogger();
