@@ -141,5 +141,5 @@ jobs:
           shell: bash
           run: |
             cd build
-            export PATH=$PATH:${GITHUB_WORKSPACE}/build/install/bin
+            export PATH=$PATH:${GITHUB_WORKSPACE}/build/install/bin:${GITHUB_WORKSPACE}/install/deps/bin
             ctest --output-on-failure -C ${{ matrix.build_type }} .
