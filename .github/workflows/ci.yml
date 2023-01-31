@@ -13,7 +13,7 @@ on:
     
 env:
     #TODO change with first release after this commit
-    BipedalLocomotionFramework_TAG: c1cb3fa3329cae7515de6d453bc099dde2cd0645
+    BipedalLocomotionFramework_TAG: b045e79229ed25a8562c7dfaebb1b6b9cb722f5c
     action-restore-cache: 'true'
 jobs:
     build:
