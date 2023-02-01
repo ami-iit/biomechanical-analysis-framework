@@ -134,7 +134,7 @@ jobs:
           shell: bash -l {0}
           run: |
             cd build
-            cmake --build . --config ${{matrix.build_type}}    
+            cmake --build . --config ${{matrix.build_type}} --verbose   
             
         # Test step
         - name: Test
