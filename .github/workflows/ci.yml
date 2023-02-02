@@ -134,11 +134,11 @@ jobs:
           shell: bash -l {0}
           run: |
             cd build
-            cmake --build . --config ${{matrix.build_type}} --verbose   
+            cmake --build . --config ${{matrix.build_type}} --verbose
             
         # Test step
         - name: Test
-          shell: bash
+          shell: bash -l {0}
           run: |
             cd build
             export PATH=$PATH:${GITHUB_WORKSPACE}/build/install/bin:${GITHUB_WORKSPACE}/install/deps/bin
