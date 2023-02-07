@@ -1,0 +1,145 @@
+name: C++ CI Workflow
+
+# template derived from https://github.com/robotology/human-dynamics-estimation/blob/master/.github/workflows/ci.yml
+
+on:
+    push:
+    pull_request:
+    schedule:
+    # run a cron job for a nightly build
+    # * is a special character in YAML so you have to quote this string
+    # Execute a "nightly" build at 2 AM UTC
+    - cron: '0 2 * * *'
+    
+env:
+    #TODO change with first release after this commit
+    BipedalLocomotionFramework_TAG: b045e79229ed25a8562c7dfaebb1b6b9cb722f5c
+    action-restore-cache: 'true'
+jobs:
+    build:
+        name: '[${{matrix.os}}@${{matrix.build_type}}]'
+        runs-on: ${{matrix.os}}
+        strategy:
+            matrix:
+                build_type: [Release]
+                os: [ubuntu-latest, windows-latest, macos-latest]  
+            fail-fast: false
+                
+        steps:
+        - uses: actions/checkout@v3
+
+        - name: Get current day
+          shell: bash -l {0}
+          run: |
+            echo "DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
+
+        # Use conda for main dependencies
+        - uses: conda-incubator/setup-miniconda@v2
+          with:
+            miniforge-variant: Mambaforge
+            miniforge-version: latest
+        
+        # Print the environment variables to simplify development and debugging
+        - name: Environment Variables
+        # Use bash  in order to have same basic commands in all OSs
+          shell: bash
+          run: env
+          
+        # Remove apt repos on Ubuntu that are known to break from time to time 
+        # See https://github.com/actions/virtual-environments/issues/323 
+        - name: Remove broken apt repos [Ubuntu]
+          if: matrix.os == 'ubuntu-latest'
+          run: |
+            for apt_file in `grep -lr microsoft /etc/apt/sources.list.d/`; do sudo rm $apt_file; done
+        
+        # ============
+        # DEPENDENCIES
+        # ============
+        - name: Restore cached conda based dependencies
+          if: ${{ env.action-restore-cache == 'true' }}
+          uses: actions/cache/restore@v3
+          with:
+            path: ${{ env.CONDA }}/envs/test
+            key: ${{ matrix.os }}-conda-${{ hashFiles('.github/workflows/conda-deps.yml') }}-${{ env.DATE }}
+          id: cache-restore-conda-deps
+        
+        - name: Dependencies (using conda)
+          shell: bash -l {0}
+          if: steps.cache-restore-conda-deps.outputs.cache-hit != 'true'
+          run: |
+            mamba env update -f .github/workflows/conda-deps.yml
+          
+        - name: Cache conda based dependencies
+          if: ${{ steps.cache-restore-conda-deps.outputs.cache-hit != 'true' }}
+          uses: actions/cache/save@v3
+          with:
+            path: ${{ env.CONDA }}/envs/test
+            key: ${{ matrix.os }}-conda-${{ hashFiles('.github/workflows/conda-deps.yml') }}-${{ env.DATE }}
+          id: cache-save-conda-deps
+        
+        - name: Restore cached source-based dependencies
+          if: ${{ env.action-restore-cache == 'true' && steps.cache-restore-conda-deps.outputs.cache-hit == 'true' }}
+          uses: actions/cache/restore@v3
+          with:
+            path: ${{ github.workspace }}/install/deps
+            key: ${{ matrix.os }}-${{ matrix.build_type }}-source-${{env.BipedalLocomotionFramework_TAG}}-${{ env.DATE }}
+          id: cache-restore-source-deps
+
+        - name: Source-based dependencies
+          if: ${{ steps.cache-restore-conda-deps.outputs.cache-hit != 'true' || steps.cache-restore-source-deps.outputs.cache-hit != 'true' }}
+          shell: bash -l {0}
+          run: |
+            # bipedal-locomotion-framework
+            cd ${GITHUB_WORKSPACE}
+            git clone https://github.com/ami-iit/bipedal-locomotion-framework blf
+            cd blf
+            git checkout ${BipedalLocomotionFramework_TAG}
+            mkdir -p build
+            cd build
+            cmake -GNinja .. \
+                  -DCMAKE_PREFIX_PATH=${GITHUB_WORKSPACE}/install/deps \
+                  -DCMAKE_INSTALL_PREFIX=${GITHUB_WORKSPACE}/install/deps
+
+            cmake --build . --config ${{matrix.build_type}} --target install
+
+        - name: Cache source-based dependencies
+          if: ${{ steps.cache-restore-source-deps.outputs.cache-hit != 'true' }}
+          uses: actions/cache/save@v3
+          with:
+            path: ${{ github.workspace }}/install/deps
+            key: ${{ matrix.os }}-${{ matrix.build_type }}-source-${{env.BipedalLocomotionFramework_TAG}}-${{ env.DATE }}
+          id: cache-save-source-deps
+            
+
+
+        # ===================
+        # CMAKE-BASED PROJECT
+        # ===================
+        # We will just configure and build the project now. Further modifications and tests can be added
+        # Configure step
+        - name: Configure
+          shell: bash -l {0}
+          run: |
+            mkdir -p build
+            cd build
+            cmake -G"Ninja" .. \
+                  -DCMAKE_PREFIX_PATH=${GITHUB_WORKSPACE}/install/deps \
+                  -DCMAKE_BUILD_TYPE=${{matrix.build_type}} \
+                  -DFRAMEWORK_COMPILE_YarpImplementation=ON \
+                  -DBUILD_TESTING:BOOL=ON \
+                  -DCMAKE_INSTALL_PREFIX=${GITHUB_WORKSPACE}/install
+                    
+        # Build step          
+        - name: Build
+          shell: bash -l {0}
+          run: |
+            cd build
+            cmake --build . --config ${{matrix.build_type}} --verbose
+            
+        # Test step
+        - name: Test
+          shell: bash -l {0}
+          run: |
+            cd build
+            export PATH=$PATH:${GITHUB_WORKSPACE}/build/install/bin:${GITHUB_WORKSPACE}/install/deps/bin
+            ctest --output-on-failure -C ${{ matrix.build_type }} .
