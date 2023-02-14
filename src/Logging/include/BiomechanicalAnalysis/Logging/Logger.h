@@ -40,7 +40,7 @@ namespace BiomechanicalAnalysis
 /**
  * Get an the instance of the log
  */
-Logging::Logger* const log();
+std::shared_ptr<Logging::Logger> const log();
 
 } // namespace BiomechanicalAnalysis
 
