@@ -7,7 +7,7 @@ include(BiomechanicalAnalysisFrameworkFindDependencies)
 ########################## Mandatory dependencies ###############################
 # Find all packages
 
-find_package(BipedalLocomotionFramework 0.11.200 REQUIRED) #TODO version
+find_package(BipedalLocomotionFramework 0.12.0 REQUIRED)
 
 ########################## Optional dependencies  ##############################
 
