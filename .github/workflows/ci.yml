@@ -12,8 +12,7 @@ on:
     - cron: '0 2 * * *'
     
 env:
-    #TODO change with first release after this commit
-    BipedalLocomotionFramework_TAG: master
+    BipedalLocomotionFramework_TAG: v0.12.0
     action-restore-cache: 'true'
 jobs:
     build:
@@ -91,9 +90,8 @@ jobs:
           run: |
             # bipedal-locomotion-framework
             cd ${GITHUB_WORKSPACE}
-            git clone --depth 1 https://github.com/ami-iit/bipedal-locomotion-framework blf
+            git clone --depth 1 --single-branch --branch ${BipedalLocomotionFramework_TAG} https://github.com/ami-iit/bipedal-locomotion-framework blf
             cd blf
-            git checkout ${BipedalLocomotionFramework_TAG}
             mkdir -p build
             cd build
             cmake -GNinja .. \
