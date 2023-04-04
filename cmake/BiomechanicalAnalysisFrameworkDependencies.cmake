@@ -9,6 +9,8 @@ include(BiomechanicalAnalysisFrameworkFindDependencies)
 
 find_package(BipedalLocomotionFramework 0.12.0 REQUIRED)
 
+find_package(Eigen3 3.2.92 REQUIRED)
+
 ########################## Optional dependencies  ##############################
 
 find_package(Catch2 3 QUIET)
