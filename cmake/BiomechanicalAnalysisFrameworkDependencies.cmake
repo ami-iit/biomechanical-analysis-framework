@@ -18,6 +18,9 @@ find_package(Catch2 3 QUIET)
 find_package(YARP QUIET)
 option(FRAMEWORK_COMPILE_YarpImplementation "Compile utilities for YARP" ${YARP_FOUND})
 
+find_package(IWear QUIET)
+option(FRAMEWORK_COMPILE_Wearables_Implementation "Compile utilities for YARP" ${IWear_FOUND})
+
 ##########################      Components       ##############################
 framework_dependent_option(FRAMEWORK_COMPILE_tests
   "Compile tests?" ON
