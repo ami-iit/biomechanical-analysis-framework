@@ -8,5 +8,4 @@ add_biomechanical_analysis_library(
                            ${H_PREFIX}/LinearVelocity.h ${H_PREFIX}/AngularVelocity.h ${H_PREFIX}/Velocity6D.h
                            ${H_PREFIX}/LinearAcceleration.h ${H_PREFIX}/AngularAcceleration.h ${H_PREFIX}/Acceleration6D.h
                            ${H_PREFIX}/Force6D.h
-                           ${H_PREFIX}/TransformedDataSource.h
     PUBLIC_LINK_LIBRARIES  Eigen3::Eigen)
