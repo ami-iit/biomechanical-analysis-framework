@@ -9,13 +9,11 @@ namespace IK
 {
 
 template <typename Scalar>
-class IntegrationBasedSolver : public Solver<Scalar>
+class IntegrationBasedSolver : public virtual Solver<Scalar>
 {
 public:
-    inline virtual void setStep(const double dt){_dt = dt;}
-
-protected:
-    double _dt = 0;
+    virtual void setStep(const double dt) = 0;
+    virtual double getStep() = 0;
 };
     
 } // namespace IK    

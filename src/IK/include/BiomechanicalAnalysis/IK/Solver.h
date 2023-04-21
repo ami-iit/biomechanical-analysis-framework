@@ -13,7 +13,7 @@ namespace IK
 {
 
 template <typename Scalar>
-class Solver : public HumanStateSource<Scalar>
+class Solver : public virtual HumanStateSource<Scalar>
 {
 public:
     virtual bool setModel(std::shared_ptr<iDynTree::Model>& model) = 0;
