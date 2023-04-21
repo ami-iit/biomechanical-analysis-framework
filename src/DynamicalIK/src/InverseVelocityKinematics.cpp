@@ -1,4 +1,4 @@
-#include "../include_private/DynamicalIK/InverseVelocityKinematicsImpl.h"
+#include <BiomechanicalAnalysis/DynamicalIK/InverseVelocityKinematics.h>
 
 #include <BiomechanicalAnalysis/Logging/Logger.h>
 
