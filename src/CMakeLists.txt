@@ -6,3 +6,5 @@ add_subdirectory(DynamicalIK)
 if (${FRAMEWORK_COMPILE_Wearables_Implementation})
     add_subdirectory(WearablesImplementation)
 endif()
+
+add_subdirectory(Examples)
