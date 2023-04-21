@@ -16,10 +16,8 @@ class LinearVelocity
 {
 
 public:
-    virtual Eigen::Ref<Eigen::Vector3<Scalar>> getLinearVelocity() const = 0;
+    virtual bool getLinearVelocity(Eigen::Ref<Eigen::Vector3<Scalar>> linearVelocity) const = 0;
 };
-
-
 
 
 } // namespace DataSources

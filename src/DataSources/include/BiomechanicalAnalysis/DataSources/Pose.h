@@ -13,21 +13,8 @@ namespace DataSources
 {
 
 template<typename Scalar>
-class Pose : public virtual Position<Scalar>, virtual Orientation<Scalar>
+class Pose : public Position<Scalar>, public Orientation<Scalar>
 {
-public:
-    //TODO
-    //inline virtual bool getPose(Eigen::Ref<Eigen::Matrix<Scalar,4,4>> pose) const
-    //{
-    //    // if(!getPosition(pose.block<3,1>(0,3)) || !getOrientation(pose.block<3,3>(0,0)))
-    //    // {
-    //    //     return false;
-    //    // }
-    //    
-    //    auto a = pose.block<1,4>(3,0);// = {0, 0, 0, 1};
-    //    
-    //    return true;
-    //}
 
 };
 

@@ -15,7 +15,7 @@ template<typename Scalar>
 class Position
 {
 public:
-    virtual Eigen::Ref<Eigen::Vector3<Scalar>> getPosition() const = 0;
+    virtual bool getPosition(Eigen::Ref<Eigen::Vector3<Scalar>> position) const = 0;
 };
 
 } // namespace DataSources

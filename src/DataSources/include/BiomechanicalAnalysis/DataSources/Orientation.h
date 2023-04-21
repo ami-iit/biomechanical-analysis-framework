@@ -4,7 +4,7 @@
 
 #include <memory>
 
-#include <Eigen/Core>
+#include <Eigen/Geometry> 
 
 namespace BiomechanicalAnalysis
 {
@@ -16,8 +16,29 @@ class Orientation
 {
 
 public:
-    virtual Eigen::Ref<Eigen::Matrix3<Scalar>> getOrientation() const = 0;
+    virtual bool getOrientation(Eigen::Quaternion<Scalar>& orientation) const = 0;
 };
+
+
+template<typename Scalar>
+class ConstOrientation final : public Orientation<Scalar>
+{
+
+public:
+
+    ConstOrientation(const Eigen::Quaternion<Scalar>& quat) : _orientation{quat} {}
+
+    bool getOrientation(Eigen::Quaternion<Scalar>& orientation) const override
+    {
+        orientation = _orientation;
+        return true;
+    }
+
+private:
+    Eigen::Quaternion<Scalar> _orientation;
+    
+};
+
 
 } // namespace DataSources
 } // namespace BiomechanicalAnalysis

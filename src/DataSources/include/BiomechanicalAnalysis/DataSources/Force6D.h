@@ -14,7 +14,7 @@ template<typename Scalar>
 class Force6D
 {
 public:
-    virtual Eigen::Ref<Eigen::Matrix<Scalar,6,1>> getForce6D() const = 0;
+    virtual bool getForce6D(Eigen::Ref<Eigen::Matrix<Scalar,6,1>> force6D) const = 0;
 };
 
 } // namespace DataSources

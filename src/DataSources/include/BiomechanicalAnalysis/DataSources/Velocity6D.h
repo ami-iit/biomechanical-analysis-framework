@@ -13,7 +13,7 @@ namespace DataSources
 {
 
 template<typename Scalar>
-class Velocity6D : public virtual LinearVelocity<Scalar>, virtual AngularVelocity<Scalar>{};
+class Velocity6D : public LinearVelocity<Scalar>, public AngularVelocity<Scalar>{};
 
 
 } // namespace DataSources

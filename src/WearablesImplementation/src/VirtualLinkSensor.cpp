@@ -4,95 +4,83 @@
 
 using namespace BiomechanicalAnalysis::DataSources::Wearables;
 
+VirtualLinkSensor::VirtualLinkSensor(const std::shared_ptr<const wearable::sensor::IVirtualLinkKinSensor>& virtualLinkSensor) : _virtualLinkSensor{virtualLinkSensor}
+{
+    _wPos.fill(0);
+    _wAngAcc.fill(0);
+    _wAngVel.fill(0);
+    _wLinAcc.fill(0);
+    _wLinVel.fill(0);
+    _orientation.setIdentity();
+}
 
 bool VirtualLinkSensor::update()
 {
     // get wearables position
-    wearable::Vector3 wPos;
-    if(!_virtualLinkSensor->getLinkPosition(wPos))
-    {
+    if(!_virtualLinkSensor->getLinkPosition(_wPos)){
         return false;
     }
 
-    wearable::Vector3 wLinVel;
-    if(!_virtualLinkSensor->getLinkLinearVelocity(wLinVel))
-    {
+    if(!_virtualLinkSensor->getLinkLinearVelocity(_wLinVel)){
         return false;
     }
 
     wearable::Quaternion wQuat;
-    if(!_virtualLinkSensor->getLinkOrientation(wQuat))
-    {
+    if(!_virtualLinkSensor->getLinkOrientation(wQuat)){
         return false;
     }
 
-    wearable::Vector3 wAngVel;
-    if(!_virtualLinkSensor->getLinkAngularVelocity(wAngVel))
-    {
+    if(!_virtualLinkSensor->getLinkAngularVelocity(_wAngVel)){
         return false;
     }
 
-    wearable::Vector3 wAngAcc;
-    if(!_virtualLinkSensor->getLinkAngularAcceleration(wAngAcc))
-    {
+    if(!_virtualLinkSensor->getLinkAngularAcceleration(_wAngAcc)){
         return false;
     }
 
-    wearable::Vector3 wLinAcc;
-    if(!_virtualLinkSensor->getLinkLinearAcceleration(wLinAcc))
-    {
+    if(!_virtualLinkSensor->getLinkLinearAcceleration(_wLinAcc)){
         return false;
     }
-
-    // fill objects
-
-    _position << wPos[0], wPos[1] ,wPos[2];
 
     // get quaternion
-    Eigen::Quaternion<double> quat(wQuat[0],wQuat[1], wQuat[2], wQuat[3]);    
-    // get rotation matrix
-    _orientationRef << quat.toRotationMatrix();
-
-    _linVelocityRef << wLinVel[0], wLinVel[1], wLinVel[2];
-
-    _angVelocityRef << wAngVel[0], wAngVel[1], wAngVel[2];
-
-    _linAccelerationRef << wLinAcc[0], wLinAcc[1], wLinAcc[2];
-
-    _angAccelerationRef << wAngAcc[0], wAngAcc[1], wAngAcc[2];
+    _orientation.coeffs() << wQuat[0],wQuat[1], wQuat[2], wQuat[3];
 
     return true;
 }
 
-Eigen::Ref<Eigen::Vector3<double>> VirtualLinkSensor::getPosition() const
+bool VirtualLinkSensor::getPosition(Eigen::Ref<Eigen::Vector3<double>> position) const
 {
-    return _positionRef;
+    position << _wPos[0], _wPos[1], _wPos[2];
+    return true;
 }
 
-Eigen::Ref<Eigen::Matrix3<double>> VirtualLinkSensor::getOrientation() const
+bool VirtualLinkSensor::getOrientation(Eigen::Quaternion<double>& orientation) const
 {
-    return _orientationRef;
+    orientation = _orientation;
+    return true;
 }
 
 
-Eigen::Ref<Eigen::Vector3<double>> VirtualLinkSensor::getLinearVelocity() const
+bool VirtualLinkSensor::getLinearVelocity(Eigen::Ref<Eigen::Vector3<double>> linearVelocity) const
 {
-    return _linVelocityRef;
+    linearVelocity << _wLinVel[0], _wLinVel[1], _wLinVel[2];
+    return true;
 }
 
-Eigen::Ref<Eigen::Vector3<double>> VirtualLinkSensor::getAngularVelocity() const
+bool VirtualLinkSensor::getAngularVelocity(Eigen::Ref<Eigen::Vector3<double>> angularVelocity) const
 {
-    return _angVelocityRef;
+    angularVelocity << _wAngVel[0], _wAngVel[1], _wAngVel[2];
+    return true;
 }
 
-Eigen::Ref<Eigen::Vector3<double>> VirtualLinkSensor::getLinearAcceleration() const
+bool VirtualLinkSensor::getLinearAcceleration(Eigen::Ref<Eigen::Vector3<double>> linearAcceleration) const
 {
-
-    return _linAccelerationRef;;
+    linearAcceleration << _wLinAcc[0], _wLinAcc[1], _wLinAcc[2];
+    return true;
 }
 
-Eigen::Ref<Eigen::Vector3<double>> VirtualLinkSensor::getAngularAcceleration() const
+bool VirtualLinkSensor::getAngularAcceleration(Eigen::Ref<Eigen::Vector3<double>> angularAcceleration) const
 {
-    
-    return _angAccelerationRef;
+    angularAcceleration << _wAngAcc[0], _wAngAcc[1], _wAngAcc[2];
+    return true;
 }

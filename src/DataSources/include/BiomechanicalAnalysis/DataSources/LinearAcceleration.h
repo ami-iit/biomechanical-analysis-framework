@@ -16,7 +16,7 @@ class LinearAcceleration
 {
 
 public:
-    virtual Eigen::Ref<Eigen::Vector3<Scalar>> getLinearAcceleration() const = 0;
+    virtual bool getLinearAcceleration(Eigen::Ref<Eigen::Vector3<Scalar>> linearAcceleration) const = 0;
 };
 
 } // namespace DataSources
