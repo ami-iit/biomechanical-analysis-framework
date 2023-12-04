@@ -26,7 +26,7 @@ jobs:
             fail-fast: false
                 
         steps:
-        - uses: actions/checkout@master
+        - uses: actions/checkout@v3
 
         - name: Get current day
           shell: bash -l {0}
@@ -54,12 +54,6 @@ jobs:
           shell: bash
           run: env
         
-        # Print the environment variables to simplify development and debugging
-        - name: Environment Variables
-        # Use bash  in order to have same basic commands in all OSs
-          shell: bash
-          run: env
-          
         # Remove apt repos on Ubuntu that are known to break from time to time 
         # See https://github.com/actions/virtual-environments/issues/323 
         - name: Remove broken apt repos [Ubuntu]
