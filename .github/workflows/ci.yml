@@ -26,7 +26,7 @@ jobs:
             fail-fast: false
                 
         steps:
-        - uses: actions/checkout@v3
+        - uses: actions/checkout@master
 
         - name: Get current day
           shell: bash -l {0}
@@ -41,8 +41,16 @@ jobs:
             channel-priority: true
         
         # Print the environment variables to simplify development and debugging
-        - name: Environment Variables
+        # Use conda for main dependencies
+        - uses: conda-incubator/setup-miniconda@v2
           if: matrix.os == 'ubuntu-latest'
+          with:
+            miniforge-variant: Mambaforge
+            miniforge-version: latest
+        
+        # Print the environment variables to simplify development and debugging
+        - name: Environment Variables
+        # Use bash  in order to have same basic commands in all OSs
           shell: bash
           run: env
         
