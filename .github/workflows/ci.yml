@@ -33,11 +33,18 @@ jobs:
           run: |
             echo "DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
 
-        # Use conda for main dependencies
-        - uses: conda-incubator/setup-miniconda@v2
+         # Use mamba for Windows dependencies
+        - uses: mamba-org/setup-micromamba@v1
+          if: matrix.os == 'windows-latest' || matrix.os == 'macOS-latest'
           with:
-            miniforge-variant: Mambaforge
-            miniforge-version: latest
+            environment-file: ci_env.yml
+            channel-priority: true
+        
+        # Print the environment variables to simplify development and debugging
+        - name: Environment Variables
+          if: matrix.os == 'ubuntu-latest'
+          shell: bash
+          run: env
         
         # Print the environment variables to simplify development and debugging
         - name: Environment Variables

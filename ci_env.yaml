@@ -1,0 +1,16 @@
+name: test
+channels:
+  - conda-forge
+  - robotology
+dependencies:
+  - cmake
+  - clangxx>=14.0.0
+  - make
+  - ninja
+  - pkg-config
+  - yarp
+  - idyntree
+  - spdlog
+  - catch2>=3.3.0
+  - manif
+  - bipedal-locomotion-framework
