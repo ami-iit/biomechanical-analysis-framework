@@ -13,6 +13,7 @@ on:
     
 env:
     BipedalLocomotionFramework_TAG: v0.16.1
+    LieGroupController_TAG: v0.2.0
     action-restore-cache: 'true'
 jobs:
     build:
@@ -88,6 +89,19 @@ jobs:
           if: ${{ steps.cache-restore-conda-deps.outputs.cache-hit != 'true' || steps.cache-restore-source-deps.outputs.cache-hit != 'true' }}
           shell: bash -l {0}
           run: |
+
+            # lie-group-controller
+            cd ${GITHUB_WORKSPACE}
+            git clone --depth 1 --single-branch --branch ${LieGroupController_TAG} https://github.com/ami-iit/lie-group-controllers.git lieCtrl
+            cd lieCtrl
+            mkdir -p build
+            cd build
+            cmake -GNinja .. \
+                  -DCMAKE_PREFIX_PATH=${GITHUB_WORKSPACE}/install/deps \
+                  -DCMAKE_INSTALL_PREFIX=${GITHUB_WORKSPACE}/install/deps
+
+            cmake --build . --config ${{matrix.build_type}} --target install
+
             # bipedal-locomotion-framework
             cd ${GITHUB_WORKSPACE}
             git clone --depth 1 --single-branch --branch ${BipedalLocomotionFramework_TAG} https://github.com/ami-iit/bipedal-locomotion-framework blf

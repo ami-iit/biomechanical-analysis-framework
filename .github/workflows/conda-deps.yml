@@ -10,4 +10,5 @@ dependencies:
   - idyntree
   - spdlog
   - catch2>=3.3.0
+  - manif
 
