@@ -6,7 +6,13 @@
 #ifndef BIOMECHANICAL_ANALYSIS_INVERSE_KINEMATIC_H
 #define BIOMECHANICAL_ANALYSIS_INVERSE_KINEMATIC_H
 
-#include <BipedalLocomotion/IK/IKLinearTask.h>
+// iDynTree
+#include <iDynTree/KinDynComputations.h>
+
+// BipedalLocomotion
+#include <BipedalLocomotion/IK/QPInverseKinematics.h>
+#include <BipedalLocomotion/ParametersHandler/IParametersHandler.h>
+#include <BipedalLocomotion/System/VariablesHandler.h>
 
 namespace BiomechanicalAnalysis
 {
@@ -21,15 +27,22 @@ private:
     double m_dtIntegration;
 
     // Joint positions and velocities
-    Eigen::VectorXd m_q;
-    Eigen::VectorXd m_qDot;
+    Eigen::VectorXd m_jointPositions;
+    Eigen::VectorXd m_jointVelocities;
 
     // Number of Joint Degrees of Freedom
     int m_nrDoFs;
 
+    BipedalLocomotion::IK::QPInverseKinematics m_qpIK;
+    BipedalLocomotion::System::VariablesHandler m_variablesHandler;
+
 public:
     HumanIK(){}; // constructor
     ~HumanIK(){}; // destructor
+
+    // initialize all the task and the inverse kinematics solver
+    bool initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandler::IParametersHandler> handler,
+                std::shared_ptr<iDynTree::KinDynComputations> kinDyn);
 
     // set the integration time step
     bool setDt(const double dt);
@@ -53,10 +66,10 @@ public:
     bool advance();
 
     // get the joint poistions
-    bool getJointPositions(Eigen::Ref<Eigen::VectorXd> q) const;
+    bool getJointPositions(Eigen::Ref<Eigen::VectorXd> jointPositions) const;
 
     // get the joint velocities
-    bool getJointVelocities(Eigen::Ref<Eigen::VectorXd> qDot) const;
+    bool getJointVelocities(Eigen::Ref<Eigen::VectorXd> jointVelocities) const;
 };
 
 } // namespace IK

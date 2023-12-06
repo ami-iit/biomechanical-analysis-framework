@@ -1,7 +1,7 @@
 // Catch2
 #include <catch2/catch_test_macros.hpp>
 
-#include <BiomechanicalAnalysis/IK/InverseKinematic.h>
+#include <BiomechanicalAnalysis/IK/InverseKinematics.h>
 
 
 TEST_CASE("InverseKinematic test")
