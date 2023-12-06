@@ -29,6 +29,10 @@ private:
     // Joint positions and velocities
     Eigen::VectorXd m_jointPositions;
     Eigen::VectorXd m_jointVelocities;
+    Eigen::Vector3d m_basePosition;
+    Eigen::Vector3d m_baseVelocity;
+    manif::SO3d m_baseOrientation;
+    Eigen::Vector3d m_baseAngularVelocity;
 
     // Number of Joint Degrees of Freedom
     int m_nrDoFs;
@@ -70,6 +74,18 @@ public:
 
     // get the joint velocities
     bool getJointVelocities(Eigen::Ref<Eigen::VectorXd> jointVelocities) const;
+
+    // get the base position
+    bool getBasePosition(Eigen::Ref<Eigen::Vector3d> basePosition) const;
+
+    // get the base velocity
+    bool getBaseVelocity(Eigen::Ref<Eigen::Vector3d> baseVelocity) const;
+
+    // get the base orientation
+    bool getBaseOrientation(manif::SO3d& baseOrientation) const;
+
+    // get the base angular velocity
+    bool getBaseAngularVelocity(Eigen::Ref<Eigen::Vector3d> baseAngularVelocity) const;
 };
 
 } // namespace IK
