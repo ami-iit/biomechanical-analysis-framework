@@ -13,6 +13,7 @@
 #include <BipedalLocomotion/IK/QPInverseKinematics.h>
 #include <BipedalLocomotion/ParametersHandler/IParametersHandler.h>
 #include <BipedalLocomotion/System/VariablesHandler.h>
+#include <BipedalLocomotion/IK/SO3Task.h>
 
 namespace BiomechanicalAnalysis
 {
@@ -30,15 +31,18 @@ private:
     Eigen::VectorXd m_jointPositions;
     Eigen::VectorXd m_jointVelocities;
     Eigen::Vector3d m_basePosition;
-    Eigen::Vector3d m_baseVelocity;
+    manif::SE3Tangentd m_baseVelocity;
     manif::SO3d m_baseOrientation;
     Eigen::Vector3d m_baseAngularVelocity;
+
+    // tasks
+    std::shared_ptr<BipedalLocomotion::IK::SO3Task> m_link1OrientationTask;
 
     // Number of Joint Degrees of Freedom
     int m_nrDoFs;
 
     BipedalLocomotion::IK::QPInverseKinematics m_qpIK;
-    BipedalLocomotion::System::VariablesHandler m_variablesHandler;
+    BipedalLocomotion::System::VariablesHandler m_variableHandler;
 
 public:
     HumanIK(){}; // constructor
@@ -63,8 +67,8 @@ public:
     // set the initial joint positions
     bool setInitialJointPositions(const Eigen::Ref<const Eigen::VectorXd> qInitial);
 
-    // set the state of the system
-    bool setState();
+    bool setLink1OrientationAndAngVel(const manif::SO3d &link1Orientation,
+                                      const manif::SO3Tangentd &link1AngularVelocity);
 
     // compute the next state
     bool advance();
@@ -79,7 +83,7 @@ public:
     bool getBasePosition(Eigen::Ref<Eigen::Vector3d> basePosition) const;
 
     // get the base velocity
-    bool getBaseVelocity(Eigen::Ref<Eigen::Vector3d> baseVelocity) const;
+    bool getBaseVelocity(manif::SE3Tangentd & baseVelocity) const;
 
     // get the base orientation
     bool getBaseOrientation(manif::SO3d& baseOrientation) const;
