@@ -116,6 +116,20 @@ jobs:
         # We will just configure and build the project now. Further modifications and tests can be added
         # Configure step
         - name: Configure
+          if: matrix.os == 'ubuntu-latest' || matrix.os == 'macOS-latest'
+          shell: bash -l {0}
+          run: |
+            mkdir -p build
+            cd build
+            cmake -G"Visual Studio 17 2022" .. \
+                  -DCMAKE_PREFIX_PATH=${GITHUB_WORKSPACE}/install/deps \
+                  -DCMAKE_BUILD_TYPE=${{matrix.build_type}} \
+                  -DFRAMEWORK_COMPILE_YarpImplementation=ON \
+                  -DBUILD_TESTING:BOOL=ON \
+                  -DCMAKE_INSTALL_PREFIX=${GITHUB_WORKSPACE}/install
+
+        - name: Configure
+          if: matrix.os == 'windows-latest'
           shell: bash -l {0}
           run: |
             mkdir -p build
