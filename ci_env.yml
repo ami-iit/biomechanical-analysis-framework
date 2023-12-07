@@ -1,10 +1,6 @@
-name: biomechanical-analysis-framework
-channels:
-  - conda-forge
-  - robotology
 dependencies:
   - cmake
-  - clangxx>=14.0.0
+  - compilers
   - make
   - ninja
   - pkg-config
