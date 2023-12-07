@@ -1,4 +1,6 @@
 name: biomechanical-analysis-framework
+channel:
+  - conda-forge
 dependencies:
   - cmake
   - compilers
