@@ -1,3 +1,4 @@
+name: biomechanical-analysis-framework
 dependencies:
   - cmake
   - compilers
