@@ -53,12 +53,12 @@ TEST_CASE("InverseKinematic test")
 
     ik.initialize(handler, kinDyn);
 
-    ik.setDt(0.1);
-    ik.setInitialJointPositions(qInitial);
-    ik.setLink1OrientationAndAngVel(orientationDesired, angVelDesired);
-    ik.advance();
-    ik.getJointPositions(JointPositions);
-    ik.getJointVelocities(JointVelocities);
+    REQUIRE(ik.setDt(0.1));
+    REQUIRE(ik.setInitialJointPositions(qInitial));
+    REQUIRE(ik.setLink1OrientationAndAngVel(orientationDesired, angVelDesired));
+    REQUIRE(ik.advance());
+    REQUIRE(ik.getJointPositions(JointPositions));
+    REQUIRE(ik.getJointVelocities(JointVelocities));
     std::cout << "JointPositions = " << JointPositions.transpose() << std::endl;
     std::cout << "JointVelocities = " << JointVelocities.transpose() << std::endl;
 }
