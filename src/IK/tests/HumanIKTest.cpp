@@ -55,7 +55,7 @@ TEST_CASE("InverseKinematic test")
 
     ik.setDt(0.1);
     ik.setInitialJointPositions(qInitial);
-    ik.setLink1OrientationAndAngVel(orientationDesired, angVelDesired);
+    ik.setPelvisSetPoint(orientationDesired, angVelDesired);
     ik.advance();
     ik.getJointPositions(JointPositions);
     ik.getJointVelocities(JointVelocities);

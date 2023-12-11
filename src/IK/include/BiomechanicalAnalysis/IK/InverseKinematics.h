@@ -36,7 +36,16 @@ private:
     Eigen::Vector3d m_baseAngularVelocity;
 
     // tasks
-    std::shared_ptr<BipedalLocomotion::IK::SO3Task> m_link1OrientationTask;
+    std::shared_ptr<BipedalLocomotion::IK::SO3Task> m_PelvisTask;
+    std::shared_ptr<BipedalLocomotion::IK::SO3Task> m_T8Task;
+    std::shared_ptr<BipedalLocomotion::IK::SO3Task> m_RightUpperArmTask;
+    std::shared_ptr<BipedalLocomotion::IK::SO3Task> m_RightForeArmTask;
+    std::shared_ptr<BipedalLocomotion::IK::SO3Task> m_LeftUpperArmTask;
+    std::shared_ptr<BipedalLocomotion::IK::SO3Task> m_LeftForeArmTask;
+    std::shared_ptr<BipedalLocomotion::IK::SO3Task> m_RightUpperLegTask;
+    std::shared_ptr<BipedalLocomotion::IK::SO3Task> m_RightLowerLegTask;
+    std::shared_ptr<BipedalLocomotion::IK::SO3Task> m_LeftUpperLegTask;
+    std::shared_ptr<BipedalLocomotion::IK::SO3Task> m_LeftLowerLegTask;
 
     // Number of Joint Degrees of Freedom
     int m_nrDoFs;
@@ -67,8 +76,36 @@ public:
     // set the initial joint positions
     bool setInitialJointPositions(const Eigen::Ref<const Eigen::VectorXd> qInitial);
 
-    bool setLink1OrientationAndAngVel(const manif::SO3d &link1Orientation,
-                                      const manif::SO3Tangentd &link1AngularVelocity);
+    // set the set point for the orientation tasks
+    bool setPelvisSetPoint(const manif::SO3d &pelvisOrientation,
+                                      const manif::SO3Tangentd &pelvisAngularVelocity);
+
+    bool setT8SetPoint(const manif::SO3d &T8Orientation,
+                                      const manif::SO3Tangentd &T8AngularVelocity);
+
+    bool setRightUpperArmSetPoint(const manif::SO3d &RightUpperArmOrientation,
+                                        const manif::SO3Tangentd &RightUpperArmAngularVelocity);
+
+    bool setRightForeArmSetPoint(const manif::SO3d &RightForeArmOrientation,
+                                        const manif::SO3Tangentd &RightForeArmAngularVelocity);
+
+    bool setLeftUpperArmSetPoint(const manif::SO3d &LeftUpperArmOrientation,
+                                        const manif::SO3Tangentd &LeftUpperArmAngularVelocity);
+
+    bool setLeftForeArmSetPoint(const manif::SO3d &LeftForeArmOrientation,
+                                        const manif::SO3Tangentd &LeftForeArmAngularVelocity);
+
+    bool setRightUpperLegSetPoint(const manif::SO3d &RightUpperLegOrientation,
+                                        const manif::SO3Tangentd &RightUpperLegAngularVelocity);
+
+    bool setRightLowerLegSetPoint(const manif::SO3d &RightLowerLegOrientation,
+                                        const manif::SO3Tangentd &RightLowerLegAngularVelocity);
+
+    bool setLeftUpperLegSetPoint(const manif::SO3d &LeftUpperLegOrientation,
+                                        const manif::SO3Tangentd &LeftUpperLegAngularVelocity);
+
+    bool setLeftLowerLegSetPoint(const manif::SO3d &LeftLowerLegOrientation,
+                                        const manif::SO3Tangentd &LeftLowerLegAngularVelocity);
 
     // compute the next state
     bool advance();
