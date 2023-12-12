@@ -35,18 +35,9 @@ jobs:
 
          # Use mamba for Windows dependencies
         - uses: mamba-org/setup-micromamba@v1
-          if: matrix.os == 'windows-latest' || matrix.os == 'macOS-latest'
           with:
             environment-file: ci_env.yml
             channel-priority: true
-        
-        # Print the environment variables to simplify development and debugging
-        # Use conda for main dependencies
-        - uses: conda-incubator/setup-miniconda@v2
-          if: matrix.os == 'ubuntu-latest'
-          with:
-            miniforge-variant: Mambaforge
-            miniforge-version: latest
         
         # Print the environment variables to simplify development and debugging
         - name: Environment Variables
@@ -69,36 +60,8 @@ jobs:
           shell: bash -l {0}
           if: steps.cache-restore-conda-deps.outputs.cache-hit != 'true' && matrix.os == 'ubuntu-latest'
           run: |
-            mamba env update -f .github/workflows/conda-deps.yml
+            mamba env update -f ci_env.yml
 
-        - name: Source-based dependencies [Ubuntu]
-          if: steps.cache-source-deps.outputs.cache-hit != 'true' && matrix.os == 'ubuntu-latest'
-          shell: bash -l {0}
-          run: |
-
-            # lie-group-controller
-            cd ${GITHUB_WORKSPACE}
-            git clone --depth 1 --single-branch --branch ${LieGroupController_TAG} https://github.com/ami-iit/lie-group-controllers.git lieCtrl
-            cd lieCtrl
-            mkdir -p build
-            cd build
-            cmake -GNinja .. \
-                  -DCMAKE_PREFIX_PATH=${GITHUB_WORKSPACE}/install/deps \
-                  -DCMAKE_INSTALL_PREFIX=${GITHUB_WORKSPACE}/install/deps
-
-            cmake --build . --config ${{matrix.build_type}} --target install
-
-            # bipedal-locomotion-framework
-            cd ${GITHUB_WORKSPACE}
-            git clone --depth 1 --single-branch --branch ${BipedalLocomotionFramework_TAG} https://github.com/ami-iit/bipedal-locomotion-framework blf
-            cd blf
-            mkdir -p build
-            cd build
-            cmake -GNinja .. \
-                  -DCMAKE_PREFIX_PATH=${GITHUB_WORKSPACE}/install/deps \
-                  -DCMAKE_INSTALL_PREFIX=${GITHUB_WORKSPACE}/install/deps
-
-            cmake --build . --config ${{matrix.build_type}} --target install
 
         - name: Cache source-based dependencies
           if: ${{ steps.cache-restore-source-deps.outputs.cache-hit != 'true' }}
