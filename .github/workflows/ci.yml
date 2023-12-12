@@ -35,18 +35,9 @@ jobs:
 
          # Use mamba for Windows dependencies
         - uses: mamba-org/setup-micromamba@v1
-          if: matrix.os == 'windows-latest' || matrix.os == 'macOS-latest'
           with:
             environment-file: ci_env.yml
             channel-priority: true
-        
-        # Print the environment variables to simplify development and debugging
-        # Use conda for main dependencies
-        - uses: conda-incubator/setup-miniconda@v2
-          if: matrix.os == 'ubuntu-latest'
-          with:
-            miniforge-variant: Mambaforge
-            miniforge-version: latest
         
         # Print the environment variables to simplify development and debugging
         - name: Environment Variables
@@ -66,19 +57,13 @@ jobs:
         # ============
 
         # Additional dependencies useful only on Linux
-        - name: Dependencies [Conda/Linux]
+        - name: Dependencies [Ubuntu]
           if: matrix.os == 'ubuntu-latest'
           shell: bash -l {0}
           run: |
             # Additional dependencies only useful on Linux
             # See https://github.com/robotology/robotology-superbuild/issues/477
-            mamba install expat-cos6-x86_64 libselinux-cos6-x86_64 libxau-cos6-x86_64 libxcb-cos6-x86_64 libxdamage-cos6-x86_64 libxext-cos6-x86_64 libxfixes-cos6-x86_64 libxxf86vm-cos6-x86_64 mesalib mesa-libgl-cos6-x86_64 mesa-libgl-devel-cos6-x86_64
-        
-        - name: Dependencies (using conda) [Ubuntu]
-          shell: bash -l {0}
-          if: steps.cache-restore-conda-deps.outputs.cache-hit != 'true' && matrix.os == 'ubuntu-latest'
-          run: |
-            mamba env update -f ci_env.yml
+            micromamba install expat-cos6-x86_64 libselinux-cos6-x86_64 libxau-cos6-x86_64 libxcb-cos6-x86_64 libxdamage-cos6-x86_64 libxext-cos6-x86_64 libxfixes-cos6-x86_64 libxxf86vm-cos6-x86_64 mesalib mesa-libgl-cos6-x86_64 mesa-libgl-devel-cos6-x86_64
 
 
         # ===================
