@@ -51,26 +51,6 @@ jobs:
           if: matrix.os == 'ubuntu-latest'
           run: |
             for apt_file in `grep -lr microsoft /etc/apt/sources.list.d/`; do sudo rm $apt_file; done
-        
-        # ============
-        # DEPENDENCIES
-        # ============
-        
-        - name: Dependencies (using conda) [Ubuntu]
-          shell: bash -l {0}
-          if: steps.cache-restore-conda-deps.outputs.cache-hit != 'true' && matrix.os == 'ubuntu-latest'
-          run: |
-            mamba env update -f ci_env.yml
-
-
-        - name: Cache source-based dependencies
-          if: ${{ steps.cache-restore-source-deps.outputs.cache-hit != 'true' }}
-          uses: actions/cache/save@v3
-          with:
-            path: ${{ github.workspace }}/install/deps
-            key: ${{ matrix.os }}-${{ matrix.build_type }}-source-${{env.BipedalLocomotionFramework_TAG}}-${{ env.DATE }}
-          id: cache-save-source-deps
-            
 
 
         # ===================
