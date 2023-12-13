@@ -104,7 +104,6 @@ int main() {
     // get the dimension of the data
     matioCpp::Vector<double> data = node12("timestamps").asVector<double>();
     size_t dataLength = data.size();
-    std::cout << "data length: " << dataLength << std::endl;
 
     // list of nodes
     std::vector<int> nodesNumber = {3, 6, 7, 8, 4, 5, 11, 12, 9, 10};

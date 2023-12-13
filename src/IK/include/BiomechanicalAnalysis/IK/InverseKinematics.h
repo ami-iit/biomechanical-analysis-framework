@@ -48,18 +48,26 @@ private:
         LEFT_UPPER_LEG = 9,
         LEFT_LOWER_LEG = 10
     } linkNumber;
+    
+    struct OrientationTask
+    {
+        /* data */
+        std::shared_ptr<BipedalLocomotion::IK::SO3Task> task;
+        int nodeNumber;
+    };
+    
 
     // tasks
-    std::shared_ptr<BipedalLocomotion::IK::SO3Task> m_PelvisTask;
-    std::shared_ptr<BipedalLocomotion::IK::SO3Task> m_T8Task;
-    std::shared_ptr<BipedalLocomotion::IK::SO3Task> m_RightUpperArmTask;
-    std::shared_ptr<BipedalLocomotion::IK::SO3Task> m_RightForeArmTask;
-    std::shared_ptr<BipedalLocomotion::IK::SO3Task> m_LeftUpperArmTask;
-    std::shared_ptr<BipedalLocomotion::IK::SO3Task> m_LeftForeArmTask;
-    std::shared_ptr<BipedalLocomotion::IK::SO3Task> m_RightUpperLegTask;
-    std::shared_ptr<BipedalLocomotion::IK::SO3Task> m_RightLowerLegTask;
-    std::shared_ptr<BipedalLocomotion::IK::SO3Task> m_LeftUpperLegTask;
-    std::shared_ptr<BipedalLocomotion::IK::SO3Task> m_LeftLowerLegTask;
+    OrientationTask m_PelvisTask;
+    OrientationTask m_T8Task;
+    OrientationTask m_RightUpperArmTask;
+    OrientationTask m_RightForeArmTask;
+    OrientationTask m_LeftUpperArmTask;
+    OrientationTask m_LeftForeArmTask;
+    OrientationTask m_RightUpperLegTask;
+    OrientationTask m_RightLowerLegTask;
+    OrientationTask m_LeftUpperLegTask;
+    OrientationTask m_LeftLowerLegTask;
 
     // Number of Joint Degrees of Freedom
     int m_nrDoFs;

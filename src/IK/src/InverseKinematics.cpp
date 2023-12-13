@@ -26,55 +26,115 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
     group->getParameter("robot_velocity_variable_name", variable);
     m_variableHandler.addVariable(variable, kinDyn->getNrOfDegreesOfFreedom() + 6);
 
-    m_PelvisTask = std::make_shared<BipedalLocomotion::IK::SO3Task>();
-    ok = ok && m_PelvisTask->setKinDyn(kinDyn);
-    ok = ok && m_PelvisTask->initialize(ptr->getGroup("PELVIS_TASK"));
-    ok = ok && m_qpIK.addTask(m_PelvisTask, "pelvis_task", highPriority);
+    m_PelvisTask.task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
+    ok = ok && m_PelvisTask.task->setKinDyn(kinDyn);
+    ok = ok && m_PelvisTask.task->initialize(ptr->getGroup("PELVIS_TASK"));
+    auto pelvisParam = ptr->getGroup("PELVIS_TASK").lock();
+    if (!pelvisParam->getParameter("node_number", m_PelvisTask.nodeNumber))
+    {
+        std::cerr << "[baf] Parameter node_number of the PELVIS_TASK task is missing" << std::endl;
+        return false;
+    }
+    ok = ok && m_qpIK.addTask(m_PelvisTask.task, "pelvis_task", highPriority);
 
-    m_T8Task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
-    ok = ok && m_T8Task->setKinDyn(kinDyn);
-    ok = ok && m_T8Task->initialize(ptr->getGroup("T8_TASK"));
-    ok = ok && m_qpIK.addTask(m_T8Task, "t8_task", highPriority);
+    m_T8Task.task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
+    ok = ok && m_T8Task.task->setKinDyn(kinDyn);
+    ok = ok && m_T8Task.task->initialize(ptr->getGroup("T8_TASK"));
+    auto T8Param = ptr->getGroup("T8_TASK").lock();
+    if (!T8Param->getParameter("node_number", m_T8Task.nodeNumber))
+    {
+        std::cerr << "[baf] Parameter node_number of the T8_TASK task is missing" << std::endl;
+        return false;
+    }
+    ok = ok && m_qpIK.addTask(m_T8Task.task, "T8_task", highPriority);
 
-    m_RightUpperArmTask = std::make_shared<BipedalLocomotion::IK::SO3Task>();
-    ok = ok && m_RightUpperArmTask->setKinDyn(kinDyn);
-    ok = ok && m_RightUpperArmTask->initialize(ptr->getGroup("RIGHT_UPPER_ARM_TASK"));
-    ok = ok && m_qpIK.addTask(m_RightUpperArmTask, "right_upper_arm_task", highPriority);
+    m_RightUpperArmTask.task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
+    ok = ok && m_RightUpperArmTask.task->setKinDyn(kinDyn);
+    ok = ok && m_RightUpperArmTask.task->initialize(ptr->getGroup("RIGHT_UPPER_ARM_TASK"));
+    auto rightUpperArmParam = ptr->getGroup("RIGHT_UPPER_ARM_TASK").lock();
+    if (!rightUpperArmParam->getParameter("node_number", m_RightUpperArmTask.nodeNumber))
+    {
+        std::cerr << "[baf] Parameter node_number of the RIGHT_UPPER_ARM_TASK task is missing" << std::endl;
+        return false;
+    }
+    ok = ok && m_qpIK.addTask(m_RightUpperArmTask.task, "right_upper_arm_task", highPriority);
 
-    m_RightForeArmTask = std::make_shared<BipedalLocomotion::IK::SO3Task>();
-    ok = ok && m_RightForeArmTask->setKinDyn(kinDyn);
-    ok = ok && m_RightForeArmTask->initialize(ptr->getGroup("RIGHT_FORE_ARM_TASK"));
-    ok = ok && m_qpIK.addTask(m_RightForeArmTask, "right_fore_arm_task", highPriority);
+    m_RightForeArmTask.task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
+    ok = ok && m_RightForeArmTask.task->setKinDyn(kinDyn);
+    ok = ok && m_RightForeArmTask.task->initialize(ptr->getGroup("RIGHT_FORE_ARM_TASK"));
+    auto rightForeArmParam = ptr->getGroup("RIGHT_FORE_ARM_TASK").lock();
+    if (!rightForeArmParam->getParameter("node_number", m_RightForeArmTask.nodeNumber))
+    {
+        std::cerr << "[baf] Parameter node_number of the RIGHT_FORE_ARM_TASK task is missing" << std::endl;
+        return false;
+    }
+    ok = ok && m_qpIK.addTask(m_RightForeArmTask.task, "right_fore_arm_task", highPriority);
 
-    m_LeftUpperArmTask = std::make_shared<BipedalLocomotion::IK::SO3Task>();
-    ok = ok && m_LeftUpperArmTask->setKinDyn(kinDyn);
-    ok = ok && m_LeftUpperArmTask->initialize(ptr->getGroup("LEFT_UPPER_ARM_TASK"));
-    ok = ok && m_qpIK.addTask(m_LeftUpperArmTask, "left_upper_arm_task", highPriority);
+    m_LeftUpperArmTask.task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
+    ok = ok && m_LeftUpperArmTask.task->setKinDyn(kinDyn);
+    ok = ok && m_LeftUpperArmTask.task->initialize(ptr->getGroup("LEFT_UPPER_ARM_TASK"));
+    auto leftUpperArmParam = ptr->getGroup("LEFT_UPPER_ARM_TASK").lock();
+    if (!leftUpperArmParam->getParameter("node_number", m_LeftUpperArmTask.nodeNumber))
+    {
+        std::cerr << "[baf] Parameter node_number of the LEFT_UPPER_ARM_TASK task is missing" << std::endl;
+        return false;
+    }
+    ok = ok && m_qpIK.addTask(m_LeftUpperArmTask.task, "left_upper_arm_task", highPriority);
 
-    m_LeftForeArmTask = std::make_shared<BipedalLocomotion::IK::SO3Task>();
-    ok = ok && m_LeftForeArmTask->setKinDyn(kinDyn);
-    ok = ok && m_LeftForeArmTask->initialize(ptr->getGroup("LEFT_FORE_ARM_TASK"));
-    ok = ok && m_qpIK.addTask(m_LeftForeArmTask, "left_fore_arm_task", highPriority);
+    m_LeftForeArmTask.task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
+    ok = ok && m_LeftForeArmTask.task->setKinDyn(kinDyn);
+    ok = ok && m_LeftForeArmTask.task->initialize(ptr->getGroup("LEFT_FORE_ARM_TASK"));
+    auto leftForeArmParam = ptr->getGroup("LEFT_FORE_ARM_TASK").lock();
+    if (!leftForeArmParam->getParameter("node_number", m_LeftForeArmTask.nodeNumber))
+    {
+        std::cerr << "[baf] Parameter node_number of the LEFT_FORE_ARM_TASK task is missing" << std::endl;
+        return false;
+    }
+    ok = ok && m_qpIK.addTask(m_LeftForeArmTask.task, "left_fore_arm_task", highPriority);
 
-    m_RightUpperLegTask = std::make_shared<BipedalLocomotion::IK::SO3Task>();
-    ok = ok && m_RightUpperLegTask->setKinDyn(kinDyn);
-    ok = ok && m_RightUpperLegTask->initialize(ptr->getGroup("RIGHT_UPPER_LEG_TASK"));
-    ok = ok && m_qpIK.addTask(m_RightUpperLegTask, "right_upper_leg_task", highPriority);
+    m_RightUpperLegTask.task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
+    ok = ok && m_RightUpperLegTask.task->setKinDyn(kinDyn);
+    ok = ok && m_RightUpperLegTask.task->initialize(ptr->getGroup("RIGHT_UPPER_LEG_TASK"));
+    auto rightUpperLegParam = ptr->getGroup("RIGHT_UPPER_LEG_TASK").lock();
+    if (!rightUpperLegParam->getParameter("node_number", m_RightUpperLegTask.nodeNumber))
+    {
+        std::cerr << "[baf] Parameter node_number of the RIGHT_UPPER_LEG_TASK task is missing" << std::endl;
+        return false;
+    }
+    ok = ok && m_qpIK.addTask(m_RightUpperLegTask.task, "right_upper_leg_task", highPriority);
 
-    m_RightLowerLegTask = std::make_shared<BipedalLocomotion::IK::SO3Task>();
-    ok = ok && m_RightLowerLegTask->setKinDyn(kinDyn);
-    ok = ok && m_RightLowerLegTask->initialize(ptr->getGroup("RIGHT_LOWER_LEG_TASK"));
-    ok = ok && m_qpIK.addTask(m_RightLowerLegTask, "right_lower_leg_task", highPriority);
+    m_RightLowerLegTask.task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
+    ok = ok && m_RightLowerLegTask.task->setKinDyn(kinDyn);
+    ok = ok && m_RightLowerLegTask.task->initialize(ptr->getGroup("RIGHT_LOWER_LEG_TASK"));
+    auto rightLowerLegParam = ptr->getGroup("RIGHT_LOWER_LEG_TASK").lock();
+    if (!rightLowerLegParam->getParameter("node_number", m_RightLowerLegTask.nodeNumber))
+    {
+        std::cerr << "[baf] Parameter node_number of the RIGHT_LOWER_LEG_TASK task is missing" << std::endl;
+        return false;
+    }
+    ok = ok && m_qpIK.addTask(m_RightLowerLegTask.task, "right_lower_leg_task", highPriority);
 
-    m_LeftUpperLegTask = std::make_shared<BipedalLocomotion::IK::SO3Task>();
-    ok = ok && m_LeftUpperLegTask->setKinDyn(kinDyn);
-    ok = ok && m_LeftUpperLegTask->initialize(ptr->getGroup("LEFT_UPPER_LEG_TASK"));
-    ok = ok && m_qpIK.addTask(m_LeftUpperLegTask, "left_upper_leg_task", highPriority);
+    m_LeftUpperLegTask.task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
+    ok = ok && m_LeftUpperLegTask.task->setKinDyn(kinDyn);
+    ok = ok && m_LeftUpperLegTask.task->initialize(ptr->getGroup("LEFT_UPPER_LEG_TASK"));
+    auto leftUpperLegParam = ptr->getGroup("LEFT_UPPER_LEG_TASK").lock();
+    if (!leftUpperLegParam->getParameter("node_number", m_LeftUpperLegTask.nodeNumber))
+    {
+        std::cerr << "[baf] Parameter node_number of the LEFT_UPPER_LEG_TASK task is missing" << std::endl;
+        return false;
+    }
+    ok = ok && m_qpIK.addTask(m_LeftUpperLegTask.task, "left_upper_leg_task", highPriority);
 
-    m_LeftLowerLegTask = std::make_shared<BipedalLocomotion::IK::SO3Task>();
-    ok = ok && m_LeftLowerLegTask->setKinDyn(kinDyn);
-    ok = ok && m_LeftLowerLegTask->initialize(ptr->getGroup("LEFT_LOWER_LEG_TASK"));
-    ok = ok && m_qpIK.addTask(m_LeftLowerLegTask, "left_lower_leg_task", highPriority);
+    m_LeftLowerLegTask.task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
+    ok = ok && m_LeftLowerLegTask.task->setKinDyn(kinDyn);
+    ok = ok && m_LeftLowerLegTask.task->initialize(ptr->getGroup("LEFT_LOWER_LEG_TASK"));
+    auto leftLowerLegParam = ptr->getGroup("LEFT_LOWER_LEG_TASK").lock();
+    if (!leftLowerLegParam->getParameter("node_number", m_LeftLowerLegTask.nodeNumber))
+    {
+        std::cerr << "[baf] Parameter node_number of the LEFT_LOWER_LEG_TASK task is missing" << std::endl;
+        return false;
+    }
+    ok = ok && m_qpIK.addTask(m_LeftLowerLegTask.task, "left_lower_leg_task", highPriority);
 
     m_qpIK.finalize(m_variableHandler);
 
@@ -114,54 +174,73 @@ bool HumanIK::setInitialJointPositions(const Eigen::Ref<const Eigen::VectorXd> q
     return true;
 }
 
-bool HumanIK::setNodeSetPoint(int node,const manif::SO3d &pelvisOrientation,
-                                           const manif::SO3Tangentd &pelvisAngularVelocity)
+bool HumanIK::setNodeSetPoint(int node,const manif::SO3d &Orientation,
+                                           const manif::SO3Tangentd &AngularVelocity)
 {
     bool ok;
-    switch (node)
+    if (node == m_PelvisTask.nodeNumber)
     {
-    case PELVIS:
-        ok = m_PelvisTask->setSetPoint(pelvisOrientation, pelvisAngularVelocity);
-        break;
-    case T8:
-        ok = m_T8Task->setSetPoint(pelvisOrientation, pelvisAngularVelocity);
-        break;
-    case RIGHT_UPPER_ARM:
-        ok = m_RightUpperArmTask->setSetPoint(pelvisOrientation, pelvisAngularVelocity);
-        break;
-    case RIGHT_FORE_ARM:
-        ok = m_RightForeArmTask->setSetPoint(pelvisOrientation, pelvisAngularVelocity);
-        break;
-    case LEFT_UPPER_ARM:
-        ok = m_LeftUpperArmTask->setSetPoint(pelvisOrientation, pelvisAngularVelocity);
-        break;
-    case LEFT_FORE_ARM:
-        ok = m_LeftForeArmTask->setSetPoint(pelvisOrientation, pelvisAngularVelocity);
-        break;
-    case RIGHT_UPPER_LEG:
-        ok = m_RightUpperLegTask->setSetPoint(pelvisOrientation, pelvisAngularVelocity);
-        break;
-    case RIGHT_LOWER_LEG:
-        ok = m_RightLowerLegTask->setSetPoint(pelvisOrientation, pelvisAngularVelocity);
-        break;
-    case LEFT_UPPER_LEG:
-        ok = m_LeftUpperLegTask->setSetPoint(pelvisOrientation, pelvisAngularVelocity);
-        break;
-    case LEFT_LOWER_LEG:
-        ok = m_LeftLowerLegTask->setSetPoint(pelvisOrientation, pelvisAngularVelocity);
-        break;
-    default:
-        std::cerr << "[error] Invalid node number" << std::endl;
+        ok = m_PelvisTask.task->setSetPoint(Orientation, AngularVelocity);
+        return ok;
+    }
+    else if (node == m_T8Task.nodeNumber)
+    {
+        ok = m_T8Task.task->setSetPoint(Orientation, AngularVelocity);
+        return ok;
+    }
+    else if (node == m_RightUpperArmTask.nodeNumber)
+    {
+        ok = m_RightUpperArmTask.task->setSetPoint(Orientation, AngularVelocity);
+        return ok;
+    }
+    else if (node == m_RightForeArmTask.nodeNumber)
+    {
+        ok = m_RightForeArmTask.task->setSetPoint(Orientation, AngularVelocity);
+        return ok;
+    }
+    else if (node == m_LeftUpperArmTask.nodeNumber)
+    {
+        ok = m_LeftUpperArmTask.task->setSetPoint(Orientation, AngularVelocity);
+        return ok;
+    }
+    else if (node == m_LeftForeArmTask.nodeNumber)
+    {
+        ok = m_LeftForeArmTask.task->setSetPoint(Orientation, AngularVelocity);
+        return ok;
+    }
+    else if (node == m_RightUpperLegTask.nodeNumber)
+    {
+        ok = m_RightUpperLegTask.task->setSetPoint(Orientation, AngularVelocity);
+        return ok;
+    }
+    else if (node == m_RightLowerLegTask.nodeNumber)
+    {
+        ok = m_RightLowerLegTask.task->setSetPoint(Orientation, AngularVelocity);
+        return ok;
+    }
+    else if (node == m_LeftUpperLegTask.nodeNumber)
+    {
+        ok = m_LeftUpperLegTask.task->setSetPoint(Orientation, AngularVelocity);
+        return ok;
+    }
+    else if (node == m_LeftLowerLegTask.nodeNumber)
+    {
+        ok = m_LeftLowerLegTask.task->setSetPoint(Orientation, AngularVelocity);
+        return ok;
+    }
+    else
+    {
+        std::cerr << "[error] Node number " << node << " is not valid" << std::endl;
         return false;
     }
-
+    
     return ok;
 }
 
 bool HumanIK::setPelvisSetPoint(const manif::SO3d &pelvisOrientation,
                                            const manif::SO3Tangentd &pelvisAngularVelocity)
 {
-    m_PelvisTask->setSetPoint(pelvisOrientation, pelvisAngularVelocity);
+    m_PelvisTask.task->setSetPoint(pelvisOrientation, pelvisAngularVelocity);
 
     return true;
 }
@@ -169,7 +248,7 @@ bool HumanIK::setPelvisSetPoint(const manif::SO3d &pelvisOrientation,
 bool HumanIK::setT8SetPoint(const manif::SO3d &T8Orientation,
                                         const manif::SO3Tangentd &T8AngularVelocity)
 {
-    m_T8Task->setSetPoint(T8Orientation, T8AngularVelocity);
+    m_T8Task.task->setSetPoint(T8Orientation, T8AngularVelocity);
 
     return true;
 }
@@ -177,7 +256,7 @@ bool HumanIK::setT8SetPoint(const manif::SO3d &T8Orientation,
 bool HumanIK::setRightUpperArmSetPoint(const manif::SO3d &rightUpperArmOrientation,
                                         const manif::SO3Tangentd &rightUpperArmAngularVelocity)
 {
-    m_RightUpperArmTask->setSetPoint(rightUpperArmOrientation, rightUpperArmAngularVelocity);
+    m_RightUpperArmTask.task->setSetPoint(rightUpperArmOrientation, rightUpperArmAngularVelocity);
 
     return true;
 }
@@ -185,7 +264,7 @@ bool HumanIK::setRightUpperArmSetPoint(const manif::SO3d &rightUpperArmOrientati
 bool HumanIK::setRightForeArmSetPoint(const manif::SO3d &rightForeArmOrientation,
                                         const manif::SO3Tangentd &rightForeArmAngularVelocity)
 {
-    m_RightForeArmTask->setSetPoint(rightForeArmOrientation, rightForeArmAngularVelocity);
+    m_RightForeArmTask.task->setSetPoint(rightForeArmOrientation, rightForeArmAngularVelocity);
 
     return true;
 }
@@ -193,7 +272,7 @@ bool HumanIK::setRightForeArmSetPoint(const manif::SO3d &rightForeArmOrientation
 bool HumanIK::setLeftUpperArmSetPoint(const manif::SO3d &leftUpperArmOrientation,
                                         const manif::SO3Tangentd &leftUpperArmAngularVelocity)
 {
-    m_LeftUpperArmTask->setSetPoint(leftUpperArmOrientation, leftUpperArmAngularVelocity);
+    m_LeftUpperArmTask.task->setSetPoint(leftUpperArmOrientation, leftUpperArmAngularVelocity);
 
     return true;
 }
@@ -201,7 +280,7 @@ bool HumanIK::setLeftUpperArmSetPoint(const manif::SO3d &leftUpperArmOrientation
 bool HumanIK::setLeftForeArmSetPoint(const manif::SO3d &leftForeArmOrientation,
                                         const manif::SO3Tangentd &leftForeArmAngularVelocity)
 {
-    m_LeftForeArmTask->setSetPoint(leftForeArmOrientation, leftForeArmAngularVelocity);
+    m_LeftForeArmTask.task->setSetPoint(leftForeArmOrientation, leftForeArmAngularVelocity);
 
     return true;
 }
@@ -209,7 +288,7 @@ bool HumanIK::setLeftForeArmSetPoint(const manif::SO3d &leftForeArmOrientation,
 bool HumanIK::setRightUpperLegSetPoint(const manif::SO3d &rightUpperLegOrientation,
                                         const manif::SO3Tangentd &rightUpperLegAngularVelocity)
 {
-    m_RightUpperLegTask->setSetPoint(rightUpperLegOrientation, rightUpperLegAngularVelocity);
+    m_RightUpperLegTask.task->setSetPoint(rightUpperLegOrientation, rightUpperLegAngularVelocity);
 
     return true;
 }
@@ -217,7 +296,7 @@ bool HumanIK::setRightUpperLegSetPoint(const manif::SO3d &rightUpperLegOrientati
 bool HumanIK::setRightLowerLegSetPoint(const manif::SO3d &rightLowerLegOrientation,
                                         const manif::SO3Tangentd &rightLowerLegAngularVelocity)
 {
-    m_RightLowerLegTask->setSetPoint(rightLowerLegOrientation, rightLowerLegAngularVelocity);
+    m_RightLowerLegTask.task->setSetPoint(rightLowerLegOrientation, rightLowerLegAngularVelocity);
 
     return true;
 }
@@ -225,7 +304,7 @@ bool HumanIK::setRightLowerLegSetPoint(const manif::SO3d &rightLowerLegOrientati
 bool HumanIK::setLeftUpperLegSetPoint(const manif::SO3d &leftUpperLegOrientation,
                                         const manif::SO3Tangentd &leftUpperLegAngularVelocity)
 {
-    m_LeftUpperLegTask->setSetPoint(leftUpperLegOrientation, leftUpperLegAngularVelocity);
+    m_LeftUpperLegTask.task->setSetPoint(leftUpperLegOrientation, leftUpperLegAngularVelocity);
 
     return true;
 }
@@ -233,7 +312,7 @@ bool HumanIK::setLeftUpperLegSetPoint(const manif::SO3d &leftUpperLegOrientation
 bool HumanIK::setLeftLowerLegSetPoint(const manif::SO3d &leftLowerLegOrientation,
                                         const manif::SO3Tangentd &leftLowerLegAngularVelocity)
 {
-    m_LeftLowerLegTask->setSetPoint(leftLowerLegOrientation, leftLowerLegAngularVelocity);
+    m_LeftLowerLegTask.task->setSetPoint(leftLowerLegOrientation, leftLowerLegAngularVelocity);
 
     return true;
 }
