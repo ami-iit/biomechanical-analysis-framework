@@ -13,8 +13,6 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
     m_jointPositions.resize(kinDyn->getNrOfDegreesOfFreedom());
     m_jointVelocities.resize(kinDyn->getNrOfDegreesOfFreedom());
 
-    std::cout << "nr of dofs = " << kinDyn->getNrOfDegreesOfFreedom() << std::endl;
-
     auto ptr = handler.lock();
     if (ptr == nullptr)
     {
@@ -41,42 +39,42 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
     m_RightUpperArmTask = std::make_shared<BipedalLocomotion::IK::SO3Task>();
     ok = ok && m_RightUpperArmTask->setKinDyn(kinDyn);
     ok = ok && m_RightUpperArmTask->initialize(ptr->getGroup("RIGHT_UPPER_ARM_TASK"));
-    ok = ok && m_qpIK.addTask(m_RightUpperArmTask, "right_upper_arm_task", lowPriority);
+    ok = ok && m_qpIK.addTask(m_RightUpperArmTask, "right_upper_arm_task", highPriority);
 
     m_RightForeArmTask = std::make_shared<BipedalLocomotion::IK::SO3Task>();
     ok = ok && m_RightForeArmTask->setKinDyn(kinDyn);
     ok = ok && m_RightForeArmTask->initialize(ptr->getGroup("RIGHT_FORE_ARM_TASK"));
-    ok = ok && m_qpIK.addTask(m_RightForeArmTask, "right_fore_arm_task", lowPriority);
+    ok = ok && m_qpIK.addTask(m_RightForeArmTask, "right_fore_arm_task", highPriority);
 
     m_LeftUpperArmTask = std::make_shared<BipedalLocomotion::IK::SO3Task>();
     ok = ok && m_LeftUpperArmTask->setKinDyn(kinDyn);
     ok = ok && m_LeftUpperArmTask->initialize(ptr->getGroup("LEFT_UPPER_ARM_TASK"));
-    ok = ok && m_qpIK.addTask(m_LeftUpperArmTask, "left_upper_arm_task", lowPriority);
+    ok = ok && m_qpIK.addTask(m_LeftUpperArmTask, "left_upper_arm_task", highPriority);
 
     m_LeftForeArmTask = std::make_shared<BipedalLocomotion::IK::SO3Task>();
     ok = ok && m_LeftForeArmTask->setKinDyn(kinDyn);
     ok = ok && m_LeftForeArmTask->initialize(ptr->getGroup("LEFT_FORE_ARM_TASK"));
-    ok = ok && m_qpIK.addTask(m_LeftForeArmTask, "left_fore_arm_task", lowPriority);
+    ok = ok && m_qpIK.addTask(m_LeftForeArmTask, "left_fore_arm_task", highPriority);
 
     m_RightUpperLegTask = std::make_shared<BipedalLocomotion::IK::SO3Task>();
     ok = ok && m_RightUpperLegTask->setKinDyn(kinDyn);
     ok = ok && m_RightUpperLegTask->initialize(ptr->getGroup("RIGHT_UPPER_LEG_TASK"));
-    ok = ok && m_qpIK.addTask(m_RightUpperLegTask, "right_upper_leg_task", lowPriority);
+    ok = ok && m_qpIK.addTask(m_RightUpperLegTask, "right_upper_leg_task", highPriority);
 
     m_RightLowerLegTask = std::make_shared<BipedalLocomotion::IK::SO3Task>();
     ok = ok && m_RightLowerLegTask->setKinDyn(kinDyn);
     ok = ok && m_RightLowerLegTask->initialize(ptr->getGroup("RIGHT_LOWER_LEG_TASK"));
-    ok = ok && m_qpIK.addTask(m_RightLowerLegTask, "right_lower_leg_task", lowPriority);
+    ok = ok && m_qpIK.addTask(m_RightLowerLegTask, "right_lower_leg_task", highPriority);
 
     m_LeftUpperLegTask = std::make_shared<BipedalLocomotion::IK::SO3Task>();
     ok = ok && m_LeftUpperLegTask->setKinDyn(kinDyn);
     ok = ok && m_LeftUpperLegTask->initialize(ptr->getGroup("LEFT_UPPER_LEG_TASK"));
-    ok = ok && m_qpIK.addTask(m_LeftUpperLegTask, "left_upper_leg_task", lowPriority);
+    ok = ok && m_qpIK.addTask(m_LeftUpperLegTask, "left_upper_leg_task", highPriority);
 
     m_LeftLowerLegTask = std::make_shared<BipedalLocomotion::IK::SO3Task>();
     ok = ok && m_LeftLowerLegTask->setKinDyn(kinDyn);
     ok = ok && m_LeftLowerLegTask->initialize(ptr->getGroup("LEFT_LOWER_LEG_TASK"));
-    ok = ok && m_qpIK.addTask(m_LeftLowerLegTask, "left_lower_leg_task", lowPriority);
+    ok = ok && m_qpIK.addTask(m_LeftLowerLegTask, "left_lower_leg_task", highPriority);
 
     m_qpIK.finalize(m_variableHandler);
 
@@ -114,6 +112,50 @@ bool HumanIK::setInitialJointPositions(const Eigen::Ref<const Eigen::VectorXd> q
     m_jointPositions = qInitial;
 
     return true;
+}
+
+bool HumanIK::setNodeSetPoint(int node,const manif::SO3d &pelvisOrientation,
+                                           const manif::SO3Tangentd &pelvisAngularVelocity)
+{
+    bool ok;
+    switch (node)
+    {
+    case PELVIS:
+        ok = m_PelvisTask->setSetPoint(pelvisOrientation, pelvisAngularVelocity);
+        break;
+    case T8:
+        ok = m_T8Task->setSetPoint(pelvisOrientation, pelvisAngularVelocity);
+        break;
+    case RIGHT_UPPER_ARM:
+        ok = m_RightUpperArmTask->setSetPoint(pelvisOrientation, pelvisAngularVelocity);
+        break;
+    case RIGHT_FORE_ARM:
+        ok = m_RightForeArmTask->setSetPoint(pelvisOrientation, pelvisAngularVelocity);
+        break;
+    case LEFT_UPPER_ARM:
+        ok = m_LeftUpperArmTask->setSetPoint(pelvisOrientation, pelvisAngularVelocity);
+        break;
+    case LEFT_FORE_ARM:
+        ok = m_LeftForeArmTask->setSetPoint(pelvisOrientation, pelvisAngularVelocity);
+        break;
+    case RIGHT_UPPER_LEG:
+        ok = m_RightUpperLegTask->setSetPoint(pelvisOrientation, pelvisAngularVelocity);
+        break;
+    case RIGHT_LOWER_LEG:
+        ok = m_RightLowerLegTask->setSetPoint(pelvisOrientation, pelvisAngularVelocity);
+        break;
+    case LEFT_UPPER_LEG:
+        ok = m_LeftUpperLegTask->setSetPoint(pelvisOrientation, pelvisAngularVelocity);
+        break;
+    case LEFT_LOWER_LEG:
+        ok = m_LeftLowerLegTask->setSetPoint(pelvisOrientation, pelvisAngularVelocity);
+        break;
+    default:
+        std::cerr << "[error] Invalid node number" << std::endl;
+        return false;
+    }
+
+    return ok;
 }
 
 bool HumanIK::setPelvisSetPoint(const manif::SO3d &pelvisOrientation,
@@ -211,7 +253,7 @@ bool HumanIK::advance()
     // integrate the joint velocities
     m_jointPositions += m_dtIntegration * m_jointVelocities;
 
-    return true;
+    return ok;
 }
 
 bool HumanIK::getJointPositions(Eigen::Ref<Eigen::VectorXd> jointPositions) const

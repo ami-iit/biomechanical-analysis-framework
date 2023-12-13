@@ -35,6 +35,20 @@ private:
     manif::SO3d m_baseOrientation;
     Eigen::Vector3d m_baseAngularVelocity;
 
+    typedef enum
+    {
+        PELVIS = 3,
+        T8 = 6,
+        RIGHT_UPPER_ARM = 7,
+        RIGHT_FORE_ARM = 8,
+        LEFT_UPPER_ARM = 4,
+        LEFT_FORE_ARM = 5,
+        RIGHT_UPPER_LEG = 11,
+        RIGHT_LOWER_LEG = 12,
+        LEFT_UPPER_LEG = 9,
+        LEFT_LOWER_LEG = 10
+    } linkNumber;
+
     // tasks
     std::shared_ptr<BipedalLocomotion::IK::SO3Task> m_PelvisTask;
     std::shared_ptr<BipedalLocomotion::IK::SO3Task> m_T8Task;
@@ -75,6 +89,9 @@ public:
 
     // set the initial joint positions
     bool setInitialJointPositions(const Eigen::Ref<const Eigen::VectorXd> qInitial);
+
+    bool setNodeSetPoint(int node, const manif::SO3d &nodeOrientation,
+                                      const manif::SO3Tangentd &nodeAngularVelocity);
 
     // set the set point for the orientation tasks
     bool setPelvisSetPoint(const manif::SO3d &pelvisOrientation,
