@@ -5,6 +5,7 @@
 #include <iDynTree/ModelTestUtils.h>
 #include <iDynTree/ModelLoader.h>
 #include <iDynTree/EigenHelpers.h>
+#include <yarp/os/ResourceFinder.h>
 
 bool getNodeData(matioCpp::Struct &ifeel_struct, int nodeNum, size_t index_i, iDynTree::Rotation &I_R_IMU, iDynTree::AngVelocity &I_omeg_IMU)
 {
@@ -47,6 +48,44 @@ bool getNodeData(matioCpp::Struct &ifeel_struct, int nodeNum, size_t index_i, iD
     return true;
 }
 
+std::vector<std::string> getJointsList()
+{
+    std::vector<std::string> nodesName;
+    nodesName.push_back("jT9T8_rotx");
+    nodesName.push_back("jT9T8_rotz");
+    nodesName.push_back("jRightShoulder_rotx");
+    nodesName.push_back("jRightShoulder_roty");
+    nodesName.push_back("jRightShoulder_rotz");
+    nodesName.push_back("jRightElbow_roty");
+    nodesName.push_back("jRightElbow_rotz");
+    nodesName.push_back("jLeftShoulder_rotx");
+    nodesName.push_back("jLeftShoulder_roty");
+    nodesName.push_back("jLeftShoulder_rotz");
+    nodesName.push_back("jLeftElbow_roty");
+    nodesName.push_back("jLeftElbow_rotz");
+    nodesName.push_back("jLeftHip_rotx");
+    nodesName.push_back("jLeftHip_roty");
+    nodesName.push_back("jLeftHip_rotz");
+    nodesName.push_back("jLeftKnee_roty");
+    nodesName.push_back("jLeftKnee_rotz");
+    nodesName.push_back("jLeftAnkle_rotx");
+    nodesName.push_back("jLeftAnkle_roty");
+    nodesName.push_back("jLeftAnkle_rotz");
+    nodesName.push_back("jLeftBallFoot_roty");
+    nodesName.push_back("jRightHip_rotx");
+    nodesName.push_back("jRightHip_roty");
+    nodesName.push_back("jRightHip_rotz");
+    nodesName.push_back("jRightKnee_roty");
+    nodesName.push_back("jRightKnee_rotz");
+    nodesName.push_back("jRightAnkle_rotx");
+    nodesName.push_back("jRightAnkle_roty");
+    nodesName.push_back("jRightAnkle_rotz");
+    nodesName.push_back("jRightBallFoot_roty");
+    nodesName.push_back("jL5S1_roty");
+
+    return nodesName;
+}
+
 int main() {
 
     auto paramHandler = std::make_shared<BipedalLocomotion::ParametersHandler::YarpImplementation>();
@@ -72,7 +111,10 @@ int main() {
 
     auto kinDyn = std::make_shared<iDynTree::KinDynComputations>();
     iDynTree::ModelLoader mdlLoader;
-    mdlLoader.loadModelFromFile("/home/dgorbani/software/ergoCub/robotology-superbuild/src/human-gazebo/humanSubject01/humanSubject01_48dof.urdf");
+    yarp::os::ResourceFinder rf;
+
+    std::string urdfPath = rf.findFileByName("humanSubject01_48dof.urdf");
+    mdlLoader.loadReducedModelFromFile(urdfPath, getJointsList());
     kinDyn->loadRobotModel(mdlLoader.model());
 
     BiomechanicalAnalysis::IK::HumanIK ik;
