@@ -11,6 +11,9 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
     constexpr std::size_t highPriority = 0;
     constexpr std::size_t lowPriority = 1;
 
+    Eigen::Vector3d Weight;
+    Weight.setConstant(100.0);
+
     m_nrDoFs = kinDyn->getNrOfDegreesOfFreedom();
 
     m_jointPositions.resize(kinDyn->getNrOfDegreesOfFreedom());
@@ -38,6 +41,7 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
         std::cerr << "[baf] Parameter node_number of the PELVIS_TASK task is missing" << std::endl;
         return false;
     }
+    std::cout << "node number pelvis: " << m_PelvisTask.nodeNumber << std::endl;
     m_PelvisTask.IMU_R_link = iDynTree::Rotation(0.0, 1.0, 0.0,
                                                 0.0, 0.0, -1.0,
                                                 -1.0, 0.0, 0.0);
@@ -55,7 +59,7 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
     m_T8Task.IMU_R_link = iDynTree::Rotation(0.0, 1.0, 0.0,
                                                 0.0, 0.0, 1.0,
                                                 1.0, 0.0, 0.0);
-    ok = ok && m_qpIK.addTask(m_T8Task.task, "T8_task", highPriority);
+    ok = ok && m_qpIK.addTask(m_T8Task.task, "T8_task", lowPriority, Weight);
 
     m_RightUpperArmTask.task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
     ok = ok && m_RightUpperArmTask.task->setKinDyn(kinDyn);
@@ -66,7 +70,7 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
         std::cerr << "[baf] Parameter node_number of the RIGHT_UPPER_ARM_TASK task is missing" << std::endl;
         return false;
     }
-    ok = ok && m_qpIK.addTask(m_RightUpperArmTask.task, "right_upper_arm_task", highPriority);
+    ok = ok && m_qpIK.addTask(m_RightUpperArmTask.task, "right_upper_arm_task", lowPriority, Weight);
 
     m_RightForeArmTask.task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
     ok = ok && m_RightForeArmTask.task->setKinDyn(kinDyn);
@@ -77,7 +81,7 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
         std::cerr << "[baf] Parameter node_number of the RIGHT_FORE_ARM_TASK task is missing" << std::endl;
         return false;
     }
-    ok = ok && m_qpIK.addTask(m_RightForeArmTask.task, "right_fore_arm_task", highPriority);
+    ok = ok && m_qpIK.addTask(m_RightForeArmTask.task, "right_fore_arm_task", lowPriority, Weight);
 
     m_LeftUpperArmTask.task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
     ok = ok && m_LeftUpperArmTask.task->setKinDyn(kinDyn);
@@ -88,7 +92,7 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
         std::cerr << "[baf] Parameter node_number of the LEFT_UPPER_ARM_TASK task is missing" << std::endl;
         return false;
     }
-    ok = ok && m_qpIK.addTask(m_LeftUpperArmTask.task, "left_upper_arm_task", highPriority);
+    ok = ok && m_qpIK.addTask(m_LeftUpperArmTask.task, "left_upper_arm_task", lowPriority, Weight);
 
     m_LeftForeArmTask.task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
     ok = ok && m_LeftForeArmTask.task->setKinDyn(kinDyn);
@@ -99,7 +103,7 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
         std::cerr << "[baf] Parameter node_number of the LEFT_FORE_ARM_TASK task is missing" << std::endl;
         return false;
     }
-    ok = ok && m_qpIK.addTask(m_LeftForeArmTask.task, "left_fore_arm_task", highPriority);
+    ok = ok && m_qpIK.addTask(m_LeftForeArmTask.task, "left_fore_arm_task", lowPriority, Weight);
 
     m_RightUpperLegTask.task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
     ok = ok && m_RightUpperLegTask.task->setKinDyn(kinDyn);
@@ -113,7 +117,7 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
     m_RightUpperLegTask.IMU_R_link = iDynTree::Rotation(1.0, 0.0, 0.0,
                                                         0.0, 0.0, 1.0,
                                                         0.0, -1.0, 0.0);
-    ok = ok && m_qpIK.addTask(m_RightUpperLegTask.task, "right_upper_leg_task", highPriority);
+    ok = ok && m_qpIK.addTask(m_RightUpperLegTask.task, "right_upper_leg_task", lowPriority, Weight);
 
     m_RightLowerLegTask.task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
     ok = ok && m_RightLowerLegTask.task->setKinDyn(kinDyn);
@@ -124,10 +128,11 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
         std::cerr << "[baf] Parameter node_number of the RIGHT_LOWER_LEG_TASK task is missing" << std::endl;
         return false;
     }
+    std::cout << "node number right low leg: " << m_RightLowerLegTask.nodeNumber << std::endl;
     m_RightLowerLegTask.IMU_R_link = iDynTree::Rotation(1.0, 0.0, 0.0,
                                                         0.0, 0.0, 1.0,
                                                         0.0, -1.0, 0.0);
-    ok = ok && m_qpIK.addTask(m_RightLowerLegTask.task, "right_lower_leg_task", highPriority);
+    ok = ok && m_qpIK.addTask(m_RightLowerLegTask.task, "right_lower_leg_task", lowPriority, Weight);
 
     m_LeftUpperLegTask.task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
     ok = ok && m_LeftUpperLegTask.task->setKinDyn(kinDyn);
@@ -141,7 +146,7 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
     m_LeftUpperLegTask.IMU_R_link = iDynTree::Rotation(1.0, 0.0, 0.0,
                                                         0.0, 0.0, -1.0,
                                                         0.0, 1.0, 0.0);
-    ok = ok && m_qpIK.addTask(m_LeftUpperLegTask.task, "left_upper_leg_task", highPriority);
+    ok = ok && m_qpIK.addTask(m_LeftUpperLegTask.task, "left_upper_leg_task", lowPriority, Weight);
 
     m_LeftLowerLegTask.task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
     ok = ok && m_LeftLowerLegTask.task->setKinDyn(kinDyn);
@@ -155,11 +160,11 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
     m_LeftLowerLegTask.IMU_R_link = iDynTree::Rotation(1.0, 0.0, 0.0,
                                                         0.0, 0.0, -1.0,
                                                         0.0, 1.0, 0.0);
-    ok = ok && m_qpIK.addTask(m_LeftLowerLegTask.task, "left_lower_leg_task", highPriority);
+    ok = ok && m_qpIK.addTask(m_LeftLowerLegTask.task, "left_lower_leg_task", lowPriority, Weight);
 
     m_qpIK.finalize(m_variableHandler);
 
-    return true;
+    return ok;
 }
 
 bool HumanIK::setDt(const double dt)
