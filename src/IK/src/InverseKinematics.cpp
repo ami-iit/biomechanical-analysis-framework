@@ -1,5 +1,6 @@
 #include <BiomechanicalAnalysis/IK/InverseKinematics.h>
 #include <iostream>
+#include <iDynTree/EigenHelpers.h>
 
 using namespace BiomechanicalAnalysis::IK;
 
@@ -9,6 +10,8 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
 {
     constexpr std::size_t highPriority = 0;
     constexpr std::size_t lowPriority = 1;
+
+    m_nrDoFs = kinDyn->getNrOfDegreesOfFreedom();
 
     m_jointPositions.resize(kinDyn->getNrOfDegreesOfFreedom());
     m_jointVelocities.resize(kinDyn->getNrOfDegreesOfFreedom());
@@ -35,6 +38,9 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
         std::cerr << "[baf] Parameter node_number of the PELVIS_TASK task is missing" << std::endl;
         return false;
     }
+    m_PelvisTask.IMU_R_link = iDynTree::Rotation(0.0, 1.0, 0.0,
+                                                0.0, 0.0, -1.0,
+                                                -1.0, 0.0, 0.0);
     ok = ok && m_qpIK.addTask(m_PelvisTask.task, "pelvis_task", highPriority);
 
     m_T8Task.task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
@@ -46,6 +52,9 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
         std::cerr << "[baf] Parameter node_number of the T8_TASK task is missing" << std::endl;
         return false;
     }
+    m_T8Task.IMU_R_link = iDynTree::Rotation(0.0, 1.0, 0.0,
+                                                0.0, 0.0, 1.0,
+                                                1.0, 0.0, 0.0);
     ok = ok && m_qpIK.addTask(m_T8Task.task, "T8_task", highPriority);
 
     m_RightUpperArmTask.task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
@@ -101,6 +110,9 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
         std::cerr << "[baf] Parameter node_number of the RIGHT_UPPER_LEG_TASK task is missing" << std::endl;
         return false;
     }
+    m_RightUpperLegTask.IMU_R_link = iDynTree::Rotation(1.0, 0.0, 0.0,
+                                                        0.0, 0.0, 1.0,
+                                                        0.0, -1.0, 0.0);
     ok = ok && m_qpIK.addTask(m_RightUpperLegTask.task, "right_upper_leg_task", highPriority);
 
     m_RightLowerLegTask.task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
@@ -112,6 +124,9 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
         std::cerr << "[baf] Parameter node_number of the RIGHT_LOWER_LEG_TASK task is missing" << std::endl;
         return false;
     }
+    m_RightLowerLegTask.IMU_R_link = iDynTree::Rotation(1.0, 0.0, 0.0,
+                                                        0.0, 0.0, 1.0,
+                                                        0.0, -1.0, 0.0);
     ok = ok && m_qpIK.addTask(m_RightLowerLegTask.task, "right_lower_leg_task", highPriority);
 
     m_LeftUpperLegTask.task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
@@ -123,6 +138,9 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
         std::cerr << "[baf] Parameter node_number of the LEFT_UPPER_LEG_TASK task is missing" << std::endl;
         return false;
     }
+    m_LeftUpperLegTask.IMU_R_link = iDynTree::Rotation(1.0, 0.0, 0.0,
+                                                        0.0, 0.0, -1.0,
+                                                        0.0, 1.0, 0.0);
     ok = ok && m_qpIK.addTask(m_LeftUpperLegTask.task, "left_upper_leg_task", highPriority);
 
     m_LeftLowerLegTask.task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
@@ -134,6 +152,9 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
         std::cerr << "[baf] Parameter node_number of the LEFT_LOWER_LEG_TASK task is missing" << std::endl;
         return false;
     }
+    m_LeftLowerLegTask.IMU_R_link = iDynTree::Rotation(1.0, 0.0, 0.0,
+                                                        0.0, 0.0, -1.0,
+                                                        0.0, 1.0, 0.0);
     ok = ok && m_qpIK.addTask(m_LeftLowerLegTask.task, "left_lower_leg_task", highPriority);
 
     m_qpIK.finalize(m_variableHandler);
@@ -153,15 +174,6 @@ double HumanIK::getDt() const
     return m_dtIntegration;
 }
 
-bool HumanIK::setDoFsNumber(const int nrDoFs)
-{
-    m_nrDoFs = nrDoFs;
-    m_jointPositions.resize(m_nrDoFs);
-    m_jointVelocities.resize(m_nrDoFs);
-
-    return true;
-}
-
 int HumanIK::getDoFsNumber() const
 {
     return m_nrDoFs;
@@ -174,58 +186,98 @@ bool HumanIK::setInitialJointPositions(const Eigen::Ref<const Eigen::VectorXd> q
     return true;
 }
 
-bool HumanIK::setNodeSetPoint(int node,const manif::SO3d &Orientation,
-                                           const manif::SO3Tangentd &AngularVelocity)
+bool HumanIK::setNodeSetPoint(int node,const iDynTree::Rotation &I_R_IMU,
+                                           const iDynTree::AngVelocity &I_omega_IMU)
 {
     bool ok;
     if (node == m_PelvisTask.nodeNumber)
     {
-        ok = m_PelvisTask.task->setSetPoint(Orientation, AngularVelocity);
+        I_R_link = I_R_IMU * m_PelvisTask.IMU_R_link;
+        iDynTree::toEigen(I_omega_link) = iDynTree::toEigen(I_omega_IMU).transpose() * iDynTree::toEigen(m_PelvisTask.IMU_R_link);
+        I_R_link_manif = manif::SO3d(I_R_link.asQuaternion()(1), I_R_link.asQuaternion()(2), I_R_link.asQuaternion()(3), I_R_link.asQuaternion()(0));
+        I_omega_link_manif = manif::SO3Tangentd(iDynTree::toEigen(I_omega_link));
+        ok = m_PelvisTask.task->setSetPoint(I_R_link_manif, I_omega_link_manif);
         return ok;
     }
     else if (node == m_T8Task.nodeNumber)
     {
-        ok = m_T8Task.task->setSetPoint(Orientation, AngularVelocity);
+        I_R_link = I_R_IMU * m_T8Task.IMU_R_link;
+        iDynTree::toEigen(I_omega_link) = iDynTree::toEigen(I_omega_IMU).transpose() * iDynTree::toEigen(m_T8Task.IMU_R_link);
+        I_R_link_manif = manif::SO3d(I_R_link.asQuaternion()(1), I_R_link.asQuaternion()(2), I_R_link.asQuaternion()(3), I_R_link.asQuaternion()(0));
+        I_omega_link_manif = manif::SO3Tangentd(iDynTree::toEigen(I_omega_link));
+        ok = m_T8Task.task->setSetPoint(I_R_link_manif, I_omega_link_manif);
         return ok;
     }
     else if (node == m_RightUpperArmTask.nodeNumber)
     {
-        ok = m_RightUpperArmTask.task->setSetPoint(Orientation, AngularVelocity);
+        I_R_link = I_R_IMU * m_RightUpperArmTask.IMU_R_link;
+        iDynTree::toEigen(I_omega_link) = iDynTree::toEigen(I_omega_IMU).transpose() * iDynTree::toEigen(m_RightUpperArmTask.IMU_R_link);
+        I_R_link_manif = manif::SO3d(I_R_link.asQuaternion()(1), I_R_link.asQuaternion()(2), I_R_link.asQuaternion()(3), I_R_link.asQuaternion()(0));
+        I_omega_link_manif = manif::SO3Tangentd(iDynTree::toEigen(I_omega_link));
+        ok = m_RightUpperArmTask.task->setSetPoint(I_R_link_manif, I_omega_link_manif);
         return ok;
     }
     else if (node == m_RightForeArmTask.nodeNumber)
     {
-        ok = m_RightForeArmTask.task->setSetPoint(Orientation, AngularVelocity);
+        I_R_link = I_R_IMU * m_RightForeArmTask.IMU_R_link;
+        iDynTree::toEigen(I_omega_link) = iDynTree::toEigen(I_omega_IMU).transpose() * iDynTree::toEigen(m_RightForeArmTask.IMU_R_link);
+        I_R_link_manif = manif::SO3d(I_R_link.asQuaternion()(1), I_R_link.asQuaternion()(2), I_R_link.asQuaternion()(3), I_R_link.asQuaternion()(0));
+        I_omega_link_manif = manif::SO3Tangentd(iDynTree::toEigen(I_omega_link));
+        ok = m_RightForeArmTask.task->setSetPoint(I_R_link_manif, I_omega_link_manif);
         return ok;
     }
     else if (node == m_LeftUpperArmTask.nodeNumber)
     {
-        ok = m_LeftUpperArmTask.task->setSetPoint(Orientation, AngularVelocity);
+        I_R_link = I_R_IMU * m_LeftUpperArmTask.IMU_R_link;
+        iDynTree::toEigen(I_omega_link) = iDynTree::toEigen(I_omega_IMU).transpose() * iDynTree::toEigen(m_LeftUpperArmTask.IMU_R_link);
+        I_R_link_manif = manif::SO3d(I_R_link.asQuaternion()(1), I_R_link.asQuaternion()(2), I_R_link.asQuaternion()(3), I_R_link.asQuaternion()(0));
+        I_omega_link_manif = manif::SO3Tangentd(iDynTree::toEigen(I_omega_link));
+        ok = m_LeftUpperArmTask.task->setSetPoint(I_R_link_manif, I_omega_link_manif);
         return ok;
     }
     else if (node == m_LeftForeArmTask.nodeNumber)
     {
-        ok = m_LeftForeArmTask.task->setSetPoint(Orientation, AngularVelocity);
+        I_R_link = I_R_IMU * m_LeftForeArmTask.IMU_R_link;
+        iDynTree::toEigen(I_omega_link) = iDynTree::toEigen(I_omega_IMU).transpose() * iDynTree::toEigen(m_LeftForeArmTask.IMU_R_link);
+        I_R_link_manif = manif::SO3d(I_R_link.asQuaternion()(1), I_R_link.asQuaternion()(2), I_R_link.asQuaternion()(3), I_R_link.asQuaternion()(0));
+        I_omega_link_manif = manif::SO3Tangentd(iDynTree::toEigen(I_omega_link));
+        ok = m_LeftForeArmTask.task->setSetPoint(I_R_link_manif, I_omega_link_manif);
         return ok;
     }
     else if (node == m_RightUpperLegTask.nodeNumber)
     {
-        ok = m_RightUpperLegTask.task->setSetPoint(Orientation, AngularVelocity);
+        I_R_link = I_R_IMU * m_RightUpperLegTask.IMU_R_link;
+        iDynTree::toEigen(I_omega_link) = iDynTree::toEigen(I_omega_IMU).transpose() * iDynTree::toEigen(m_RightUpperLegTask.IMU_R_link);
+        I_R_link_manif = manif::SO3d(I_R_link.asQuaternion()(1), I_R_link.asQuaternion()(2), I_R_link.asQuaternion()(3), I_R_link.asQuaternion()(0));
+        I_omega_link_manif = manif::SO3Tangentd(iDynTree::toEigen(I_omega_link));
+        ok = m_RightUpperLegTask.task->setSetPoint(I_R_link_manif, I_omega_link_manif);
         return ok;
     }
     else if (node == m_RightLowerLegTask.nodeNumber)
     {
-        ok = m_RightLowerLegTask.task->setSetPoint(Orientation, AngularVelocity);
+        I_R_link = I_R_IMU * m_RightLowerLegTask.IMU_R_link;
+        iDynTree::toEigen(I_omega_link) = iDynTree::toEigen(I_omega_IMU).transpose() * iDynTree::toEigen(m_RightLowerLegTask.IMU_R_link);
+        I_R_link_manif = manif::SO3d(I_R_link.asQuaternion()(1), I_R_link.asQuaternion()(2), I_R_link.asQuaternion()(3), I_R_link.asQuaternion()(0));
+        I_omega_link_manif = manif::SO3Tangentd(iDynTree::toEigen(I_omega_link));
+        ok = m_RightLowerLegTask.task->setSetPoint(I_R_link_manif, I_omega_link_manif);
         return ok;
     }
     else if (node == m_LeftUpperLegTask.nodeNumber)
     {
-        ok = m_LeftUpperLegTask.task->setSetPoint(Orientation, AngularVelocity);
+        I_R_link = I_R_IMU * m_LeftUpperLegTask.IMU_R_link;
+        iDynTree::toEigen(I_omega_link) = iDynTree::toEigen(I_omega_IMU).transpose() * iDynTree::toEigen(m_LeftUpperLegTask.IMU_R_link);
+        I_R_link_manif = manif::SO3d(I_R_link.asQuaternion()(1), I_R_link.asQuaternion()(2), I_R_link.asQuaternion()(3), I_R_link.asQuaternion()(0));
+        I_omega_link_manif = manif::SO3Tangentd(iDynTree::toEigen(I_omega_link));
+        ok = m_LeftUpperLegTask.task->setSetPoint(I_R_link_manif, I_omega_link_manif);
         return ok;
     }
     else if (node == m_LeftLowerLegTask.nodeNumber)
     {
-        ok = m_LeftLowerLegTask.task->setSetPoint(Orientation, AngularVelocity);
+        I_R_link = I_R_IMU * m_LeftLowerLegTask.IMU_R_link;
+        iDynTree::toEigen(I_omega_link) = iDynTree::toEigen(I_omega_IMU).transpose() * iDynTree::toEigen(m_LeftLowerLegTask.IMU_R_link);
+        I_R_link_manif = manif::SO3d(I_R_link.asQuaternion()(1), I_R_link.asQuaternion()(2), I_R_link.asQuaternion()(3), I_R_link.asQuaternion()(0));
+        I_omega_link_manif = manif::SO3Tangentd(iDynTree::toEigen(I_omega_link));
+        ok = m_LeftLowerLegTask.task->setSetPoint(I_R_link_manif, I_omega_link_manif);
         return ok;
     }
     else

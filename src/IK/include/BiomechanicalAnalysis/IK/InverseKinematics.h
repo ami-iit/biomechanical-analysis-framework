@@ -35,27 +35,19 @@ private:
     manif::SO3d m_baseOrientation;
     Eigen::Vector3d m_baseAngularVelocity;
 
-    typedef enum
-    {
-        PELVIS = 3,
-        T8 = 6,
-        RIGHT_UPPER_ARM = 7,
-        RIGHT_FORE_ARM = 8,
-        LEFT_UPPER_ARM = 4,
-        LEFT_FORE_ARM = 5,
-        RIGHT_UPPER_LEG = 11,
-        RIGHT_LOWER_LEG = 12,
-        LEFT_UPPER_LEG = 9,
-        LEFT_LOWER_LEG = 10
-    } linkNumber;
-    
+    manif::SO3d I_R_link_manif;
+    manif::SO3Tangentd I_omega_link_manif;
+
+    iDynTree::Rotation I_R_link;
+    iDynTree::AngVelocity I_omega_link;
+
     struct OrientationTask
     {
         /* data */
         std::shared_ptr<BipedalLocomotion::IK::SO3Task> task;
         int nodeNumber;
+        iDynTree::Rotation IMU_R_link = iDynTree::Rotation::Identity();
     };
-    
 
     // tasks
     OrientationTask m_PelvisTask;
@@ -89,17 +81,14 @@ public:
     // get the integration time step
     double getDt() const;
 
-    // set the number of DoFs
-    bool setDoFsNumber(const int nrDoFs);
-
     // get the number of DoFs
     int getDoFsNumber() const;
 
     // set the initial joint positions
     bool setInitialJointPositions(const Eigen::Ref<const Eigen::VectorXd> qInitial);
 
-    bool setNodeSetPoint(int node, const manif::SO3d &nodeOrientation,
-                                      const manif::SO3Tangentd &nodeAngularVelocity);
+    bool setNodeSetPoint(int node,const iDynTree::Rotation &I_R_IMU,
+                                           const iDynTree::AngVelocity &I_omega_IMU);
 
     // set the set point for the orientation tasks
     bool setPelvisSetPoint(const manif::SO3d &pelvisOrientation,
