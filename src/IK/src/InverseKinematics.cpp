@@ -1,4 +1,5 @@
 #include <BiomechanicalAnalysis/IK/InverseKinematics.h>
+#include <BiomechanicalAnalysis/Logging/Logger.h>
 #include <iostream>
 #include <iDynTree/EigenHelpers.h>
 
@@ -10,6 +11,7 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
 {
     constexpr std::size_t highPriority = 0;
     constexpr std::size_t lowPriority = 1;
+    constexpr auto logPrefix = "[HumanIK::initialize]";
 
     Eigen::Vector3d Weight;
     Weight.setConstant(100.0);
@@ -22,7 +24,7 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
     auto ptr = handler.lock();
     if (ptr == nullptr)
     {
-        std::cerr << "[HumanIK::initialize] Invalid parameter handler." << std::endl;
+        BiomechanicalAnalysis::log()->error("{} parameters handler is a null pointer.", logPrefix);
         return false;
     }
 

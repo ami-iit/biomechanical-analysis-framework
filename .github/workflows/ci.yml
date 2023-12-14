@@ -33,7 +33,7 @@ jobs:
           run: |
             echo "DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
 
-         # Use mamba for Windows dependencies
+         # Use mamba for dependencies
         - uses: mamba-org/setup-micromamba@v1
           with:
             environment-file: ci_env.yml
