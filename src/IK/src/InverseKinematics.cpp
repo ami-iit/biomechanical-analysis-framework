@@ -35,6 +35,8 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
     m_system.integrator = std::make_shared<ForwardEuler<FloatingBaseSystemKinematics>>();
     m_system.integrator->setDynamicalSystem(m_system.dynamics);
 
+    m_nrDoFs = kinDyn->getNrOfDegreesOfFreedom();
+
     auto ptr = handler.lock();
     if (ptr == nullptr)
     {
@@ -57,7 +59,6 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
         std::cerr << "[baf] Parameter node_number of the PELVIS_TASK task is missing" << std::endl;
         return false;
     }
-    std::cout << "node number pelvis: " << m_PelvisTask.nodeNumber << std::endl;
     m_PelvisTask.IMU_R_link = iDynTree::Rotation(0.0, 1.0, 0.0,
                                                 0.0, 0.0, -1.0,
                                                 -1.0, 0.0, 0.0);
