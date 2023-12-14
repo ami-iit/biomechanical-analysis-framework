@@ -43,10 +43,7 @@ private:
     Eigen::VectorXd m_jointPositions;
     Eigen::VectorXd m_jointVelocities;
     Eigen::Matrix4d m_basePose;
-    Eigen::Vector3d m_baseLinearPosition;
     Eigen::Matrix<double, 6, 1> m_baseVelocity;
-    manif::SO3d m_baseOrientation;
-    Eigen::Vector3d m_baseAngularVelocity;
     Eigen::Vector3d m_gravity;
 
     manif::SO3d I_R_link_manif;
@@ -151,10 +148,10 @@ public:
     bool getBasePosition(Eigen::Ref<Eigen::Vector3d> basePosition) const;
 
     // get the base velocity
-    bool getBaseVelocity(manif::SE3Tangentd & baseVelocity) const;
+    bool getBaseLinearVelocity(Eigen::Ref<Eigen::Vector3d> baseVelocity) const;
 
     // get the base orientation
-    bool getBaseOrientation(manif::SO3d& baseOrientation) const;
+    bool getBaseOrientation(Eigen::Ref<Eigen::Matrix3d> baseOrientation) const;
 
     // get the base angular velocity
     bool getBaseAngularVelocity(Eigen::Ref<Eigen::Vector3d> baseAngularVelocity) const;
