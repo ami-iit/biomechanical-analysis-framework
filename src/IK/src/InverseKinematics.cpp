@@ -151,28 +151,28 @@ bool HumanIK::getJointVelocities(Eigen::Ref<Eigen::VectorXd> jointVelocities) co
 
 bool HumanIK::getBasePosition(Eigen::Ref<Eigen::Vector3d> basePosition) const
 {
-    basePosition = m_baseLinearPosition;
+    basePosition = m_basePose.topRightCorner<3, 1>();
 
     return true;
 }
 
-bool HumanIK::getBaseVelocity(manif::SE3Tangentd &baseVelocity) const
+bool HumanIK::getBaseLinearVelocity(Eigen::Ref<Eigen::Vector3d> baseVelocity) const
 {
-    baseVelocity = m_baseVelocity;
+    baseVelocity = m_baseVelocity.topRows<3>();
 
     return true;
 }
 
-bool HumanIK::getBaseOrientation(manif::SO3d& baseOrientation) const
+bool HumanIK::getBaseOrientation(Eigen::Ref<Eigen::Matrix3d> baseOrientation) const
 {
-    baseOrientation = m_baseOrientation;
+    baseOrientation = m_basePose.topLeftCorner<3, 3>();
 
     return true;
 }
 
 bool HumanIK::getBaseAngularVelocity(Eigen::Ref<Eigen::Vector3d> baseAngularVelocity) const
 {
-    baseAngularVelocity = m_baseAngularVelocity;
+    baseAngularVelocity = m_baseVelocity.bottomRows<3>();
 
     return true;
 }
