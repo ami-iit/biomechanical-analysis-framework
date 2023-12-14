@@ -88,6 +88,22 @@ std::vector<std::string> getJointsList()
 
 int main() {
 
+    yarp::os::ResourceFinder rf;
+    auto kinDyn = std::make_shared<iDynTree::KinDynComputations>();
+    iDynTree::ModelLoader mdlLoader;
+    std::string urdfPath = rf.findFileByName("humanSubject01_48dof.urdf");
+    mdlLoader.loadReducedModelFromFile(urdfPath, getJointsList());
+    kinDyn->loadRobotModel(mdlLoader.model());
+
+    iDynTree::Rotation I_R_IMU;
+    iDynTree::AngVelocity I_omega_IMU;
+    Eigen::VectorXd initialJointPositions;
+    Eigen::VectorXd jointPositions;
+    Eigen::VectorXd jointVelocities;
+    jointVelocities.resize(kinDyn->getNrOfDegreesOfFreedom());
+    jointPositions.resize(kinDyn->getNrOfDegreesOfFreedom());
+    initialJointPositions.resize(kinDyn->getNrOfDegreesOfFreedom());
+
     auto paramHandler = std::make_shared<BipedalLocomotion::ParametersHandler::YarpImplementation>();
 
     if (!paramHandler->setFromFile("/home/dgorbani/software/ergoCub/biomechanical-analysis-framework/src/examples/IK/exampleIK.ini"))
@@ -101,20 +117,23 @@ int main() {
     matioCpp::Struct ifeel_data = file.read("ifeel_data").asStruct();
     matioCpp::Struct node12 = ifeel_data("iFeelSuit_vLink_Node_12").asStruct();
 
+    matioCpp::File file2("/home/dgorbani/human_data.mat");
+    matioCpp::Struct human_data = file2.read("human_data").asStruct();
+    matioCpp::Struct human_state = human_data("human_state").asStruct();
+    matioCpp::Struct joint_positions = human_state("joint_positions").asStruct();
+    matioCpp::MultiDimensionalArray<double> jointPos_data = joint_positions("data").asMultiDimensionalArray<double>();
+
+    for (size_t ii = 0; ii < 31; ii++)
+    {
+        initialJointPositions[ii] = jointPos_data({ii, 0, 0});
+    }
+
     // get the dimension of the data
     matioCpp::Vector<double> data = node12("timestamps").asVector<double>();
     size_t dataLength = data.size();
 
     // list of nodes
-    std::vector<int> nodesNumber = {3, 6, 7, 8, 4, 5, 11, 12, 9, 10};
-
-    auto kinDyn = std::make_shared<iDynTree::KinDynComputations>();
-    iDynTree::ModelLoader mdlLoader;
-    yarp::os::ResourceFinder rf;
-
-    std::string urdfPath = rf.findFileByName("humanSubject01_48dof.urdf");
-    mdlLoader.loadReducedModelFromFile(urdfPath, getJointsList());
-    kinDyn->loadRobotModel(mdlLoader.model());
+    std::vector<int> nodesNumber = {3, 6, 7, 8, 5, 4, 11, 12, 9, 10};
 
     BiomechanicalAnalysis::IK::HumanIK ik;
 
@@ -124,11 +143,12 @@ int main() {
         return 1;
     }
 
-    iDynTree::Rotation I_R_IMU;
-    iDynTree::AngVelocity I_omega_IMU;
+    kinDyn->setJointPos(initialJointPositions);
+    ik.setInitialJointPositions(initialJointPositions);
     size_t maxIndex = 3;
+    ik.setDt(0.01);
 
-    for (size_t ii = 0; ii < maxIndex; ii++)
+    for (size_t ii = 0; ii < dataLength; ii++)
     {
         // implement cycle
         for(auto& node : nodesNumber)
@@ -143,10 +163,19 @@ int main() {
         }
         if (!ik.advance())
         {
-            std::cerr << "[error] Cannot advance the inverse kinematics solver" << std::endl;
+            // std::cerr << "[error] Cannot advance the inverse kinematics solver" << std::endl;
             // return 1;
         }
+        ik.getJointPositions(jointPositions);
+        ik.getJointVelocities(jointVelocities);
+        kinDyn->setJointPos(jointPositions);
+        // std::cout << "joint positions: " << jointPositions << std::endl;
+        // std::cout << "joint velocities: " << jointVelocities << std::endl;
     }
+    ik.getJointPositions(jointPositions);
+    ik.getJointVelocities(jointVelocities);
+    std::cout << "joint positions: " << jointPositions << std::endl;
+    std::cout << "joint velocities: " << jointVelocities << std::endl;
 
     return 0;
 }
