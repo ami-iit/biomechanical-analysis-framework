@@ -1,4 +1,5 @@
 #include <BiomechanicalAnalysis/IK/InverseKinematics.h>
+#include <BiomechanicalAnalysis/Logging/Logger.h>
 #include <iostream>
 
 using namespace BiomechanicalAnalysis::IK;
@@ -9,16 +10,15 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
 {
     constexpr std::size_t highPriority = 0;
     constexpr std::size_t lowPriority = 1;
+    constexpr auto logPrefix = "[HumanIK::initialize]";
 
     m_jointPositions.resize(kinDyn->getNrOfDegreesOfFreedom());
     m_jointVelocities.resize(kinDyn->getNrOfDegreesOfFreedom());
 
-    std::cout << "nr of dofs = " << kinDyn->getNrOfDegreesOfFreedom() << std::endl;
-
     auto ptr = handler.lock();
     if (ptr == nullptr)
     {
-        std::cerr << "[HumanIK::initialize] Invalid parameter handler." << std::endl;
+        BiomechanicalAnalysis::log()->error("{} parameters handler is a null pointer.", logPrefix);
         return false;
     }
 
@@ -35,7 +35,7 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
 
     m_qpIK.finalize(m_variableHandler);
 
-    return true;
+    return ok;
 }
 
 bool HumanIK::setDt(const double dt)
