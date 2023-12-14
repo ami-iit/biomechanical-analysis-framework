@@ -14,6 +14,8 @@
 #include <BipedalLocomotion/ParametersHandler/IParametersHandler.h>
 #include <BipedalLocomotion/System/VariablesHandler.h>
 #include <BipedalLocomotion/IK/SO3Task.h>
+#include <BipedalLocomotion/ContinuousDynamicalSystem/FloatingBaseSystemKinematics.h>
+#include <BipedalLocomotion/ContinuousDynamicalSystem/ForwardEuler.h>
 
 namespace BiomechanicalAnalysis
 {
@@ -24,16 +26,28 @@ namespace IK
 class HumanIK
 {
 private:
-    // Integration time step
-    double m_dtIntegration;
+    // Integration time step in nanoseconds
+    std::chrono::nanoseconds m_dtIntegration;
+
+    // Struct to integrate the base and joint velocities
+    struct System
+    {
+        std::shared_ptr<BipedalLocomotion::ContinuousDynamicalSystem::ForwardEuler<BipedalLocomotion::ContinuousDynamicalSystem::FloatingBaseSystemKinematics>> integrator;
+        std::shared_ptr<BipedalLocomotion::ContinuousDynamicalSystem::FloatingBaseSystemKinematics> dynamics;
+    };
+
+    // System to integrate the base and joint velocities
+    System m_system;    
 
     // Joint positions and velocities
     Eigen::VectorXd m_jointPositions;
     Eigen::VectorXd m_jointVelocities;
-    Eigen::Vector3d m_basePosition;
-    manif::SE3Tangentd m_baseVelocity;
+    Eigen::Matrix4d m_basePose;
+    Eigen::Vector3d m_baseLinearPosition;
+    Eigen::Matrix<double, 6, 1> m_baseVelocity;
     manif::SO3d m_baseOrientation;
     Eigen::Vector3d m_baseAngularVelocity;
+    Eigen::Vector3d m_gravity;
 
     manif::SO3d I_R_link_manif;
     manif::SO3Tangentd I_omega_link_manif;
@@ -60,6 +74,9 @@ private:
     OrientationTask m_RightLowerLegTask;
     OrientationTask m_LeftUpperLegTask;
     OrientationTask m_LeftLowerLegTask;
+
+    // pointer to the KinDynComputations object
+    std::shared_ptr<iDynTree::KinDynComputations> m_kinDyn;
 
     // Number of Joint Degrees of Freedom
     int m_nrDoFs;

@@ -1,10 +1,13 @@
 #include <BiomechanicalAnalysis/IK/InverseKinematics.h>
 #include <BiomechanicalAnalysis/Logging/Logger.h>
+#include <BipedalLocomotion/Conversions/ManifConversions.h>
 #include <iostream>
 #include <iDynTree/EigenHelpers.h>
 
 using namespace BiomechanicalAnalysis::IK;
-
+using namespace BipedalLocomotion::ContinuousDynamicalSystem;
+using namespace BipedalLocomotion::Conversions;
+using namespace std::chrono_literals;
 
 bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandler::IParametersHandler> handler,
                 std::shared_ptr<iDynTree::KinDynComputations> kinDyn)
@@ -13,18 +16,29 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
     constexpr std::size_t lowPriority = 1;
     constexpr auto logPrefix = "[HumanIK::initialize]";
 
-    Eigen::Vector3d Weight;
-    Weight.setConstant(100.0);
+    if ((kinDyn == nullptr) || (!kinDyn->isValid()))
+    {
+        BiomechanicalAnalysis::log()->error("{} Invalid kinDyn object.", logPrefix);
+        return false;
+    }
 
-    m_nrDoFs = kinDyn->getNrOfDegreesOfFreedom();
+    m_kinDyn = kinDyn;
 
-    m_jointPositions.resize(kinDyn->getNrOfDegreesOfFreedom());
-    m_jointVelocities.resize(kinDyn->getNrOfDegreesOfFreedom());
+    m_jointPositions.resize(m_kinDyn->getNrOfDegreesOfFreedom());
+    m_jointVelocities.resize(m_kinDyn->getNrOfDegreesOfFreedom());
+
+    kinDyn->getRobotState(m_basePose, m_jointPositions, m_baseVelocity, m_jointVelocities, m_gravity);
+
+    m_system.dynamics = std::make_shared<FloatingBaseSystemKinematics>();
+    m_system.dynamics->setState({m_basePose.topRightCorner<3, 1>(), toManifRot(m_basePose.topLeftCorner<3,3>()) , m_jointPositions});
+
+    m_system.integrator = std::make_shared<ForwardEuler<FloatingBaseSystemKinematics>>();
+    m_system.integrator->setDynamicalSystem(m_system.dynamics);
 
     auto ptr = handler.lock();
     if (ptr == nullptr)
     {
-        BiomechanicalAnalysis::log()->error("{} parameters handler is a null pointer.", logPrefix);
+        BiomechanicalAnalysis::log()->error("{} Invalid parameters handler.", logPrefix);
         return false;
     }
 
@@ -171,14 +185,15 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
 
 bool HumanIK::setDt(const double dt)
 {
-    m_dtIntegration = dt;
+    dt;
+    m_dtIntegration = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::duration<double>(dt));
 
-    return true;
+    return m_system.integrator->setIntegrationStep(m_dtIntegration);
 }
 
 double HumanIK::getDt() const
 {
-    return m_dtIntegration;
+    return m_dtIntegration.count();
 }
 
 int HumanIK::getDoFsNumber() const
@@ -385,11 +400,29 @@ bool HumanIK::advance()
     if(ok)
     {
         m_jointVelocities = m_qpIK.getOutput().jointVelocity;
-        m_baseVelocity = m_qpIK.getOutput().baseVelocity;
+        m_baseVelocity = m_qpIK.getOutput().baseVelocity.coeffs();
+    }
+    else
+    {
+        BiomechanicalAnalysis::log()->error("[HumanIK::advance] Error in the QP solver.");
     }
 
-    // integrate the joint velocities
-    m_jointPositions += m_dtIntegration * m_jointVelocities;
+    ok = ok && m_system.dynamics->setControlInput({m_baseVelocity, m_jointVelocities});
+    ok = ok && m_system.integrator->integrate(0s, m_dtIntegration);
+
+    if(ok)
+    {
+        const auto& [basePosition, baseRotation, jointPosition]
+                    = m_system.integrator->getSolution();
+        m_basePose.topRightCorner<3, 1>() = basePosition;
+        m_basePose.topLeftCorner<3, 3>() = baseRotation.rotation();
+        m_jointPositions = jointPosition;
+        m_kinDyn->setRobotState(m_basePose, jointPosition, m_baseVelocity, m_jointVelocities, m_gravity);
+    }
+    else
+    {
+        BiomechanicalAnalysis::log()->error("[HumanIK::advance] Error in the integration.");
+    }
 
     return ok;
 }
@@ -410,7 +443,7 @@ bool HumanIK::getJointVelocities(Eigen::Ref<Eigen::VectorXd> jointVelocities) co
 
 bool HumanIK::getBasePosition(Eigen::Ref<Eigen::Vector3d> basePosition) const
 {
-    basePosition = m_basePosition;
+    basePosition = m_baseLinearPosition;
 
     return true;
 }
