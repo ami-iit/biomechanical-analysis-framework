@@ -134,6 +134,11 @@ bool HumanIK::advance()
 
 bool HumanIK::getJointPositions(Eigen::Ref<Eigen::VectorXd> jointPositions) const
 {
+    if(jointPositions.size() != m_jointPositions.size())
+    {
+        BiomechanicalAnalysis::log()->error("[HumanIK::getJointPositions] Invalid size of the input vector.");
+        return false;
+    }
     jointPositions = m_jointPositions;
 
     return true;
@@ -141,6 +146,11 @@ bool HumanIK::getJointPositions(Eigen::Ref<Eigen::VectorXd> jointPositions) cons
 
 bool HumanIK::getJointVelocities(Eigen::Ref<Eigen::VectorXd> jointVelocities) const
 {
+    if(jointVelocities.size() != m_jointVelocities.size())
+    {
+        BiomechanicalAnalysis::log()->error("[HumanIK::getJointVelocities] Invalid size of the input vector.");
+        return false;
+    }
     jointVelocities = m_jointVelocities;
 
     return true;
