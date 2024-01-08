@@ -185,7 +185,6 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
 
 bool HumanIK::setDt(const double dt)
 {
-    dt;
     m_dtIntegration = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::duration<double>(dt));
 
     return m_system.integrator->setIntegrationStep(m_dtIntegration);
