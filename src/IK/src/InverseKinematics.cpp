@@ -105,15 +105,13 @@ bool HumanIK::advance()
     ok = ok && m_qpIK.advance();
     ok = ok && m_qpIK.isOutputValid();
 
-    if(ok)
-    {
-        m_jointVelocities = m_qpIK.getOutput().jointVelocity;
-        m_baseVelocity = m_qpIK.getOutput().baseVelocity.coeffs();
-    }
-    else
+    if(!ok)
     {
         BiomechanicalAnalysis::log()->error("[HumanIK::advance] Error in the QP solver.");
+        return false;
     }
+    m_jointVelocities = m_qpIK.getOutput().jointVelocity;
+    m_baseVelocity = m_qpIK.getOutput().baseVelocity.coeffs();
 
     ok = ok && m_system.dynamics->setControlInput({m_baseVelocity, m_jointVelocities});
     ok = ok && m_system.integrator->integrate(0s, m_dtIntegration);
