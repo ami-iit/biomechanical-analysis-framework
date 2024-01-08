@@ -66,7 +66,7 @@ bool HumanIK::setDt(const double dt)
 
 double HumanIK::getDt() const
 {
-    return m_dtIntegration.count();
+    return std::chrono::duration_cast<std::chrono::duration<double>>(m_dtIntegration).count();
 }
 
 bool HumanIK::setDoFsNumber(const int nrDoFs)
