@@ -82,8 +82,14 @@ private:
     BipedalLocomotion::System::VariablesHandler m_variableHandler;
 
 public:
-    HumanIK(){}; // constructor
-    ~HumanIK(){}; // destructor
+    /**
+     * Constructor
+    */
+    HumanIK(){};
+    /**
+     * Destructor
+    */
+    ~HumanIK(){};
 
     /**
      * initialize all the task and the inverse kinematics solver
