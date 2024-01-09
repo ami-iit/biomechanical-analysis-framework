@@ -59,10 +59,10 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
     auto pelvisParam = ptr->getGroup("PELVIS_TASK").lock();
     if (!pelvisParam->getParameter("node_number", m_PelvisTask.nodeNumber))
     {
-        std::cerr << "[baf] Parameter node_number of the PELVIS_TASK task is missing" << std::endl;
+        BiomechanicalAnalysis::log()->error("{} Parameter node_number of the PELVIS_TASK task is missing", logPrefix);
         return false;
     }
-    std::cout << "node number pelvis: " << m_PelvisTask.nodeNumber << std::endl;
+
     m_PelvisTask.IMU_R_link = iDynTree::Rotation(0.0, 1.0, 0.0,
                                                 0.0, 0.0, -1.0,
                                                 -1.0, 0.0, 0.0);
@@ -74,7 +74,7 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
     auto T8Param = ptr->getGroup("T8_TASK").lock();
     if (!T8Param->getParameter("node_number", m_T8Task.nodeNumber))
     {
-        std::cerr << "[baf] Parameter node_number of the T8_TASK task is missing" << std::endl;
+        BiomechanicalAnalysis::log()->error("{} Parameter node_number of the T8_TASK task is missing", logPrefix);
         return false;
     }
     m_T8Task.IMU_R_link = iDynTree::Rotation(0.0, 1.0, 0.0,
@@ -88,7 +88,7 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
     auto rightUpperArmParam = ptr->getGroup("RIGHT_UPPER_ARM_TASK").lock();
     if (!rightUpperArmParam->getParameter("node_number", m_RightUpperArmTask.nodeNumber))
     {
-        std::cerr << "[baf] Parameter node_number of the RIGHT_UPPER_ARM_TASK task is missing" << std::endl;
+        BiomechanicalAnalysis::log()->error("{} Parameter node_number of the RIGHT_UPPER_ARM_TASK task is missing", logPrefix);
         return false;
     }
     ok = ok && m_qpIK.addTask(m_RightUpperArmTask.task, "right_upper_arm_task", lowPriority, Weight);
@@ -99,7 +99,7 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
     auto rightForeArmParam = ptr->getGroup("RIGHT_FORE_ARM_TASK").lock();
     if (!rightForeArmParam->getParameter("node_number", m_RightForeArmTask.nodeNumber))
     {
-        std::cerr << "[baf] Parameter node_number of the RIGHT_FORE_ARM_TASK task is missing" << std::endl;
+        BiomechanicalAnalysis::log()->error("{} Parameter node_number of the RIGHT_FORE_ARM_TASK task is missing", logPrefix);
         return false;
     }
     ok = ok && m_qpIK.addTask(m_RightForeArmTask.task, "right_fore_arm_task", lowPriority, Weight);
@@ -110,7 +110,7 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
     auto leftUpperArmParam = ptr->getGroup("LEFT_UPPER_ARM_TASK").lock();
     if (!leftUpperArmParam->getParameter("node_number", m_LeftUpperArmTask.nodeNumber))
     {
-        std::cerr << "[baf] Parameter node_number of the LEFT_UPPER_ARM_TASK task is missing" << std::endl;
+        BiomechanicalAnalysis::log()->error("{} Parameter node_number of the LEFT_UPPER_ARM_TASK task is missing", logPrefix);
         return false;
     }
     ok = ok && m_qpIK.addTask(m_LeftUpperArmTask.task, "left_upper_arm_task", lowPriority, Weight);
@@ -121,7 +121,7 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
     auto leftForeArmParam = ptr->getGroup("LEFT_FORE_ARM_TASK").lock();
     if (!leftForeArmParam->getParameter("node_number", m_LeftForeArmTask.nodeNumber))
     {
-        std::cerr << "[baf] Parameter node_number of the LEFT_FORE_ARM_TASK task is missing" << std::endl;
+        BiomechanicalAnalysis::log()->error("{} Parameter node_number of the LEFT_FORE_ARM_TASK task is missing", logPrefix);
         return false;
     }
     ok = ok && m_qpIK.addTask(m_LeftForeArmTask.task, "left_fore_arm_task", lowPriority, Weight);
@@ -132,7 +132,7 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
     auto rightUpperLegParam = ptr->getGroup("RIGHT_UPPER_LEG_TASK").lock();
     if (!rightUpperLegParam->getParameter("node_number", m_RightUpperLegTask.nodeNumber))
     {
-        std::cerr << "[baf] Parameter node_number of the RIGHT_UPPER_LEG_TASK task is missing" << std::endl;
+        BiomechanicalAnalysis::log()->error("{} Parameter node_number of the RIGHT_UPPER_LEG_TASK task is missing", logPrefix);
         return false;
     }
     m_RightUpperLegTask.IMU_R_link = iDynTree::Rotation(1.0, 0.0, 0.0,
@@ -146,10 +146,10 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
     auto rightLowerLegParam = ptr->getGroup("RIGHT_LOWER_LEG_TASK").lock();
     if (!rightLowerLegParam->getParameter("node_number", m_RightLowerLegTask.nodeNumber))
     {
-        std::cerr << "[baf] Parameter node_number of the RIGHT_LOWER_LEG_TASK task is missing" << std::endl;
+        BiomechanicalAnalysis::log()->error("{} Parameter node_number of the RIGHT_LOWER_LEG_TASK task is missing", logPrefix);
         return false;
     }
-    std::cout << "node number right low leg: " << m_RightLowerLegTask.nodeNumber << std::endl;
+
     m_RightLowerLegTask.IMU_R_link = iDynTree::Rotation(1.0, 0.0, 0.0,
                                                         0.0, 0.0, 1.0,
                                                         0.0, -1.0, 0.0);
@@ -161,7 +161,7 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
     auto leftUpperLegParam = ptr->getGroup("LEFT_UPPER_LEG_TASK").lock();
     if (!leftUpperLegParam->getParameter("node_number", m_LeftUpperLegTask.nodeNumber))
     {
-        std::cerr << "[baf] Parameter node_number of the LEFT_UPPER_LEG_TASK task is missing" << std::endl;
+        BiomechanicalAnalysis::log()->error("{} Parameter node_number of the LEFT_UPPER_LEG_TASK task is missing", logPrefix);
         return false;
     }
     m_LeftUpperLegTask.IMU_R_link = iDynTree::Rotation(1.0, 0.0, 0.0,
@@ -175,7 +175,7 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
     auto leftLowerLegParam = ptr->getGroup("LEFT_LOWER_LEG_TASK").lock();
     if (!leftLowerLegParam->getParameter("node_number", m_LeftLowerLegTask.nodeNumber))
     {
-        std::cerr << "[baf] Parameter node_number of the LEFT_LOWER_LEG_TASK task is missing" << std::endl;
+        BiomechanicalAnalysis::log()->error("{} Parameter node_number of the LEFT_LOWER_LEG_TASK task is missing", logPrefix);
         return false;
     }
     m_LeftLowerLegTask.IMU_R_link = iDynTree::Rotation(1.0, 0.0, 0.0,
@@ -308,7 +308,7 @@ bool HumanIK::setNodeSetPoint(int node,const iDynTree::Rotation &I_R_IMU,
     }
     else
     {
-        std::cerr << "[error] Node number " << node << " is not valid" << std::endl;
+        BiomechanicalAnalysis::log()->error("[HumanIK::setNodeSetPoint] Invalid node number.");
         return false;
     }
     
