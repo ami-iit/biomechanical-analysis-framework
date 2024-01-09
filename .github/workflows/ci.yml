@@ -12,7 +12,8 @@ on:
     - cron: '0 2 * * *'
     
 env:
-    BipedalLocomotionFramework_TAG: v0.12.0
+    BipedalLocomotionFramework_TAG: v0.16.1
+    LieGroupController_TAG: v0.2.0
     action-restore-cache: 'true'
 jobs:
     build:
@@ -32,18 +33,18 @@ jobs:
           run: |
             echo "DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
 
-        # Use conda for main dependencies
-        - uses: conda-incubator/setup-miniconda@v2
+         # Use mamba for dependencies
+        - uses: mamba-org/setup-micromamba@v1
           with:
-            miniforge-variant: Mambaforge
-            miniforge-version: latest
+            environment-file: ci_env.yml
+            channel-priority: true
         
         # Print the environment variables to simplify development and debugging
         - name: Environment Variables
         # Use bash  in order to have same basic commands in all OSs
           shell: bash
           run: env
-          
+        
         # Remove apt repos on Ubuntu that are known to break from time to time 
         # See https://github.com/actions/virtual-environments/issues/323 
         - name: Remove broken apt repos [Ubuntu]
@@ -54,60 +55,15 @@ jobs:
         # ============
         # DEPENDENCIES
         # ============
-        - name: Restore cached conda based dependencies
-          if: ${{ env.action-restore-cache == 'true' }}
-          uses: actions/cache/restore@v3
-          with:
-            path: ${{ env.CONDA }}/envs/test
-            key: ${{ matrix.os }}-conda-${{ hashFiles('.github/workflows/conda-deps.yml') }}-${{ env.DATE }}
-          id: cache-restore-conda-deps
-        
-        - name: Dependencies (using conda)
-          shell: bash -l {0}
-          if: steps.cache-restore-conda-deps.outputs.cache-hit != 'true'
-          run: |
-            mamba env update -f .github/workflows/conda-deps.yml
-          
-        - name: Cache conda based dependencies
-          if: ${{ steps.cache-restore-conda-deps.outputs.cache-hit != 'true' }}
-          uses: actions/cache/save@v3
-          with:
-            path: ${{ env.CONDA }}/envs/test
-            key: ${{ matrix.os }}-conda-${{ hashFiles('.github/workflows/conda-deps.yml') }}-${{ env.DATE }}
-          id: cache-save-conda-deps
-        
-        - name: Restore cached source-based dependencies
-          if: ${{ env.action-restore-cache == 'true' && steps.cache-restore-conda-deps.outputs.cache-hit == 'true' }}
-          uses: actions/cache/restore@v3
-          with:
-            path: ${{ github.workspace }}/install/deps
-            key: ${{ matrix.os }}-${{ matrix.build_type }}-source-${{env.BipedalLocomotionFramework_TAG}}-${{ env.DATE }}
-          id: cache-restore-source-deps
 
-        - name: Source-based dependencies
-          if: ${{ steps.cache-restore-conda-deps.outputs.cache-hit != 'true' || steps.cache-restore-source-deps.outputs.cache-hit != 'true' }}
+        # Additional dependencies useful only on Linux
+        - name: Dependencies [Ubuntu]
+          if: matrix.os == 'ubuntu-latest'
           shell: bash -l {0}
           run: |
-            # bipedal-locomotion-framework
-            cd ${GITHUB_WORKSPACE}
-            git clone --depth 1 --single-branch --branch ${BipedalLocomotionFramework_TAG} https://github.com/ami-iit/bipedal-locomotion-framework blf
-            cd blf
-            mkdir -p build
-            cd build
-            cmake -GNinja .. \
-                  -DCMAKE_PREFIX_PATH=${GITHUB_WORKSPACE}/install/deps \
-                  -DCMAKE_INSTALL_PREFIX=${GITHUB_WORKSPACE}/install/deps
-
-            cmake --build . --config ${{matrix.build_type}} --target install
-
-        - name: Cache source-based dependencies
-          if: ${{ steps.cache-restore-source-deps.outputs.cache-hit != 'true' }}
-          uses: actions/cache/save@v3
-          with:
-            path: ${{ github.workspace }}/install/deps
-            key: ${{ matrix.os }}-${{ matrix.build_type }}-source-${{env.BipedalLocomotionFramework_TAG}}-${{ env.DATE }}
-          id: cache-save-source-deps
-            
+            # Additional dependencies only useful on Linux
+            # See https://github.com/robotology/robotology-superbuild/issues/477
+            micromamba install expat-cos6-x86_64 libselinux-cos6-x86_64 libxau-cos6-x86_64 libxcb-cos6-x86_64 libxdamage-cos6-x86_64 libxext-cos6-x86_64 libxfixes-cos6-x86_64 libxxf86vm-cos6-x86_64 mesalib mesa-libgl-cos6-x86_64 mesa-libgl-devel-cos6-x86_64
 
 
         # ===================
@@ -115,12 +71,26 @@ jobs:
         # ===================
         # We will just configure and build the project now. Further modifications and tests can be added
         # Configure step
-        - name: Configure
+        - name: Configure [Ubuntu, macOS]
+          if: matrix.os == 'ubuntu-latest' || matrix.os == 'macOS-latest'
           shell: bash -l {0}
           run: |
             mkdir -p build
             cd build
             cmake -G"Ninja" .. \
+                  -DCMAKE_PREFIX_PATH=${GITHUB_WORKSPACE}/install/deps \
+                  -DCMAKE_BUILD_TYPE=${{matrix.build_type}} \
+                  -DFRAMEWORK_COMPILE_YarpImplementation=ON \
+                  -DBUILD_TESTING:BOOL=ON \
+                  -DCMAKE_INSTALL_PREFIX=${GITHUB_WORKSPACE}/install
+
+        - name: Configure [Windows]
+          if: matrix.os == 'windows-latest'
+          shell: bash -l {0}
+          run: |
+            mkdir -p build
+            cd build
+            cmake -G"Visual Studio 17 2022" .. \
                   -DCMAKE_PREFIX_PATH=${GITHUB_WORKSPACE}/install/deps \
                   -DCMAKE_BUILD_TYPE=${{matrix.build_type}} \
                   -DFRAMEWORK_COMPILE_YarpImplementation=ON \

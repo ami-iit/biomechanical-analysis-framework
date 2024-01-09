@@ -1,0 +1,15 @@
+name: biomechanical-analysis-framework
+channel:
+  - conda-forge
+dependencies:
+  - cmake
+  - compilers
+  - make
+  - ninja
+  - pkg-config
+  - yarp
+  - idyntree
+  - spdlog
+  - catch2>=3.3.0
+  - manif
+  - bipedal-locomotion-framework
