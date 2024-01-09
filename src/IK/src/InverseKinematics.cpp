@@ -40,6 +40,7 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
 
     m_nrDoFs = kinDyn->getNrOfDegreesOfFreedom();
 
+
     auto ptr = handler.lock();
     if (ptr == nullptr)
     {

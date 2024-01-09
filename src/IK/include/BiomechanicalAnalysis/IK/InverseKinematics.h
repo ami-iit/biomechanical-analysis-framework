@@ -75,6 +75,9 @@ private:
     // pointer to the KinDynComputations object
     std::shared_ptr<iDynTree::KinDynComputations> m_kinDyn;
 
+    // pointer to the KinDynComputations object
+    std::shared_ptr<iDynTree::KinDynComputations> m_kinDyn;
+
     // Number of Joint Degrees of Freedom
     int m_nrDoFs;
 
@@ -161,6 +164,7 @@ public:
 
     bool setLeftLowerLegSetPoint(const manif::SO3d &LeftLowerLegOrientation,
                                         const manif::SO3Tangentd &LeftLowerLegAngularVelocity);
+
 
     /**
      * advance the inverse kinematics solver
