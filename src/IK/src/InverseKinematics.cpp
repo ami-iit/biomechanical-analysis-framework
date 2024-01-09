@@ -407,19 +407,17 @@ bool HumanIK::advance()
     ok = ok && m_system.dynamics->setControlInput({m_baseVelocity, m_jointVelocities});
     ok = ok && m_system.integrator->integrate(0s, m_dtIntegration);
 
-    if(ok)
-    {
-        const auto& [basePosition, baseRotation, jointPosition]
-                    = m_system.integrator->getSolution();
-        m_basePose.topRightCorner<3, 1>() = basePosition;
-        m_basePose.topLeftCorner<3, 3>() = baseRotation.rotation();
-        m_jointPositions = jointPosition;
-        m_kinDyn->setRobotState(m_basePose, jointPosition, m_baseVelocity, m_jointVelocities, m_gravity);
-    }
-    else
+    if(!ok)
     {
         BiomechanicalAnalysis::log()->error("[HumanIK::advance] Error in the integration.");
+        return false;
     }
+    const auto& [basePosition, baseRotation, jointPosition]
+                = m_system.integrator->getSolution();
+    m_basePose.topRightCorner<3, 1>() = basePosition;
+    m_basePose.topLeftCorner<3, 3>() = baseRotation.rotation();
+    m_jointPositions = jointPosition;
+    m_kinDyn->setRobotState(m_basePose, jointPosition, m_baseVelocity, m_jointVelocities, m_gravity);
 
     return ok;
 }
