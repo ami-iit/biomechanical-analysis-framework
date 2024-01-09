@@ -82,10 +82,12 @@ private:
     BipedalLocomotion::System::VariablesHandler m_variableHandler;
 
 public:
+
     /**
      * Constructor
     */
     HumanIK(){};
+
     /**
      * Destructor
     */
@@ -93,27 +95,36 @@ public:
 
     /**
      * initialize all the task and the inverse kinematics solver
+     * @param handler pointer to the parameters handler
+     * @param kinDyn pointer to the KinDynComputations object
+     * @return true if all the tasks are initialized correctly
     */
     bool initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandler::IParametersHandler> handler,
                 std::shared_ptr<iDynTree::KinDynComputations> kinDyn);
 
     /**
      * set the integration time step
+     * @param dt integration time step in seconds
+     * @return true if the integration time step is set correctly
     */
     bool setDt(const double dt);
 
     /**
      * get the integration time step
+     * @return integration time step in seconds
     */
     double getDt() const;
 
     /**
      * get the number of DoFs
+     * @return number of DoFs
     */
     int getDoFsNumber() const;
 
     /**
      * set the initial joint positions
+     * @param qInitial initial joint positions
+     * @return true if the initial joint positions are set correctly
     */
     bool setInitialJointPositions(const Eigen::Ref<const Eigen::VectorXd> qInitial);
 
@@ -153,36 +164,49 @@ public:
 
     /**
      * advance the inverse kinematics solver
+     * @return true if the inverse kinematics solver is advanced correctly
     */
     bool advance();
 
     /**
      * get the joint positions
+     * @param jointPositions joint positions
+     * @return true if the joint positions are retrieved correctly
     */
     bool getJointPositions(Eigen::Ref<Eigen::VectorXd> jointPositions) const;
 
     /**
      * get the joint velocities
+     * @param jointVelocities joint velocities
+     * @return true if the joint velocities are retrieved correctly
     */
     bool getJointVelocities(Eigen::Ref<Eigen::VectorXd> jointVelocities) const;
 
     /**
      * get the base position
+     * @param basePosition base position
+     * @return true if the base position is retrieved correctly
     */
     bool getBasePosition(Eigen::Ref<Eigen::Vector3d> basePosition) const;
 
     /**
      * get the base linear velocity
+     * @param baseVelocity base linear velocity
+     * @return true if the base linear velocity is retrieved correctly
     */
     bool getBaseLinearVelocity(Eigen::Ref<Eigen::Vector3d> baseVelocity) const;
 
     /**
      * get the base orientation
+     * @param baseOrientation base orientation
+     * @return true if the base orientation is retrieved correctly
     */
     bool getBaseOrientation(Eigen::Ref<Eigen::Matrix3d> baseOrientation) const;
 
     /**
      * get the base angular velocity
+     * @param baseAngularVelocity base angular velocity
+     * @return true if the base angular velocity is retrieved correctly
     */
     bool getBaseAngularVelocity(Eigen::Ref<Eigen::Vector3d> baseAngularVelocity) const;
 };
