@@ -6,6 +6,7 @@
 
 #include <BipedalLocomotion/ParametersHandler/IParametersHandler.h>
 #include <BipedalLocomotion/ParametersHandler/StdImplementation.h>
+#include <BipedalLocomotion/ParametersHandler/YarpImplementation.h>
 
 TEST_CASE("InverseKinematic test")
 {
@@ -16,31 +17,9 @@ TEST_CASE("InverseKinematic test")
 
     const iDynTree::Model model = iDynTree::getRandomModel(nrDoFs);
     kinDyn->loadRobotModel(model);
+    auto paramHandler = std::make_shared<BipedalLocomotion::ParametersHandler::YarpImplementation>();
 
-    manif::SO3d orientationDesired;
-    orientationDesired.setRandom();
-    manif::SO3Tangentd angVelDesired;
-    angVelDesired.setRandom();
-
-    std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> handler =
-        std::make_shared<BipedalLocomotion::ParametersHandler::StdImplementation>();
-    
-    handler->setParameter("verbosity", false);
-
-    handler->setParameter("tasks",
-                                   std::vector<std::string>{"LINK1_TASK"});
-
-
-    auto ikParameterHandler = std::make_shared<BipedalLocomotion::ParametersHandler::StdImplementation>();
-    ikParameterHandler->setParameter("robot_velocity_variable_name", "robotVelocity");
-    handler->setGroup("IK", ikParameterHandler);
-
-    auto SO3ParameterHandler = std::make_shared<BipedalLocomotion::ParametersHandler::StdImplementation>();
-    SO3ParameterHandler->setParameter("frame_name", kinDyn->getFrameName(1));
-    SO3ParameterHandler->setParameter("kp_angular", 1.0);
-    SO3ParameterHandler->setParameter("robot_velocity_variable_name", "robotVelocity");
-
-    handler->setGroup("LINK1_TASK", SO3ParameterHandler);
+    REQUIRE(paramHandler->setFromFile("/home/dgorbani/software/ergoCub/biomechanical-analysis-framework/src/IK/tests/testIK.ini"));
 
     // inintialize the joint positions and velocities
     Eigen::VectorXd JointPositions(kinDyn->getNrOfDegreesOfFreedom());
@@ -51,11 +30,10 @@ TEST_CASE("InverseKinematic test")
 
     qInitial.setConstant(0.0);
 
-    ik.initialize(handler, kinDyn);
+    ik.initialize(paramHandler, kinDyn);
 
     REQUIRE(ik.setDt(0.1));
     REQUIRE(ik.setInitialJointPositions(qInitial));
-    REQUIRE(ik.setLink1OrientationAndAngVel(orientationDesired, angVelDesired));
     REQUIRE(ik.advance());
     REQUIRE(ik.getJointPositions(JointPositions));
     REQUIRE(ik.getJointVelocities(JointVelocities));

@@ -75,9 +75,6 @@ private:
     // pointer to the KinDynComputations object
     std::shared_ptr<iDynTree::KinDynComputations> m_kinDyn;
 
-    // pointer to the KinDynComputations object
-    std::shared_ptr<iDynTree::KinDynComputations> m_kinDyn;
-
     // Number of Joint Degrees of Freedom
     int m_nrDoFs;
 
@@ -131,6 +128,12 @@ public:
     */
     bool setInitialJointPositions(const Eigen::Ref<const Eigen::VectorXd> qInitial);
 
+    /**
+     * set the orientation and the angular velocity of a given node
+     * @param node node number
+     * @param I_R_IMU orientation of the IMU
+     * @param I_omega_IMU angular velocity of the IMU
+    */
     bool setNodeSetPoint(int node,const iDynTree::Rotation &I_R_IMU,
                                            const iDynTree::AngVelocity &I_omega_IMU);
 
