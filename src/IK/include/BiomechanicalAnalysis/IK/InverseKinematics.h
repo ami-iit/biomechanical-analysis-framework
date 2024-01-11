@@ -60,17 +60,8 @@ private:
         iDynTree::Rotation IMU_R_link = iDynTree::Rotation::Identity();
     };
 
-    // tasks
-    OrientationTask m_PelvisTask;
-    OrientationTask m_T8Task;
-    OrientationTask m_RightUpperArmTask;
-    OrientationTask m_RightForeArmTask;
-    OrientationTask m_LeftUpperArmTask;
-    OrientationTask m_LeftForeArmTask;
-    OrientationTask m_RightUpperLegTask;
-    OrientationTask m_RightLowerLegTask;
-    OrientationTask m_LeftUpperLegTask;
-    OrientationTask m_LeftLowerLegTask;
+    // unordered map of the orientation tasks
+    std::unordered_map<int, OrientationTask> m_OrientationTasks;
 
     // pointer to the KinDynComputations object
     std::shared_ptr<iDynTree::KinDynComputations> m_kinDyn;
@@ -136,38 +127,6 @@ public:
     */
     bool setNodeSetPoint(int node,const iDynTree::Rotation &I_R_IMU,
                                            const iDynTree::AngVelocity &I_omega_IMU);
-
-    // set the set point for the orientation tasks
-    bool setPelvisSetPoint(const manif::SO3d &pelvisOrientation,
-                                      const manif::SO3Tangentd &pelvisAngularVelocity);
-
-    bool setT8SetPoint(const manif::SO3d &T8Orientation,
-                                      const manif::SO3Tangentd &T8AngularVelocity);
-
-    bool setRightUpperArmSetPoint(const manif::SO3d &RightUpperArmOrientation,
-                                        const manif::SO3Tangentd &RightUpperArmAngularVelocity);
-
-    bool setRightForeArmSetPoint(const manif::SO3d &RightForeArmOrientation,
-                                        const manif::SO3Tangentd &RightForeArmAngularVelocity);
-
-    bool setLeftUpperArmSetPoint(const manif::SO3d &LeftUpperArmOrientation,
-                                        const manif::SO3Tangentd &LeftUpperArmAngularVelocity);
-
-    bool setLeftForeArmSetPoint(const manif::SO3d &LeftForeArmOrientation,
-                                        const manif::SO3Tangentd &LeftForeArmAngularVelocity);
-
-    bool setRightUpperLegSetPoint(const manif::SO3d &RightUpperLegOrientation,
-                                        const manif::SO3Tangentd &RightUpperLegAngularVelocity);
-
-    bool setRightLowerLegSetPoint(const manif::SO3d &RightLowerLegOrientation,
-                                        const manif::SO3Tangentd &RightLowerLegAngularVelocity);
-
-    bool setLeftUpperLegSetPoint(const manif::SO3d &LeftUpperLegOrientation,
-                                        const manif::SO3Tangentd &LeftUpperLegAngularVelocity);
-
-    bool setLeftLowerLegSetPoint(const manif::SO3d &LeftLowerLegOrientation,
-                                        const manif::SO3Tangentd &LeftLowerLegAngularVelocity);
-
 
     /**
      * advance the inverse kinematics solver
