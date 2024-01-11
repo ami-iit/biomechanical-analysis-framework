@@ -14,7 +14,7 @@ TEST_CASE("InverseKinematic test")
     auto kinDyn = std::make_shared<iDynTree::KinDynComputations>();
 
     std::filesystem::path currentPath = std::filesystem::current_path();
-    std::string testPath = currentPath.string() + "/../../../HumanIKTest/testIK.ini";
+    std::string testPath = currentPath.string() + "/testIK.ini";
 
     // set the number of DoFs
     int nrDoFs = 10;
