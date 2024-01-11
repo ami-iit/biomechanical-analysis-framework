@@ -15,7 +15,6 @@ TEST_CASE("InverseKinematic test")
 
     std::filesystem::path currentPath = std::filesystem::current_path();
     std::string testPath = currentPath.string() + "/../../../HumanIKTest/testIK.ini";
-    std::cout << "testPath = " << testPath << std::endl;
 
     // set the number of DoFs
     int nrDoFs = 10;
