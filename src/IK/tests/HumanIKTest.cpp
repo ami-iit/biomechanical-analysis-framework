@@ -7,14 +7,11 @@
 #include <BipedalLocomotion/ParametersHandler/IParametersHandler.h>
 #include <BipedalLocomotion/ParametersHandler/StdImplementation.h>
 #include <BipedalLocomotion/ParametersHandler/YarpImplementation.h>
-#include <filesystem>
+#include <ConfigFolderPath.h>
 
 TEST_CASE("InverseKinematic test")
 {
     auto kinDyn = std::make_shared<iDynTree::KinDynComputations>();
-
-    std::filesystem::path currentPath = std::filesystem::current_path();
-    std::string testPath = currentPath.string() + "/testIK.ini";
 
     // set the number of DoFs
     int nrDoFs = 10;
@@ -23,7 +20,7 @@ TEST_CASE("InverseKinematic test")
     kinDyn->loadRobotModel(model);
     auto paramHandler = std::make_shared<BipedalLocomotion::ParametersHandler::YarpImplementation>();
 
-    REQUIRE(paramHandler->setFromFile(testPath));
+    REQUIRE(paramHandler->setFromFile(getConfigPath()));
 
     // inintialize the joint positions and velocities
     Eigen::VectorXd JointPositions(kinDyn->getNrOfDegreesOfFreedom());
