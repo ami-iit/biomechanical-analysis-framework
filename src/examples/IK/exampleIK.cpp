@@ -6,6 +6,9 @@
 #include <iDynTree/ModelLoader.h>
 #include <iDynTree/EigenHelpers.h>
 #include <yarp/os/ResourceFinder.h>
+#include <iDynTree/Visualizer.h>
+#include <chrono>
+#include <thread>
 
 bool getNodeData(matioCpp::Struct &ifeel_struct, int nodeNum, size_t index_i, iDynTree::Rotation &I_R_IMU, iDynTree::AngVelocity &I_omeg_IMU)
 {
@@ -34,10 +37,10 @@ bool getNodeData(matioCpp::Struct &ifeel_struct, int nodeNum, size_t index_i, iD
 
     iDynTree::Vector4 quat;
 
-    quat[0] = data1({index_x, index0, index_i});
-    quat[1] = data1({index_y, index0, index_i});
-    quat[2] = data1({index_z, index0, index_i});
-    quat[3] = data1({index_w, index0, index_i});
+    quat[1] = data1({index_x, index0, index_i});
+    quat[2] = data1({index_y, index0, index_i});
+    quat[3] = data1({index_z, index0, index_i});
+    quat[0] = data1({index_w, index0, index_i});
 
     I_omeg_IMU[0] = data1({angVel_x, index0, index_i});
     I_omeg_IMU[1] = data1({angVel_y, index0, index_i});
@@ -94,30 +97,53 @@ int main() {
     std::string urdfPath = rf.findFileByName("humanSubject01_48dof.urdf");
     mdlLoader.loadReducedModelFromFile(urdfPath, getJointsList());
     kinDyn->loadRobotModel(mdlLoader.model());
+    iDynTree::Visualizer viz;
+    viz.addModel(mdlLoader.model(), "model");
+    iDynTree::IModelVisualization &modelViz = viz.modelViz("model");
+    viz.draw();
+    iDynTree::Visualizer viz2;
+    viz2.addModel(mdlLoader.model(), "model2");
+    iDynTree::IModelVisualization &modelViz2 = viz2.modelViz("model2");
+    viz2.draw();
 
     iDynTree::Rotation I_R_IMU;
     iDynTree::AngVelocity I_omega_IMU;
     Eigen::VectorXd initialJointPositions;
+    Eigen::VectorXd initialJointVelocities;
     Eigen::VectorXd jointPositions;
     Eigen::VectorXd jointVelocities;
+    Eigen::Vector3d gravity;
+    Eigen::Matrix4d basePose;
+    Eigen::Matrix<double, 6, 1> baseVelocity;
+    Eigen::Matrix3d baseOrientation;
+    Eigen::Vector3d basePosition;
+    iDynTree::VectorDynSize jointPos, jointPos2;
+    iDynTree::Transform w_H_b = iDynTree::Transform::Identity();
+    jointPos.resize(kinDyn->getNrOfDegreesOfFreedom());
+    jointPos2.resize(kinDyn->getNrOfDegreesOfFreedom());
     jointVelocities.resize(kinDyn->getNrOfDegreesOfFreedom());
     jointPositions.resize(kinDyn->getNrOfDegreesOfFreedom());
     initialJointPositions.resize(kinDyn->getNrOfDegreesOfFreedom());
+    initialJointVelocities.resize(kinDyn->getNrOfDegreesOfFreedom());
+    initialJointPositions.setZero();
+    gravity << 0.0, 0.0, -9.81;
+    basePose.setIdentity();
+    baseVelocity.setZero();
 
     auto paramHandler = std::make_shared<BipedalLocomotion::ParametersHandler::YarpImplementation>();
 
-    if (!paramHandler->setFromFile("/home/dgorbani/software/ergoCub/biomechanical-analysis-framework/src/examples/IK/exampleIK.ini"))
+    if (!paramHandler->setFromFile("/path/to/exampleIK.ini"))
     {
         std::cerr << "[error] Cannot configure the parameter handler" << std::endl;
         return 1;
     }
 
-    matioCpp::File file("/home/dgorbani/matlab.mat");
+    matioCpp::File file("/path/to/ifeel_data.mat");
 
     matioCpp::Struct ifeel_data = file.read("ifeel_data").asStruct();
     matioCpp::Struct node12 = ifeel_data("iFeelSuit_vLink_Node_12").asStruct();
 
-    matioCpp::File file2("/home/dgorbani/human_data.mat");
+    matioCpp::File file2("/path/to/human_data.mat");
     matioCpp::Struct human_data = file2.read("human_data").asStruct();
     matioCpp::Struct human_state = human_data("human_state").asStruct();
     matioCpp::Struct joint_positions = human_state("joint_positions").asStruct();
@@ -143,7 +169,7 @@ int main() {
         return 1;
     }
 
-    kinDyn->setJointPos(initialJointPositions);
+    kinDyn->setRobotState(basePose, initialJointPositions, baseVelocity, initialJointVelocities, gravity);
     ik.setInitialJointPositions(initialJointPositions);
     size_t maxIndex = 3;
     ik.setDt(0.01);
@@ -163,19 +189,39 @@ int main() {
         }
         if (!ik.advance())
         {
-            // std::cerr << "[error] Cannot advance the inverse kinematics solver" << std::endl;
-            // return 1;
+            std::cerr << "[error] Cannot advance the inverse kinematics solver" << std::endl;
+            return 1;
         }
         ik.getJointPositions(jointPositions);
         ik.getJointVelocities(jointVelocities);
-        kinDyn->setJointPos(jointPositions);
+        ik.getBaseOrientation(baseOrientation);
+        ik.getBasePosition(basePosition);
+        // std::cout << "base orientation: " << baseOrientation << std::endl;
         // std::cout << "joint positions: " << jointPositions << std::endl;
         // std::cout << "joint velocities: " << jointVelocities << std::endl;
+        for (size_t jj = 0; jj < 31; jj++)
+        {
+            jointPos2[jj] = jointPos_data({jj, 0, ii});
+        }
+        iDynTree::Rotation w_R_b;
+        iDynTree::Position w_p_b;
+        iDynTree::toEigen(w_R_b) = baseOrientation;
+        iDynTree::toEigen(w_p_b) = basePosition;
+        w_H_b.setRotation(w_R_b);
+        w_H_b.setPosition(w_p_b);
+
+        iDynTree::toEigen(jointPos) = jointPositions;
+
+        modelViz.setPositions(w_H_b, jointPos);
+        viz.draw();
+        w_H_b = iDynTree::Transform::Identity();
+        modelViz2.setPositions(w_H_b, jointPos2);
+        viz2.draw();
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
-    ik.getJointPositions(jointPositions);
-    ik.getJointVelocities(jointVelocities);
-    std::cout << "joint positions: " << jointPositions << std::endl;
-    std::cout << "joint velocities: " << jointVelocities << std::endl;
+
+    std::cout << "done" << std::endl;
 
     return 0;
 }
