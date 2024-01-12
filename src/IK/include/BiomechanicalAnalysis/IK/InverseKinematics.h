@@ -115,13 +115,6 @@ public:
     int getDoFsNumber() const;
 
     /**
-     * set the initial joint positions
-     * @param qInitial initial joint positions
-     * @return true if the initial joint positions are set correctly
-    */
-    bool setInitialJointPositions(const Eigen::Ref<const Eigen::VectorXd> qInitial);
-
-    /**
      * set the orientation and the angular velocity of a given node
      * @param node node number
      * @param I_R_IMU orientation of the IMU

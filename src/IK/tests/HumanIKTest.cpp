@@ -32,9 +32,7 @@ TEST_CASE("InverseKinematic test")
     qInitial.setConstant(0.0);
 
     REQUIRE(ik.initialize(paramHandler, kinDyn));
-
     REQUIRE(ik.setDt(0.1));
-    REQUIRE(ik.setInitialJointPositions(qInitial));
     REQUIRE(ik.advance());
     REQUIRE(ik.getJointPositions(JointPositions));
     REQUIRE(ik.getJointVelocities(JointVelocities));

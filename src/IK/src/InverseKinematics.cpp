@@ -224,13 +224,6 @@ int HumanIK::getDoFsNumber() const
     return m_nrDoFs;
 }
 
-bool HumanIK::setInitialJointPositions(const Eigen::Ref<const Eigen::VectorXd> qInitial)
-{
-    m_jointPositions = qInitial;
-
-    return true;
-}
-
 bool HumanIK::setNodeSetPoint(int node,const iDynTree::Rotation &I_R_IMU,
                                            const iDynTree::AngVelocity &I_omega_IMU)
 {

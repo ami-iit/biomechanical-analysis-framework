@@ -170,7 +170,6 @@ int main() {
     }
 
     kinDyn->setRobotState(basePose, initialJointPositions, baseVelocity, initialJointVelocities, gravity);
-    ik.setInitialJointPositions(initialJointPositions);
     size_t maxIndex = 3;
     ik.setDt(0.01);
 
