@@ -14,7 +14,7 @@ TEST_CASE("InverseKinematic test")
     auto kinDyn = std::make_shared<iDynTree::KinDynComputations>();
 
     // set the number of DoFs
-    int nrDoFs = 10;
+    int nrDoFs = 20;
 
     const iDynTree::Model model = iDynTree::getRandomModel(nrDoFs);
     kinDyn->loadRobotModel(model);
@@ -31,14 +31,14 @@ TEST_CASE("InverseKinematic test")
 
     qInitial.setConstant(0.0);
 
-    ik.initialize(paramHandler, kinDyn);
+    REQUIRE(ik.initialize(paramHandler, kinDyn));
 
     REQUIRE(ik.setDt(0.1));
     REQUIRE(ik.setInitialJointPositions(qInitial));
     REQUIRE(ik.advance());
     REQUIRE(ik.getJointPositions(JointPositions));
     REQUIRE(ik.getJointVelocities(JointVelocities));
-  
+
     std::cout << "JointPositions = " << JointPositions.transpose() << std::endl;
     std::cout << "JointVelocities = " << JointVelocities.transpose() << std::endl;
 }
