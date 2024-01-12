@@ -46,15 +46,21 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
     m_system.integrator->setDynamicalSystem(m_system.dynamics);
 
     Eigen::Vector3d Weight;
-    Weight.setConstant(100.0);
+    Weight.setConstant(10.0);
 
     m_nrDoFs = kinDyn->getNrOfDegreesOfFreedom();
-
 
     auto ptr = handler.lock();
     if (ptr == nullptr)
     {
         BiomechanicalAnalysis::log()->error("{} Invalid parameters handler.", logPrefix);
+        return false;
+    }
+
+    std::vector<std::string> tasks;
+    if(!ptr->getParameter("tasks", tasks))
+    {
+        BiomechanicalAnalysis::log()->error("{} Parameter tasks is missing", logPrefix);
         return false;
     }
 
@@ -64,143 +70,59 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
     group->getParameter("robot_velocity_variable_name", variable);
     m_variableHandler.addVariable(variable, kinDyn->getNrOfDegreesOfFreedom() + 6);
 
-    m_PelvisTask.task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
-    ok = ok && m_PelvisTask.task->setKinDyn(kinDyn);
-    ok = ok && m_PelvisTask.task->initialize(ptr->getGroup("PELVIS_TASK"));
-    auto pelvisParam = ptr->getGroup("PELVIS_TASK").lock();
-    if (!pelvisParam->getParameter("node_number", m_PelvisTask.nodeNumber))
+    for(const auto& task : tasks)
     {
-        BiomechanicalAnalysis::log()->error("{} Parameter node_number of the PELVIS_TASK task is missing", logPrefix);
-        return false;
+        auto taskHandler = ptr->getGroup(task).lock();
+        if(taskHandler == nullptr)
+        {
+            BiomechanicalAnalysis::log()->error("{} Group {} is missing in the configuration file", logPrefix, task);
+            return false;
+        }
+        std::string taskType;
+        if(!taskHandler->getParameter("type", taskType))
+        {
+            BiomechanicalAnalysis::log()->error("{} Parameter task_type of the {} task is missing", logPrefix, task);
+            return false;
+        }
+        if(taskType == "SO3Task")
+        {
+            int nodeNumber;
+            if(!taskHandler->getParameter("node_number", nodeNumber))
+            {
+                BiomechanicalAnalysis::log()->error("{} Parameter node_number of the {} task is missing", logPrefix, task);
+                return false;
+            }
+            m_OrientationTasks[nodeNumber].nodeNumber = nodeNumber;
+            m_OrientationTasks[nodeNumber].task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
+            std::vector<double> rotation_matrix;
+            if(taskHandler->getParameter("rotation_matrix", rotation_matrix))
+            {
+                m_OrientationTasks[nodeNumber].IMU_R_link = iDynTree::Rotation(rotation_matrix.data(), 3, 3);
+            }
+            else
+            {
+                BiomechanicalAnalysis::log()->warn("{} Parameter rotation_matrix of the {} task is missing", logPrefix, task);
+            }
+            ok = ok && m_OrientationTasks[nodeNumber].task->setKinDyn(kinDyn);
+            ok = ok && m_OrientationTasks[nodeNumber].task->initialize(taskHandler);
+            ok = ok && m_qpIK.addTask(m_OrientationTasks[nodeNumber].task, task, lowPriority, Weight);
+            if(!ok)
+            {
+                BiomechanicalAnalysis::log()->error("{} Error in the initialization of the {} task", logPrefix, task);
+                return false;
+            }
+        }
+        else if(taskType == "GravityTask")
+        {
+            BiomechanicalAnalysis::log()->error("{} GravityTask not implemented yet", logPrefix);
+            return false;
+        }
+        else
+        {
+            BiomechanicalAnalysis::log()->error("{} Invalid task type {}", logPrefix, taskType);
+            return false;
+        }
     }
-    m_PelvisTask.IMU_R_link = iDynTree::Rotation(0.0, 1.0, 0.0,
-                                                0.0, 0.0, -1.0,
-                                                -1.0, 0.0, 0.0);
-    ok = ok && m_qpIK.addTask(m_PelvisTask.task, "pelvis_task", highPriority);
-    m_OrientationTasks[m_PelvisTask.nodeNumber] = m_PelvisTask;
-
-    m_T8Task.task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
-    ok = ok && m_T8Task.task->setKinDyn(kinDyn);
-    ok = ok && m_T8Task.task->initialize(ptr->getGroup("T8_TASK"));
-    auto T8Param = ptr->getGroup("T8_TASK").lock();
-    if (!T8Param->getParameter("node_number", m_T8Task.nodeNumber))
-    {
-        BiomechanicalAnalysis::log()->error("{} Parameter node_number of the T8_TASK task is missing", logPrefix);
-        return false;
-    }
-    m_T8Task.IMU_R_link = iDynTree::Rotation(0.0, 1.0, 0.0,
-                                                0.0, 0.0, 1.0,
-                                                1.0, 0.0, 0.0);
-    ok = ok && m_qpIK.addTask(m_T8Task.task, "T8_task", lowPriority, Weight);
-    m_OrientationTasks[m_T8Task.nodeNumber] = m_T8Task;
-
-    m_RightUpperArmTask.task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
-    ok = ok && m_RightUpperArmTask.task->setKinDyn(kinDyn);
-    ok = ok && m_RightUpperArmTask.task->initialize(ptr->getGroup("RIGHT_UPPER_ARM_TASK"));
-    auto rightUpperArmParam = ptr->getGroup("RIGHT_UPPER_ARM_TASK").lock();
-    if (!rightUpperArmParam->getParameter("node_number", m_RightUpperArmTask.nodeNumber))
-    {
-        BiomechanicalAnalysis::log()->error("{} Parameter node_number of the RIGHT_UPPER_ARM_TASK task is missing", logPrefix);
-        return false;
-    }
-    ok = ok && m_qpIK.addTask(m_RightUpperArmTask.task, "right_upper_arm_task", lowPriority, Weight);
-    m_OrientationTasks[m_RightUpperArmTask.nodeNumber] = m_RightUpperArmTask;
-
-    m_RightForeArmTask.task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
-    ok = ok && m_RightForeArmTask.task->setKinDyn(kinDyn);
-    ok = ok && m_RightForeArmTask.task->initialize(ptr->getGroup("RIGHT_FORE_ARM_TASK"));
-    auto rightForeArmParam = ptr->getGroup("RIGHT_FORE_ARM_TASK").lock();
-    if (!rightForeArmParam->getParameter("node_number", m_RightForeArmTask.nodeNumber))
-    {
-        BiomechanicalAnalysis::log()->error("{} Parameter node_number of the RIGHT_FORE_ARM_TASK task is missing", logPrefix);
-        return false;
-    }
-    ok = ok && m_qpIK.addTask(m_RightForeArmTask.task, "right_fore_arm_task", lowPriority, Weight);
-    m_OrientationTasks[m_RightForeArmTask.nodeNumber] = m_RightForeArmTask;
-
-    m_LeftUpperArmTask.task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
-    ok = ok && m_LeftUpperArmTask.task->setKinDyn(kinDyn);
-    ok = ok && m_LeftUpperArmTask.task->initialize(ptr->getGroup("LEFT_UPPER_ARM_TASK"));
-    auto leftUpperArmParam = ptr->getGroup("LEFT_UPPER_ARM_TASK").lock();
-    if (!leftUpperArmParam->getParameter("node_number", m_LeftUpperArmTask.nodeNumber))
-    {
-        BiomechanicalAnalysis::log()->error("{} Parameter node_number of the LEFT_UPPER_ARM_TASK task is missing", logPrefix);
-        return false;
-    }
-    ok = ok && m_qpIK.addTask(m_LeftUpperArmTask.task, "left_upper_arm_task", lowPriority, Weight);
-    m_OrientationTasks[m_LeftUpperArmTask.nodeNumber] = m_LeftUpperArmTask;
-
-    m_LeftForeArmTask.task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
-    ok = ok && m_LeftForeArmTask.task->setKinDyn(kinDyn);
-    ok = ok && m_LeftForeArmTask.task->initialize(ptr->getGroup("LEFT_FORE_ARM_TASK"));
-    auto leftForeArmParam = ptr->getGroup("LEFT_FORE_ARM_TASK").lock();
-    if (!leftForeArmParam->getParameter("node_number", m_LeftForeArmTask.nodeNumber))
-    {
-        BiomechanicalAnalysis::log()->error("{} Parameter node_number of the LEFT_FORE_ARM_TASK task is missing", logPrefix);
-        return false;
-    }
-    ok = ok && m_qpIK.addTask(m_LeftForeArmTask.task, "left_fore_arm_task", lowPriority, Weight);
-    m_OrientationTasks[m_LeftForeArmTask.nodeNumber] = m_LeftForeArmTask;
-
-    m_RightUpperLegTask.task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
-    ok = ok && m_RightUpperLegTask.task->setKinDyn(kinDyn);
-    ok = ok && m_RightUpperLegTask.task->initialize(ptr->getGroup("RIGHT_UPPER_LEG_TASK"));
-    auto rightUpperLegParam = ptr->getGroup("RIGHT_UPPER_LEG_TASK").lock();
-    if (!rightUpperLegParam->getParameter("node_number", m_RightUpperLegTask.nodeNumber))
-    {
-        BiomechanicalAnalysis::log()->error("{} Parameter node_number of the RIGHT_UPPER_LEG_TASK task is missing", logPrefix);
-        return false;
-    }
-    m_RightUpperLegTask.IMU_R_link = iDynTree::Rotation(1.0, 0.0, 0.0,
-                                                        0.0, 0.0, 1.0,
-                                                        0.0, -1.0, 0.0);
-    ok = ok && m_qpIK.addTask(m_RightUpperLegTask.task, "right_upper_leg_task", lowPriority, Weight);
-    m_OrientationTasks[m_RightUpperLegTask.nodeNumber] = m_RightUpperLegTask;
-
-    m_RightLowerLegTask.task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
-    ok = ok && m_RightLowerLegTask.task->setKinDyn(kinDyn);
-    ok = ok && m_RightLowerLegTask.task->initialize(ptr->getGroup("RIGHT_LOWER_LEG_TASK"));
-    auto rightLowerLegParam = ptr->getGroup("RIGHT_LOWER_LEG_TASK").lock();
-    if (!rightLowerLegParam->getParameter("node_number", m_RightLowerLegTask.nodeNumber))
-    {
-        BiomechanicalAnalysis::log()->error("{} Parameter node_number of the RIGHT_LOWER_LEG_TASK task is missing", logPrefix);
-        return false;
-    }
-    m_RightLowerLegTask.IMU_R_link = iDynTree::Rotation(1.0, 0.0, 0.0,
-                                                        0.0, 0.0, 1.0,
-                                                        0.0, -1.0, 0.0);
-    ok = ok && m_qpIK.addTask(m_RightLowerLegTask.task, "right_lower_leg_task", lowPriority, Weight);
-    m_OrientationTasks[m_RightLowerLegTask.nodeNumber] = m_RightLowerLegTask;
-
-    m_LeftUpperLegTask.task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
-    ok = ok && m_LeftUpperLegTask.task->setKinDyn(kinDyn);
-    ok = ok && m_LeftUpperLegTask.task->initialize(ptr->getGroup("LEFT_UPPER_LEG_TASK"));
-    auto leftUpperLegParam = ptr->getGroup("LEFT_UPPER_LEG_TASK").lock();
-    if (!leftUpperLegParam->getParameter("node_number", m_LeftUpperLegTask.nodeNumber))
-    {
-        BiomechanicalAnalysis::log()->error("{} Parameter node_number of the LEFT_UPPER_LEG_TASK task is missing", logPrefix);
-        return false;
-    }
-    m_LeftUpperLegTask.IMU_R_link = iDynTree::Rotation(1.0, 0.0, 0.0,
-                                                        0.0, 0.0, -1.0,
-                                                        0.0, 1.0, 0.0);
-    ok = ok && m_qpIK.addTask(m_LeftUpperLegTask.task, "left_upper_leg_task", lowPriority, Weight);
-    m_OrientationTasks[m_LeftUpperLegTask.nodeNumber] = m_LeftUpperLegTask;
-
-    m_LeftLowerLegTask.task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
-    ok = ok && m_LeftLowerLegTask.task->setKinDyn(kinDyn);
-    ok = ok && m_LeftLowerLegTask.task->initialize(ptr->getGroup("LEFT_LOWER_LEG_TASK"));
-    auto leftLowerLegParam = ptr->getGroup("LEFT_LOWER_LEG_TASK").lock();
-    if (!leftLowerLegParam->getParameter("node_number", m_LeftLowerLegTask.nodeNumber))
-    {
-        BiomechanicalAnalysis::log()->error("{} Parameter node_number of the LEFT_LOWER_LEG_TASK task is missing", logPrefix);
-        return false;
-    }
-    m_LeftLowerLegTask.IMU_R_link = iDynTree::Rotation(1.0, 0.0, 0.0,
-                                                        0.0, 0.0, -1.0,
-                                                        0.0, 1.0, 0.0);
-    ok = ok && m_qpIK.addTask(m_LeftLowerLegTask.task, "left_lower_leg_task", lowPriority, Weight);
-    m_OrientationTasks[m_LeftLowerLegTask.nodeNumber] = m_LeftLowerLegTask;
 
     m_qpIK.finalize(m_variableHandler);
 

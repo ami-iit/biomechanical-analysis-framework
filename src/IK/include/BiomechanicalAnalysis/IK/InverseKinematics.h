@@ -24,7 +24,7 @@ namespace IK
 {
 
 /**
- * HumanIK class is a class in which the inverse kinematics problem is solved.
+ * @brief HumanIK class is a class in which the inverse kinematics problem is solved.
 */
 class HumanIK
 {
