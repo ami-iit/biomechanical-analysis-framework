@@ -23,54 +23,56 @@ namespace BiomechanicalAnalysis
 namespace IK
 {
 
+/**
+ * HumanIK class is a class in which the inverse kinematics problem is solved.
+*/
 class HumanIK
 {
 private:
-    // Integration time step in nanoseconds
-    std::chrono::nanoseconds m_dtIntegration;
 
-    // Struct to integrate the base and joint velocities
+    std::chrono::nanoseconds m_dtIntegration; /** Integration time step in nanoseconds */
+
+    /**
+     * Struct containing the integrator and the dynamics
+    */
     struct System
     {
         std::shared_ptr<BipedalLocomotion::ContinuousDynamicalSystem::ForwardEuler<BipedalLocomotion::ContinuousDynamicalSystem::FloatingBaseSystemKinematics>> integrator;
         std::shared_ptr<BipedalLocomotion::ContinuousDynamicalSystem::FloatingBaseSystemKinematics> dynamics;
     };
 
-    // System to integrate the base and joint velocities
-    System m_system;    
+    System m_system; /** Struct containing the integrator and the dynamics */
 
-    // Joint positions and velocities
-    Eigen::VectorXd m_jointPositions;
-    Eigen::VectorXd m_jointVelocities;
-    Eigen::Matrix4d m_basePose;
-    Eigen::Matrix<double, 6, 1> m_baseVelocity;
-    Eigen::Vector3d m_gravity;
+    Eigen::VectorXd m_jointPositions; /** Position of the joints */
+    Eigen::VectorXd m_jointVelocities; /** Velocity of the joints */
+    Eigen::Matrix4d m_basePose; /** SO3 pose of the base */
+    Eigen::Matrix<double, 6, 1> m_baseVelocity; /** Vector containing the linear and angular velocity of the base */
+    Eigen::Vector3d m_gravity; /** Gravity vector */
 
-    manif::SO3d I_R_link_manif;
-    manif::SO3Tangentd I_omega_link_manif;
+    manif::SO3d I_R_link_manif; /** orientation of the link in the inertial frame */
+    manif::SO3Tangentd I_omega_link_manif; /** angular velocity of the link in the inertial frame */
 
-    iDynTree::Rotation I_R_link;
-    iDynTree::AngVelocity I_omega_link;
+    iDynTree::Rotation I_R_link; /** orientation of the link in the inertial frame */
+    iDynTree::AngVelocity I_omega_link; /** angular velocity of the link in the inertial frame */
 
+    /**
+     * Struct containing the orientation task, the node number and the rotation matrix between the IMU and the link
+    */
     struct OrientationTask
     {
-        /* data */
         std::shared_ptr<BipedalLocomotion::IK::SO3Task> task;
         int nodeNumber;
         iDynTree::Rotation IMU_R_link = iDynTree::Rotation::Identity();
     };
 
-    // unordered map of the orientation tasks
-    std::unordered_map<int, OrientationTask> m_OrientationTasks;
+    std::unordered_map<int, OrientationTask> m_OrientationTasks; /** unordered map of the orientation tasks */
 
-    // pointer to the KinDynComputations object
-    std::shared_ptr<iDynTree::KinDynComputations> m_kinDyn;
+    std::shared_ptr<iDynTree::KinDynComputations> m_kinDyn; /** pointer to the KinDynComputations object */
 
-    // Number of Joint Degrees of Freedom
-    int m_nrDoFs;
+    int m_nrDoFs; /** Number of Joint Degrees of Freedom */
 
-    BipedalLocomotion::IK::QPInverseKinematics m_qpIK;
-    BipedalLocomotion::System::VariablesHandler m_variableHandler;
+    BipedalLocomotion::IK::QPInverseKinematics m_qpIK; /** QP Inverse Kinematics solver */
+    BipedalLocomotion::System::VariablesHandler m_variableHandler; /** Variables handler */
 
 public:
 
