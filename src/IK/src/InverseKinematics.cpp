@@ -15,16 +15,6 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
     constexpr std::size_t highPriority = 0;
     constexpr std::size_t lowPriority = 1;
     constexpr auto logPrefix = "[HumanIK::initialize]";
-    OrientationTask m_PelvisTask;
-    OrientationTask m_T8Task;
-    OrientationTask m_RightUpperArmTask;
-    OrientationTask m_RightForeArmTask;
-    OrientationTask m_LeftUpperArmTask;
-    OrientationTask m_LeftForeArmTask;
-    OrientationTask m_RightUpperLegTask;
-    OrientationTask m_RightLowerLegTask;
-    OrientationTask m_LeftUpperLegTask;
-    OrientationTask m_LeftLowerLegTask;
 
     if ((kinDyn == nullptr) || (!kinDyn->isValid()))
     {
@@ -97,11 +87,14 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
             std::vector<double> rotation_matrix;
             if(taskHandler->getParameter("rotation_matrix", rotation_matrix))
             {
-                m_OrientationTasks[nodeNumber].IMU_R_link = iDynTree::Rotation(rotation_matrix.data(), 3, 3);
+                m_OrientationTasks[nodeNumber].IMU_R_link = BipedalLocomotion::Conversions::toManifRot(Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(rotation_matrix.data()));
             }
             else
             {
-                BiomechanicalAnalysis::log()->warn("{} Parameter rotation_matrix of the {} task is missing", logPrefix, task);
+                std::string frame_name;
+                taskHandler->getParameter("frame_name", frame_name);
+                BiomechanicalAnalysis::log()->warn("{} Parameter rotation_matrix of the {} task is missing, setting the rotation matrix from the IMU to the frame {} to identity", logPrefix, task, frame_name);
+                m_OrientationTasks[nodeNumber].IMU_R_link.setIdentity();
             }
             ok = ok && m_OrientationTasks[nodeNumber].task->setKinDyn(kinDyn);
             ok = ok && m_OrientationTasks[nodeNumber].task->initialize(taskHandler);
@@ -146,8 +139,8 @@ int HumanIK::getDoFsNumber() const
     return m_nrDoFs;
 }
 
-bool HumanIK::setNodeSetPoint(int node,const iDynTree::Rotation &I_R_IMU,
-                                           const iDynTree::AngVelocity &I_omega_IMU)
+bool HumanIK::setNodeSetPoint(const int node,const manif::SO3d &I_R_IMU,
+                                           const manif::SO3Tangentd &I_omega_IMU)
 {
     bool ok;
     if(m_OrientationTasks.find(node) == m_OrientationTasks.end())
@@ -156,10 +149,7 @@ bool HumanIK::setNodeSetPoint(int node,const iDynTree::Rotation &I_R_IMU,
         return false;
     }
     I_R_link = I_R_IMU * m_OrientationTasks[node].IMU_R_link;
-    iDynTree::toEigen(I_omega_link) = iDynTree::toEigen(I_omega_IMU).transpose() * iDynTree::toEigen(m_OrientationTasks[node].IMU_R_link);
-    I_R_link_manif = manif::SO3d(I_R_link.asQuaternion()(1), I_R_link.asQuaternion()(2), I_R_link.asQuaternion()(3), I_R_link.asQuaternion()(0));
-    I_omega_link_manif = manif::SO3Tangentd(iDynTree::toEigen(I_omega_link));
-    ok = m_OrientationTasks[node].task->setSetPoint(I_R_link_manif, I_omega_link_manif);
+    ok = m_OrientationTasks[node].task->setSetPoint(I_R_link, I_omega_IMU);
     return ok;
 }
 

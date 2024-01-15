@@ -3,6 +3,7 @@
 
 #include <BiomechanicalAnalysis/IK/InverseKinematics.h>
 #include <iDynTree/ModelTestUtils.h>
+#include <manif/SO3.h>
 
 #include <BipedalLocomotion/ParametersHandler/IParametersHandler.h>
 #include <BipedalLocomotion/ParametersHandler/StdImplementation.h>
@@ -29,10 +30,16 @@ TEST_CASE("InverseKinematic test")
     Eigen::VectorXd qInitial(kinDyn->getNrOfDegreesOfFreedom());
     BiomechanicalAnalysis::IK::HumanIK ik;
 
+    manif::SO3d I_R_IMU;
+    manif::SO3Tangentd I_omega_IMU;
+    I_R_IMU.setRandom();
+    I_omega_IMU.setRandom();
+
     qInitial.setConstant(0.0);
 
     REQUIRE(ik.initialize(paramHandler, kinDyn));
     REQUIRE(ik.setDt(0.1));
+    REQUIRE(ik.setNodeSetPoint(3, I_R_IMU, I_omega_IMU));
     REQUIRE(ik.advance());
     REQUIRE(ik.getJointPositions(JointPositions));
     REQUIRE(ik.getJointVelocities(JointVelocities));

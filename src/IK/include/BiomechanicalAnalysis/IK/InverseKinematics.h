@@ -52,8 +52,8 @@ private:
     manif::SO3d I_R_link_manif; /** orientation of the link in the inertial frame */
     manif::SO3Tangentd I_omega_link_manif; /** angular velocity of the link in the inertial frame */
 
-    iDynTree::Rotation I_R_link; /** orientation of the link in the inertial frame */
-    iDynTree::AngVelocity I_omega_link; /** angular velocity of the link in the inertial frame */
+    manif::SO3d I_R_link; /** orientation of the link in the inertial frame */
+    manif::SO3Tangentd I_omega_link; /** angular velocity of the link in the inertial frame */
 
     /**
      * Struct containing the orientation task, the node number and the rotation matrix between the IMU and the link
@@ -62,7 +62,7 @@ private:
     {
         std::shared_ptr<BipedalLocomotion::IK::SO3Task> task;
         int nodeNumber;
-        iDynTree::Rotation IMU_R_link = iDynTree::Rotation::Identity();
+        manif::SO3d IMU_R_link;
     };
 
     std::unordered_map<int, OrientationTask> m_OrientationTasks; /** unordered map of the orientation tasks */
@@ -120,8 +120,8 @@ public:
      * @param I_R_IMU orientation of the IMU
      * @param I_omega_IMU angular velocity of the IMU
     */
-    bool setNodeSetPoint(int node,const iDynTree::Rotation &I_R_IMU,
-                                           const iDynTree::AngVelocity &I_omega_IMU);
+    bool setNodeSetPoint(const int node,const manif::SO3d &I_R_IMU,
+                                           const manif::SO3Tangentd &I_omega_IMU = manif::SO3d::Tangent::Zero());
 
     /**
      * advance the inverse kinematics solver
