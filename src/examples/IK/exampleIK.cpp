@@ -180,7 +180,8 @@ int main() {
         {
             // cycle over nodes to get orientation and angular velocity
             getNodeData(ifeel_data, node, ii, I_R_IMU, I_omega_IMU);
-            if (!ik.setNodeSetPoint(node, I_R_IMU, I_omega_IMU))
+            manif::SO3d I_R_IMU_manif;
+            if (!ik.setNodeSetPoint(node, I_R_IMU_manif))
             {
                 std::cerr << "[error] Cannot set the node number " << node << " set point" << std::endl;
                 return 1;
