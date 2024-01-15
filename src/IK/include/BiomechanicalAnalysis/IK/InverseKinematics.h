@@ -25,6 +25,28 @@ namespace IK
 
 /**
  * @brief HumanIK class is a class in which the inverse kinematics problem is solved.
+ * @note the following parameters are required by the class
+ * |   Group   |         Parameter Name         |       Type      |                                           Description                                          | Mandatory |
+ * |:---------:|:------------------------------:|:---------------:|:----------------------------------------------------------------------------------------------:|:---------:|
+ * |           |           `tasks`              | `vector<string>`|         Vector containing the list of the tasks considered in the IK.                          |    Yes    |
+ * |   `IK`    | `robot_velocity_variable_name` |     `string`    | Name of the variable contained in `VariablesHandler` describing the generalized robot velocity |    Yes    |
+ * |   `IK`    |           `verbosity`          |      `bool`     |                         Verbosity of the solver. Default value `false`                         |     No    |
+ * Where the generalized robot velocity is a vector containing the base spatialvelocity
+ * (expressed in mixed representation) and the joint velocities.
+ * For **each** task listed in the parameter `tasks` the user must specify all the parameters
+ * required by the task itself but `robot_velocity_variable_name` since is already specified in
+ * the `IK` group. Moreover, each task requires a parameter `type` that identifies the type of
+ * task. Up to now, only the "SO3Task" is implemented.
+ * The "SO3Task" requires the following parameters:
+ * |   Group   |         Parameter Name         |       Type      |                                       Description                                       | Mandatory |
+ * |:---------:|:------------------------------:|:---------------:|:---------------------------------------------------------------------------------------:|:---------:|
+ * | `SO3Task` |           `type`               |     `string`    |                         Type of the task. The value to be set is `SO3Task`              |  Yes |
+ * | `SO3Task` | `robot_velocity_variable_name` |     `string`    |Name of the variable contained in `VariablesHandler` describing the generalized robot velocity|  Yes |
+ * | `SO3Task` |           `node`               |      `int`      |                    Node number of the task. The node number must be unique.             |  Yes |
+ * | `SO3Task` |      `rotation_matrix`         | `vector<double>`|    Rotation matrix between the IMU and the link. By default it set to identity.         |  No  |
+ * | `SO3Task` |         `frame_name`           |     `string`    |                          Name of the frame in which the task is expressed.              |  Yes |
+ * | `SO3Task` |         `kp_angular`           |     `double`    |                        Value of the gain of the angular velocity feedback.              |  Yes |
+ * `SO3Task` is a placeholder for the name of the task contained in the `tasks` list.
 */
 class HumanIK
 {
@@ -91,6 +113,46 @@ public:
      * @param handler pointer to the parameters handler
      * @param kinDyn pointer to the KinDynComputations object
      * @return true if all the tasks are initialized correctly
+     * @note the following parameters are required by the class
+     * |   Group   |         Parameter Name         |       Type      |                                           Description                                          | Mandatory |
+     * |:---------:|:------------------------------:|:---------------:|:----------------------------------------------------------------------------------------------:|:---------:|
+     * |           |           `tasks`              | `vector<string>`|         Vector containing the list of the tasks considered in the IK.                          |    Yes    |
+     * |   `IK`    | `robot_velocity_variable_name` |     `string`    | Name of the variable contained in `VariablesHandler` describing the generalized robot velocity |    Yes    |
+     * |   `IK`    |           `verbosity`          |      `bool`     |                         Verbosity of the solver. Default value `false`                         |     No    |
+     * Where the generalized robot velocity is a vector containing the base spatialvelocity
+     * (expressed in mixed representation) and the joint velocities.
+     * For **each** task listed in the parameter `tasks` the user must specify all the parameters
+     * required by the task itself but `robot_velocity_variable_name` since is already specified in
+     * the `IK` group. Moreover, each task requires a parameter `type` that identifies the type of
+     * task. Up to now, only the "SO3Task" is implemented.
+     * The "SO3Task" requires the following parameters:
+     * |   Group   |         Parameter Name         |       Type      |                                       Description                                       | Mandatory |
+     * |:---------:|:------------------------------:|:---------------:|:---------------------------------------------------------------------------------------:|:---------:|
+     * | `SO3Task` |           `type`               |     `string`    |                         Type of the task. The value to be set is `SO3Task`              |  Yes |
+     * | `SO3Task` | `robot_velocity_variable_name` |     `string`    |Name of the variable contained in `VariablesHandler` describing the generalized robot velocity|  Yes |
+     * | `SO3Task` |           `node`               |      `int`      |                    Node number of the task. The node number must be unique.             |  Yes |
+     * | `SO3Task` |      `rotation_matrix`         | `vector<double>`|    Rotation matrix between the IMU and the link. By default it set to identity.         |  No  |
+     * | `SO3Task` |         `frame_name`           |     `string`    |                          Name of the frame in which the task is expressed.              |  Yes |
+     * | `SO3Task` |         `kp_angular`           |     `double`    |                        Value of the gain of the angular velocity feedback.              |  Yes |
+     * `SO3Task` is a placeholder for the name of the task contained in the `tasks` list.
+     * @note The following `ini` file presents an example of the configuration that can be used to
+     * build the HumanIK class.
+     *  ~~~~~{.ini}
+     * tasks                           ("PELVIS_TASK")
+     * 
+     * [IK]
+     * robot_velocity_variable_name    "robot_velocity"
+     * verbosity                       false
+     * 
+     * [PELVIS_TASK]
+     * type                            "SO3Task"
+     * robot_velocity_variable_name    "robot_velocity"
+     * frame_name                      "Pelvis"
+     * kp_angular                      5.0
+     * node_number                     3
+     * rotation_matrix                 (0.0, 1.0, 0.0,
+     *                                  0.0, 0.0, -1.0,
+     *                                 -1.0, 0.0, 0.0)
     */
     bool initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandler::IParametersHandler> handler,
                 std::shared_ptr<iDynTree::KinDynComputations> kinDyn);
