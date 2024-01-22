@@ -1,27 +1,37 @@
-#include <iostream>
 #include <BiomechanicalAnalysis/IK/InverseKinematics.h>
 #include <BipedalLocomotion/ParametersHandler/YarpImplementation.h>
-#include <matioCpp/matioCpp.h>
-#include <iDynTree/ModelTestUtils.h>
-#include <iDynTree/ModelLoader.h>
-#include <iDynTree/EigenHelpers.h>
-#include <yarp/os/ResourceFinder.h>
-#include <iDynTree/Visualizer.h>
 #include <chrono>
+#include <iDynTree/EigenHelpers.h>
+#include <iDynTree/ModelLoader.h>
+#include <iDynTree/ModelTestUtils.h>
+#include <iDynTree/Visualizer.h>
+#include <iostream>
+#include <matioCpp/matioCpp.h>
 #include <thread>
+#include <yarp/os/ResourceFinder.h>
 
-bool getNodeData(matioCpp::Struct &ifeel_struct, int nodeNum, size_t index_i, iDynTree::Rotation &I_R_IMU, iDynTree::AngVelocity &I_omeg_IMU)
+bool getNodeData(matioCpp::Struct& ifeel_struct,
+                 int nodeNum,
+                 size_t index_i,
+                 iDynTree::Rotation& I_R_IMU,
+                 iDynTree::AngVelocity& I_omeg_IMU)
 {
-    matioCpp::Struct vLink_node = ifeel_struct("iFeelSuit_vLink_Node_" + std::to_string(nodeNum)).asStruct();
+    matioCpp::Struct vLink_node
+        = ifeel_struct("iFeelSuit_vLink_Node_" + std::to_string(nodeNum)).asStruct();
     if (!vLink_node.isValid())
     {
-        std::cerr << "[error] Cannot read the iFeelSuit_vLink_Node_" + std::to_string(nodeNum) + " struct" << std::endl;
+        std::cerr << "[error] Cannot read the iFeelSuit_vLink_Node_" + std::to_string(nodeNum)
+                         + " struct"
+                  << std::endl;
         return false;
     }
-    matioCpp::MultiDimensionalArray<double> data1 = vLink_node("data").asMultiDimensionalArray<double>();
+    matioCpp::MultiDimensionalArray<double> data1
+        = vLink_node("data").asMultiDimensionalArray<double>();
     if (!data1.isValid())
     {
-        std::cerr << "[error] Cannot read the data field of the iFeelSuit_vLink_Node_" + std::to_string(nodeNum) + " struct" << std::endl;
+        std::cerr << "[error] Cannot read the data field of the iFeelSuit_vLink_Node_"
+                         + std::to_string(nodeNum) + " struct"
+                  << std::endl;
         return false;
     }
 
@@ -89,7 +99,8 @@ std::vector<std::string> getJointsList()
     return nodesName;
 }
 
-int main() {
+int main()
+{
 
     yarp::os::ResourceFinder rf;
     auto kinDyn = std::make_shared<iDynTree::KinDynComputations>();
@@ -99,11 +110,11 @@ int main() {
     kinDyn->loadRobotModel(mdlLoader.model());
     iDynTree::Visualizer viz;
     viz.addModel(mdlLoader.model(), "model");
-    iDynTree::IModelVisualization &modelViz = viz.modelViz("model");
+    iDynTree::IModelVisualization& modelViz = viz.modelViz("model");
     viz.draw();
     iDynTree::Visualizer viz2;
     viz2.addModel(mdlLoader.model(), "model2");
-    iDynTree::IModelVisualization &modelViz2 = viz2.modelViz("model2");
+    iDynTree::IModelVisualization& modelViz2 = viz2.modelViz("model2");
     viz2.draw();
 
     iDynTree::Rotation I_R_IMU;
@@ -130,7 +141,8 @@ int main() {
     basePose.setIdentity();
     baseVelocity.setZero();
 
-    auto paramHandler = std::make_shared<BipedalLocomotion::ParametersHandler::YarpImplementation>();
+    auto paramHandler
+        = std::make_shared<BipedalLocomotion::ParametersHandler::YarpImplementation>();
 
     if (!paramHandler->setFromFile("/path/to/exampleIK.ini"))
     {
@@ -147,7 +159,8 @@ int main() {
     matioCpp::Struct human_data = file2.read("human_data").asStruct();
     matioCpp::Struct human_state = human_data("human_state").asStruct();
     matioCpp::Struct joint_positions = human_state("joint_positions").asStruct();
-    matioCpp::MultiDimensionalArray<double> jointPos_data = joint_positions("data").asMultiDimensionalArray<double>();
+    matioCpp::MultiDimensionalArray<double> jointPos_data
+        = joint_positions("data").asMultiDimensionalArray<double>();
 
     for (size_t ii = 0; ii < 31; ii++)
     {
@@ -169,21 +182,26 @@ int main() {
         return 1;
     }
 
-    kinDyn->setRobotState(basePose, initialJointPositions, baseVelocity, initialJointVelocities, gravity);
+    kinDyn->setRobotState(basePose,
+                          initialJointPositions,
+                          baseVelocity,
+                          initialJointVelocities,
+                          gravity);
     size_t maxIndex = 3;
     ik.setDt(0.01);
 
     for (size_t ii = 0; ii < dataLength; ii++)
     {
         // implement cycle
-        for(auto& node : nodesNumber)
+        for (auto& node : nodesNumber)
         {
             // cycle over nodes to get orientation and angular velocity
             getNodeData(ifeel_data, node, ii, I_R_IMU, I_omega_IMU);
             manif::SO3d I_R_IMU_manif;
             if (!ik.setNodeSetPoint(node, I_R_IMU_manif))
             {
-                std::cerr << "[error] Cannot set the node number " << node << " set point" << std::endl;
+                std::cerr << "[error] Cannot set the node number " << node << " set point"
+                          << std::endl;
                 return 1;
             }
         }

@@ -1,7 +1,7 @@
 /**
  * @file FolderPath.h(.in)
  * @authors Davide Gorbani
-*/
+ */
 
 #ifndef CONFIG_FOLDERPATH_H_IN
 #define CONFIG_FOLDERPATH_H_IN

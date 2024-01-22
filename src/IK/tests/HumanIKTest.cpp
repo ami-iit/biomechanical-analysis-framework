@@ -19,7 +19,8 @@ TEST_CASE("InverseKinematic test")
 
     const iDynTree::Model model = iDynTree::getRandomModel(nrDoFs);
     kinDyn->loadRobotModel(model);
-    auto paramHandler = std::make_shared<BipedalLocomotion::ParametersHandler::YarpImplementation>();
+    auto paramHandler
+        = std::make_shared<BipedalLocomotion::ParametersHandler::YarpImplementation>();
 
     REQUIRE(paramHandler->setFromFile(getConfigPath()));
 

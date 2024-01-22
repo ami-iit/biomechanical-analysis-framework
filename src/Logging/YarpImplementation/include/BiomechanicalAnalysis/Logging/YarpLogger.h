@@ -12,7 +12,7 @@ namespace Logging
  */
 void useYarpLogger();
 
-}
-}
+} // namespace Logging
+} // namespace BiomechanicalAnalysis
 
 #endif // BIOMECHANICAL_ANALYSIS_YARP_LOGGER_H
