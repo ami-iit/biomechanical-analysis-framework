@@ -2,7 +2,6 @@
 #include <BiomechanicalAnalysis/Logging/Logger.h>
 #include <BipedalLocomotion/Conversions/ManifConversions.h>
 #include <iDynTree/EigenHelpers.h>
-#include <iostream>
 
 using namespace BiomechanicalAnalysis::IK;
 using namespace BipedalLocomotion::ContinuousDynamicalSystem;
