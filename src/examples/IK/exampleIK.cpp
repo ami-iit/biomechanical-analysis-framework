@@ -61,7 +61,7 @@ bool getNodeData(matioCpp::Struct& ifeel_struct,
     return true;
 }
 
-std::vector<std::string> getJointsList()
+const std::vector<std::string> getJointsList()
 {
     std::vector<std::string> nodesName;
     nodesName.push_back("jT9T8_rotx");
@@ -97,6 +97,21 @@ std::vector<std::string> getJointsList()
     nodesName.push_back("jL5S1_roty");
 
     return nodesName;
+}
+
+/**
+ * @brief This function converts the quaternion from iDynTree to Eigen::Quaterniond.
+ * @param rot The object of iDynTree::Rotation.
+ * @return The rotation in Eigen::Quaterniond format.
+ */
+Eigen::Quaterniond fromiDynTreeToEigenQuatConversion(const iDynTree::Rotation& rot)
+{
+    Eigen::Quaterniond quat;
+    quat.x() = rot.asQuaternion()[1];
+    quat.y() = rot.asQuaternion()[2];
+    quat.z() = rot.asQuaternion()[3];
+    quat.w() = rot.asQuaternion()[0];
+    return quat;
 }
 
 int main()
@@ -192,16 +207,15 @@ int main()
 
     for (size_t ii = 0; ii < dataLength; ii++)
     {
-        // implement cycle
+        // implement cycle over the nodes
         for (auto& node : nodesNumber)
         {
             // cycle over nodes to get orientation and angular velocity
             getNodeData(ifeel_data, node, ii, I_R_IMU, I_omega_IMU);
-            manif::SO3d I_R_IMU_manif = manif::SO3d(I_R_IMU.asQuaternion()[1],
-                                                    I_R_IMU.asQuaternion()[2],
-                                                    I_R_IMU.asQuaternion()[3],
-                                                    I_R_IMU.asQuaternion()[0]);
+
             manif::SO3Tangentd I_omega_IMU_manif;
+            // manif object is built from Eigen::Quaterniond
+            manif::SO3d I_R_IMU_manif = manif::SO3d(fromiDynTreeToEigenQuatConversion(I_R_IMU));
             I_omega_IMU_manif = manif::SO3Tangentd(iDynTree::toEigen(I_omega_IMU));
 
             if (!ik.setNodeSetPoint(node, I_R_IMU_manif, I_omega_IMU_manif))
