@@ -172,9 +172,24 @@ bool HumanIK::setNodeSetPoint(const int node,
         BiomechanicalAnalysis::log()->error("[HumanIK::setNodeSetPoint] Invalid node number.");
         return false;
     }
-    I_R_link = I_R_IMU * m_OrientationTasks[node].IMU_R_link;
+    I_R_link = m_OrientationTasks[node].calibrationMatrix * I_R_IMU
+               * m_OrientationTasks[node].IMU_R_link;
     ok = m_OrientationTasks[node].task->setSetPoint(I_R_link, I_omega_IMU);
     return ok;
+}
+
+bool HumanIK::TPoseCalibrationNode(const int node, const manif::SO3d& I_R_IMU)
+{
+    if (m_OrientationTasks.find(node) == m_OrientationTasks.end())
+    {
+        BiomechanicalAnalysis::log()->error("[HumanIK::setNodeSetPoint] Invalid node number.");
+        return false;
+    }
+    m_OrientationTasks[node].calibrationMatrix
+        = calib_R_link * (I_R_IMU * m_OrientationTasks[node].IMU_R_link).inverse();
+    std::cout << "calibration matrix of node " << node << ": "
+              << m_OrientationTasks[node].calibrationMatrix << std::endl;
+    return true;
 }
 
 bool HumanIK::advance()

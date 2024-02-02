@@ -91,7 +91,10 @@ private:
         std::shared_ptr<BipedalLocomotion::IK::SO3Task> task;
         int nodeNumber;
         manif::SO3d IMU_R_link;
+        manif::SO3d calibrationMatrix = manif::SO3d::Identity();
     };
+
+    manif::SO3d calib_R_link = manif::SO3d::Identity();
 
     std::unordered_map<int, OrientationTask> m_OrientationTasks; /** unordered map of the
                                                                     orientation tasks */
@@ -195,6 +198,8 @@ public:
     bool setNodeSetPoint(const int node,
                          const manif::SO3d& I_R_IMU,
                          const manif::SO3Tangentd& I_omega_IMU = manif::SO3d::Tangent::Zero());
+
+    bool TPoseCalibrationNode(const int node, const manif::SO3d& I_R_IMU);
 
     /**
      * advance the inverse kinematics solver
