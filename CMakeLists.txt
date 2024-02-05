@@ -16,6 +16,8 @@ option(BUILD_SHARED_LIBS "Build libraries as shared as opposed to static" ON)
 option(BUILD_TESTING "Create tests using CMake" OFF)
 include(CTest)
 
+option(BUILD_EXAMPLES "Compile examples of the implemented classes" OFF)
+
 # Check BiomechanicalAnalysisFramework dependencies, find necessary libraries.
 include(BiomechanicalAnalysisFrameworkDependencies)
 

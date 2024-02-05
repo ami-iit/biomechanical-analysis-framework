@@ -1,5 +1,5 @@
 /**
- * @file InverseKinematic.h
+ * @file CommonConversions.h
  * @authors Davide Gorbani <davide.gorbani@iit.it>
  */
 

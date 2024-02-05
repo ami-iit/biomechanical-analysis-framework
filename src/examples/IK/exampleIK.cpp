@@ -1,14 +1,22 @@
-#include <BiomechanicalAnalysis/IK/InverseKinematics.h>
-#include <BipedalLocomotion/ParametersHandler/YarpImplementation.h>
-#include <chrono>
+/**
+ * @file ExampleIK.h
+ * @authors Davide Gorbani <davide.gorbani@iit.it>
+ */
+
+#include <iostream>
+
 #include <iDynTree/EigenHelpers.h>
 #include <iDynTree/ModelLoader.h>
 #include <iDynTree/ModelTestUtils.h>
 #include <iDynTree/Visualizer.h>
-#include <iostream>
 #include <matioCpp/matioCpp.h>
-#include <thread>
 #include <yarp/os/ResourceFinder.h>
+
+#include <BiomechanicalAnalysis/Conversions/CommonConversions.h>
+#include <BiomechanicalAnalysis/IK/InverseKinematics.h>
+#include <BipedalLocomotion/ParametersHandler/YarpImplementation.h>
+
+using namespace BiomechanicalAnalysis::Conversions;
 
 bool getNodeData(matioCpp::Struct& ifeel_struct,
                  int nodeNum,
@@ -99,21 +107,6 @@ const std::vector<std::string> getJointsList()
     return nodesName;
 }
 
-/**
- * @brief This function converts the quaternion from iDynTree to Eigen::Quaterniond.
- * @param rot The object of iDynTree::Rotation.
- * @return The rotation in Eigen::Quaterniond format.
- */
-Eigen::Quaterniond fromiDynTreeToEigenQuatConversion(const iDynTree::Rotation& rot)
-{
-    Eigen::Quaterniond quat;
-    quat.x() = rot.asQuaternion()[1];
-    quat.y() = rot.asQuaternion()[2];
-    quat.z() = rot.asQuaternion()[3];
-    quat.w() = rot.asQuaternion()[0];
-    return quat;
-}
-
 int main()
 {
 
@@ -145,6 +138,7 @@ int main()
     Eigen::Vector3d basePosition;
     iDynTree::VectorDynSize jointPos, jointPos2;
     iDynTree::Transform w_H_b = iDynTree::Transform::Identity();
+    iDynTree::Transform w_H_b2 = iDynTree::Transform::Identity();
     jointPos.resize(kinDyn->getNrOfDegreesOfFreedom());
     jointPos2.resize(kinDyn->getNrOfDegreesOfFreedom());
     jointVelocities.resize(kinDyn->getNrOfDegreesOfFreedom());
@@ -245,18 +239,13 @@ int main()
         iDynTree::Position w_p_b;
         iDynTree::toEigen(w_R_b) = baseOrientation;
         iDynTree::toEigen(w_p_b) = basePosition;
-        w_H_b.setRotation(w_R_b);
-        w_H_b.setPosition(w_p_b);
 
         iDynTree::toEigen(jointPos) = jointPositions;
 
         modelViz.setPositions(w_H_b, jointPos);
         viz.draw();
-        w_H_b = iDynTree::Transform::Identity();
-        modelViz2.setPositions(w_H_b, jointPos2);
+        modelViz2.setPositions(w_H_b2, jointPos2);
         viz2.draw();
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 
     std::cout << "done" << std::endl;

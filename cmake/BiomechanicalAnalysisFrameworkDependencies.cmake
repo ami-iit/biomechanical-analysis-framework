@@ -20,3 +20,7 @@ option(FRAMEWORK_COMPILE_YarpImplementation "Compile utilities for YARP" ${YARP_
 framework_dependent_option(FRAMEWORK_COMPILE_tests
   "Compile tests?" ON
   "Catch2_FOUND;BUILD_TESTING" OFF)
+
+  framework_dependent_option(FRAMEWORK_COMPILE_examples
+  "Compile examples?" ON
+  "BUILD_EXAMPLES" OFF)
