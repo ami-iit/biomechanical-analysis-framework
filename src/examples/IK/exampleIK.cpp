@@ -4,6 +4,7 @@
  */
 
 #include <iostream>
+#include <thread>
 
 #include <iDynTree/EigenHelpers.h>
 #include <iDynTree/ModelLoader.h>
@@ -17,6 +18,9 @@
 #include <BipedalLocomotion/ParametersHandler/YarpImplementation.h>
 
 using namespace BiomechanicalAnalysis::Conversions;
+
+std::atomic<bool> tPoseFlag{false};
+std::atomic<bool> stopThread{false};
 
 bool getNodeData(matioCpp::Struct& ifeel_struct,
                  int nodeNum,
@@ -105,6 +109,28 @@ const std::vector<std::string> getJointsList()
     nodesName.push_back("jL5S1_roty");
 
     return nodesName;
+}
+
+void setTPoseThread()
+{
+    std::cout << "Enter 'calib' to run the T-pose calibration" << std::endl;
+    std::string input;
+    while (!stopThread)
+    {
+        std::cout << ">> ";
+        std::cin >> input;
+        if (input == "calib")
+        {
+            tPoseFlag = true;
+        } else
+        {
+            std::cout << input
+                      << " is an invalid input; please enter 'calib' if you want to run the T-pose "
+                         "calibration"
+                      << std::endl;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
 }
 
 int main()
@@ -196,21 +222,35 @@ int main()
                           baseVelocity,
                           initialJointVelocities,
                           gravity);
-    size_t maxIndex = 3;
     ik.setDt(0.01);
+
+    std::thread tPoseThread = std::thread(setTPoseThread);
 
     for (size_t ii = 0; ii < dataLength; ii++)
     {
+        // perform the T-pose calibration if the user inputs 't'
+        if (tPoseFlag)
+        {
+            for (auto& node : nodesNumber)
+            {
+                getNodeData(ifeel_data, node, ii, I_R_IMU, I_omega_IMU);
+                ik.TPoseCalibrationNode(node,
+                                        manif::SO3d(fromiDynTreeToEigenQuatConversion(I_R_IMU)));
+            }
+            std::cout << "T-pose calibration done" << std::endl;
+            tPoseFlag = false;
+        }
+
         // implement cycle over the nodes
         for (auto& node : nodesNumber)
         {
             // cycle over nodes to get orientation and angular velocity
             getNodeData(ifeel_data, node, ii, I_R_IMU, I_omega_IMU);
 
-            manif::SO3Tangentd I_omega_IMU_manif;
             // manif object is built from Eigen::Quaterniond
             manif::SO3d I_R_IMU_manif = manif::SO3d(fromiDynTreeToEigenQuatConversion(I_R_IMU));
-            I_omega_IMU_manif = manif::SO3Tangentd(iDynTree::toEigen(I_omega_IMU));
+            manif::SO3Tangentd I_omega_IMU_manif
+                = manif::SO3Tangentd(iDynTree::toEigen(I_omega_IMU));
 
             if (!ik.setNodeSetPoint(node, I_R_IMU_manif, I_omega_IMU_manif))
             {
@@ -246,6 +286,15 @@ int main()
         viz.draw();
         modelViz2.setPositions(w_H_b2, jointPos2);
         viz2.draw();
+    }
+
+    stopThread = true;
+
+    std::cout << "\nPlease enter a character to terminate the program" << std::endl;
+
+    if (tPoseThread.joinable())
+    {
+        tPoseThread.join();
     }
 
     std::cout << "done" << std::endl;
