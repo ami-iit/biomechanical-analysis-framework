@@ -179,18 +179,20 @@ int main()
     auto paramHandler
         = std::make_shared<BipedalLocomotion::ParametersHandler::YarpImplementation>();
 
-    if (!paramHandler->setFromFile("/path/to/exampleIK.ini"))
+    if (!paramHandler->setFromFile("/home/dgorbani/software/ergoCub/"
+                                   "biomechanical-analysis-framework/src/examples/IK/"
+                                   "exampleIK.ini"))
     {
         std::cerr << "[error] Cannot configure the parameter handler" << std::endl;
         return 1;
     }
 
-    matioCpp::File file("/path/to/ifeel_data.mat");
+    matioCpp::File file("/home/dgorbani/matlab2.mat");
 
     matioCpp::Struct ifeel_data = file.read("ifeel_data").asStruct();
     matioCpp::Struct node12 = ifeel_data("iFeelSuit_vLink_Node_12").asStruct();
 
-    matioCpp::File file2("/path/to/human_data.mat");
+    matioCpp::File file2("/home/dgorbani/human_data2.mat");
     matioCpp::Struct human_data = file2.read("human_data").asStruct();
     matioCpp::Struct human_state = human_data("human_state").asStruct();
     matioCpp::Struct joint_positions = human_state("joint_positions").asStruct();
