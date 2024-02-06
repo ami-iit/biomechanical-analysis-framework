@@ -267,9 +267,6 @@ int main()
         ik.getJointVelocities(jointVelocities);
         ik.getBaseOrientation(baseOrientation);
         ik.getBasePosition(basePosition);
-        // std::cout << "base orientation: " << baseOrientation << std::endl;
-        // std::cout << "joint positions: " << jointPositions << std::endl;
-        // std::cout << "joint velocities: " << jointVelocities << std::endl;
         for (size_t jj = 0; jj < 31; jj++)
         {
             jointPos2[jj] = jointPos_data({jj, 0, ii});
