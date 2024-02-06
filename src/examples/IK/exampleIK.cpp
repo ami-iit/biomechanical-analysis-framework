@@ -15,6 +15,7 @@
 
 #include <BiomechanicalAnalysis/Conversions/CommonConversions.h>
 #include <BiomechanicalAnalysis/IK/InverseKinematics.h>
+#include <BiomechanicalAnalysis/Logging/Logger.h>
 #include <BipedalLocomotion/ParametersHandler/YarpImplementation.h>
 
 using namespace BiomechanicalAnalysis::Conversions;
@@ -32,18 +33,17 @@ bool getNodeData(matioCpp::Struct& ifeel_struct,
         = ifeel_struct("iFeelSuit_vLink_Node_" + std::to_string(nodeNum)).asStruct();
     if (!vLink_node.isValid())
     {
-        std::cerr << "[error] Cannot read the iFeelSuit_vLink_Node_" + std::to_string(nodeNum)
-                         + " struct"
-                  << std::endl;
+        BiomechanicalAnalysis::log()->error("Cannot read the iFeelSuit_vLink_Node_{} "
+                                            "struct",
+                                            std::to_string(nodeNum));
         return false;
     }
     matioCpp::MultiDimensionalArray<double> data1
         = vLink_node("data").asMultiDimensionalArray<double>();
     if (!data1.isValid())
     {
-        std::cerr << "[error] Cannot read the data field of the iFeelSuit_vLink_Node_"
-                         + std::to_string(nodeNum) + " struct"
-                  << std::endl;
+        BiomechanicalAnalysis::log()->error("Cannot read the data field of the node number {}",
+                                            std::to_string(nodeNum));
         return false;
     }
 
@@ -113,21 +113,19 @@ const std::vector<std::string> getJointsList()
 
 void setTPoseThread()
 {
-    std::cout << "Enter 'calib' to run the T-pose calibration" << std::endl;
+    BiomechanicalAnalysis::log()->info("Enter 'calib' to run the T-pose calibration");
     std::string input;
     while (!stopThread)
     {
-        std::cout << ">> ";
         std::cin >> input;
         if (input == "calib")
         {
             tPoseFlag = true;
         } else
         {
-            std::cout << input
-                      << " is an invalid input; please enter 'calib' if you want to run the T-pose "
-                         "calibration"
-                      << std::endl;
+            BiomechanicalAnalysis::log()->warn("{} is an invalid input; please enter 'calib' if "
+                                               "you want to run the T-pose calibration",
+                                               input);
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
@@ -179,20 +177,18 @@ int main()
     auto paramHandler
         = std::make_shared<BipedalLocomotion::ParametersHandler::YarpImplementation>();
 
-    if (!paramHandler->setFromFile("/home/dgorbani/software/ergoCub/"
-                                   "biomechanical-analysis-framework/src/examples/IK/"
-                                   "exampleIK.ini"))
+    if (!paramHandler->setFromFile("/path/to/exampleIK.ini"))
     {
-        std::cerr << "[error] Cannot configure the parameter handler" << std::endl;
+        BiomechanicalAnalysis::log()->error("Cannot configure the parameter handler");
         return 1;
     }
 
-    matioCpp::File file("/home/dgorbani/matlab2.mat");
+    matioCpp::File file("/path/to/matlab2.mat");
 
     matioCpp::Struct ifeel_data = file.read("ifeel_data").asStruct();
     matioCpp::Struct node12 = ifeel_data("iFeelSuit_vLink_Node_12").asStruct();
 
-    matioCpp::File file2("/home/dgorbani/human_data2.mat");
+    matioCpp::File file2("/path/to/human_data2.mat");
     matioCpp::Struct human_data = file2.read("human_data").asStruct();
     matioCpp::Struct human_state = human_data("human_state").asStruct();
     matioCpp::Struct joint_positions = human_state("joint_positions").asStruct();
@@ -215,7 +211,7 @@ int main()
 
     if (!ik.initialize(paramHandler, kinDyn))
     {
-        std::cerr << "[error] Cannot initialize the inverse kinematics solver" << std::endl;
+        BiomechanicalAnalysis::log()->error("Cannot initialize the inverse kinematics solver");
         return 1;
     }
 
@@ -239,7 +235,7 @@ int main()
                 ik.TPoseCalibrationNode(node,
                                         manif::SO3d(fromiDynTreeToEigenQuatConversion(I_R_IMU)));
             }
-            std::cout << "T-pose calibration done" << std::endl;
+            BiomechanicalAnalysis::log()->info("T-pose calibration done");
             tPoseFlag = false;
         }
 
@@ -256,14 +252,15 @@ int main()
 
             if (!ik.setNodeSetPoint(node, I_R_IMU_manif, I_omega_IMU_manif))
             {
-                std::cerr << "[error] Cannot set the node number " << node << " set point"
-                          << std::endl;
+                BiomechanicalAnalysis::log()->error("[error] Cannot set the node number {} set "
+                                                    "point",
+                                                    node);
                 return 1;
             }
         }
         if (!ik.advance())
         {
-            std::cerr << "[error] Cannot advance the inverse kinematics solver" << std::endl;
+            BiomechanicalAnalysis::log()->error("Cannot advance the inverse kinematics solver");
             return 1;
         }
         ik.getJointPositions(jointPositions);
@@ -292,14 +289,14 @@ int main()
 
     stopThread = true;
 
-    std::cout << "\nPlease enter a character to terminate the program" << std::endl;
+    BiomechanicalAnalysis::log()->info("\nPlease enter a character to terminate the program");
 
     if (tPoseThread.joinable())
     {
         tPoseThread.join();
     }
 
-    std::cout << "done" << std::endl;
+    BiomechanicalAnalysis::log()->info("done");
 
     return 0;
 }

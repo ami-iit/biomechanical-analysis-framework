@@ -187,8 +187,7 @@ bool HumanIK::TPoseCalibrationNode(const int node, const manif::SO3d& I_R_IMU)
     }
     m_OrientationTasks[node].calibrationMatrix
         = calib_R_link * (I_R_IMU * m_OrientationTasks[node].IMU_R_link).inverse();
-    std::cout << "calibration matrix of node " << node << ": "
-              << m_OrientationTasks[node].calibrationMatrix << std::endl;
+
     return true;
 }
 
