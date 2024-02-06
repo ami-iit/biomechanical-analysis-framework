@@ -183,12 +183,12 @@ int main()
         return 1;
     }
 
-    matioCpp::File file("/path/to/matlab2.mat");
+    matioCpp::File file("/path/to/ifeel_data.mat");
 
     matioCpp::Struct ifeel_data = file.read("ifeel_data").asStruct();
     matioCpp::Struct node12 = ifeel_data("iFeelSuit_vLink_Node_12").asStruct();
 
-    matioCpp::File file2("/path/to/human_data2.mat");
+    matioCpp::File file2("/path/to/human_data.mat");
     matioCpp::Struct human_data = file2.read("human_data").asStruct();
     matioCpp::Struct human_state = human_data("human_state").asStruct();
     matioCpp::Struct joint_positions = human_state("joint_positions").asStruct();
