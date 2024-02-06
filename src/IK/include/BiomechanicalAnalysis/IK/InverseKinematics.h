@@ -55,9 +55,26 @@ namespace IK
 class HumanIK
 {
 private:
+    /**
+     * initialize the SO3 task
+     * @param taskName name of the task
+     * @param handler pointer to the parameters handler
+     * @return true if the SO3 task is initialized correctly
+     */
+    bool initializeOrientationTask(
+        const std::string& taskName,
+        const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
+
+    /**
+     * initialize the gravity task
+     * @param taskName name of the task
+     * @param handler pointer to the parameters handler
+     * @return true if the gravity task is initialized correctly
+     */
     bool initializeGravityTask(
         const std::string& taskName,
-        const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> handler);
+        const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
+
     std::chrono::nanoseconds m_dtIntegration; /** Integration time step in nanoseconds */
 
     /**
@@ -73,17 +90,14 @@ private:
     };
 
     System m_system; /** Struct containing the integrator and the dynamics */
-
     Eigen::VectorXd m_jointPositions; /** Position of the joints */
     Eigen::VectorXd m_jointVelocities; /** Velocity of the joints */
     Eigen::Matrix4d m_basePose; /** SO3 pose of the base */
     Eigen::Matrix<double, 6, 1> m_baseVelocity; /** Vector containing the linear and angular
                                                    velocity of the base */
     Eigen::Vector3d m_gravity; /** Gravity vector */
-
     manif::SO3d I_R_link_manif; /** orientation of the link in the inertial frame */
     manif::SO3Tangentd I_omega_link_manif; /** angular velocity of the link in the inertial frame */
-
     manif::SO3d I_R_link; /** orientation of the link in the inertial frame */
     manif::SO3Tangentd I_omega_link; /** angular velocity of the link in the inertial frame */
 
