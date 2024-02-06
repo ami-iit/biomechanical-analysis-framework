@@ -130,8 +130,13 @@ bool HumanIK::initialize(
             }
         } else if (taskType == "GravityTask")
         {
-            BiomechanicalAnalysis::log()->error("{} GravityTask not implemented yet", logPrefix);
-            return false;
+            if (!initializeGravityTask(task, taskHandler))
+            {
+                BiomechanicalAnalysis::log()->error("{} Error in the initialization of the {} task",
+                                                    logPrefix,
+                                                    task);
+                return false;
+            }
         } else
         {
             BiomechanicalAnalysis::log()->error("{} Invalid task type {}", logPrefix, taskType);
@@ -274,4 +279,41 @@ bool HumanIK::getBaseAngularVelocity(Eigen::Ref<Eigen::Vector3d> baseAngularVelo
     baseAngularVelocity = m_baseVelocity.bottomRows<3>();
 
     return true;
+}
+
+bool HumanIK::initializeGravityTask(
+    const std::string& taskName,
+    const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler)
+{
+    constexpr auto logPrefix = "[HumanIK::initialize]";
+    int nodeNumber;
+    bool ok{true};
+    if (!taskHandler->getParameter("node_number", nodeNumber))
+    {
+        BiomechanicalAnalysis::log()->error("{} Parameter node_number of the {} task is "
+                                            "missing",
+                                            logPrefix,
+                                            taskName);
+        return false;
+    }
+    m_GravityTasks[nodeNumber].nodeNumber = nodeNumber;
+    m_GravityTasks[nodeNumber].task = std::make_shared<BipedalLocomotion::IK::GravityTask>();
+    m_GravityTasks[nodeNumber].weightProvider
+        = std::make_shared<BipedalLocomotion::ContinuousDynamicalSystem::MultiStateWeightProvider>();
+    if (!m_GravityTasks[nodeNumber].weightProvider->initialize(taskHandler))
+    {
+        BiomechanicalAnalysis::log()->error("{} Error in the initialization of the "
+                                            "MultiStateWeightProvider of {} task",
+                                            logPrefix,
+                                            taskName);
+        return false;
+    }
+    ok = ok && m_GravityTasks[nodeNumber].task->setKinDyn(m_kinDyn);
+    ok = ok && m_GravityTasks[nodeNumber].task->initialize(taskHandler);
+    ok = ok
+         && m_qpIK.addTask(m_GravityTasks[nodeNumber].task,
+                           taskName,
+                           1,
+                           m_GravityTasks[nodeNumber].weightProvider);
+    return ok;
 }

@@ -12,6 +12,8 @@
 // BipedalLocomotion
 #include <BipedalLocomotion/ContinuousDynamicalSystem/FloatingBaseSystemKinematics.h>
 #include <BipedalLocomotion/ContinuousDynamicalSystem/ForwardEuler.h>
+#include <BipedalLocomotion/ContinuousDynamicalSystem/MultiStateWeightProvider.h>
+#include <BipedalLocomotion/IK/GravityTask.h>
 #include <BipedalLocomotion/IK/QPInverseKinematics.h>
 #include <BipedalLocomotion/IK/SO3Task.h>
 #include <BipedalLocomotion/ParametersHandler/IParametersHandler.h>
@@ -53,6 +55,9 @@ namespace IK
 class HumanIK
 {
 private:
+    bool initializeGravityTask(
+        const std::string& taskName,
+        const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> handler);
     std::chrono::nanoseconds m_dtIntegration; /** Integration time step in nanoseconds */
 
     /**
@@ -83,10 +88,10 @@ private:
     manif::SO3Tangentd I_omega_link; /** angular velocity of the link in the inertial frame */
 
     /**
-     * Struct containing the orientation task, the node number and the rotation matrix between the
-     * IMU and the link
+     * Struct containing the SO3 task from the BipedalLocomotion IK, the node number and the
+     * rotation matrix between the IMU and the link
      */
-    struct OrientationTask
+    struct OrientationTaskStruct
     {
         std::shared_ptr<BipedalLocomotion::IK::SO3Task> task;
         int nodeNumber;
@@ -94,10 +99,25 @@ private:
         manif::SO3d calibrationMatrix = manif::SO3d::Identity();
     };
 
+    /**
+     * Struct containing the gravity task from the BipedalLocomotion IK, the node number and the
+     * multiple state weight provider
+     */
+    struct GravityTaskStruct
+    {
+        std::shared_ptr<BipedalLocomotion::IK::GravityTask> task;
+        std::shared_ptr<BipedalLocomotion::ContinuousDynamicalSystem::MultiStateWeightProvider>
+            weightProvider;
+        int nodeNumber;
+    };
+
     manif::SO3d calib_R_link = manif::SO3d::Identity();
 
-    std::unordered_map<int, OrientationTask> m_OrientationTasks; /** unordered map of the
+    std::unordered_map<int, OrientationTaskStruct> m_OrientationTasks; /** unordered map of the
                                                                     orientation tasks */
+
+    std::unordered_map<int, GravityTaskStruct> m_GravityTasks; /** unordered map of the gravity
+                                                                    tasks */
 
     std::shared_ptr<iDynTree::KinDynComputations> m_kinDyn; /** pointer to the KinDynComputations
                                                                object */
@@ -146,6 +166,14 @@ public:
      * | `SO3Task` |         `frame_name`           |     `string`    |                          Name of the frame in which the task is expressed.              |  Yes |
      * | `SO3Task` |         `kp_angular`           |     `double`    |                        Value of the gain of the angular velocity feedback.              |  Yes |
      * `SO3Task` is a placeholder for the name of the task contained in the `tasks` list.
+     * The "GravityTask" requires the following parameters:
+     * |    Group    |         Parameter Name         |    Type    |                                         Description                                          | Mandatory |
+     * |:-----------:|:------------------------------:|:----------:|:--------------------------------------------------------------------------------------------:|:---------:|
+     * |`GravityTask`|           `type`               |  `string`  |                         Type of the task. The value to be set is `GravityTask`               |  Yes  |
+     * |`GravityTask`| `robot_velocity_variable_name` |  `string`  |Name of the variable contained in `VariablesHandler` describing the generalized robot velocity|  Yes  |
+     * |`GravityTask`|           `node`               |   `int`    |                    Node number of the task. The node number must be unique.                  |  Yes  |
+     * |`GravityTask`|            `kp`                |  `double`  |                          Gain of the distance controller                                     |  Yes  |
+     * |`GravityTask`|     `target_frame_name`        |  `string`  |                 Name of the frame to which apply the gravity task                            |  Yes  |
      * @note The following `ini` file presents an example of the configuration that can be used to
      * build the HumanIK class.
      *  ~~~~~{.ini}
