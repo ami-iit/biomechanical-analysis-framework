@@ -21,8 +21,12 @@ TEST_CASE("InverseKinematic test")
     kinDyn->loadRobotModel(model);
     auto paramHandler
         = std::make_shared<BipedalLocomotion::ParametersHandler::YarpImplementation>();
+    auto gravityTaskParamHandler
+        = std::make_shared<BipedalLocomotion::ParametersHandler::YarpImplementation>();
 
-    REQUIRE(paramHandler->setFromFile(getConfigPath()));
+    REQUIRE(paramHandler->setFromFile(getConfigPath() + "/configTestIK.ini"));
+    REQUIRE(gravityTaskParamHandler->setFromFile(getConfigPath() + "/gravityTaskTest.ini"));
+    paramHandler->setGroup("GRAVITY_TASK_1", gravityTaskParamHandler);
 
     // inintialize the joint positions and velocities
     Eigen::VectorXd JointPositions(kinDyn->getNrOfDegreesOfFreedom());
