@@ -8,6 +8,6 @@
  */
 TEST_CASE("Default logger test")
 {
-    //TODO check that the output message is the expected one?
+    // TODO check that the output message is the expected one?
     BiomechanicalAnalysis::log()->info("Test message: {}", "test");
 }

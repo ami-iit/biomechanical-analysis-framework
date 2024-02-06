@@ -3,44 +3,26 @@
 
 #include <BiomechanicalAnalysis/IK/InverseKinematics.h>
 #include <iDynTree/ModelTestUtils.h>
+#include <manif/SO3.h>
 
 #include <BipedalLocomotion/ParametersHandler/IParametersHandler.h>
 #include <BipedalLocomotion/ParametersHandler/StdImplementation.h>
+#include <BipedalLocomotion/ParametersHandler/YarpImplementation.h>
+#include <ConfigFolderPath.h>
 
 TEST_CASE("InverseKinematic test")
 {
     auto kinDyn = std::make_shared<iDynTree::KinDynComputations>();
 
     // set the number of DoFs
-    int nrDoFs = 10;
+    int nrDoFs = 20;
 
     const iDynTree::Model model = iDynTree::getRandomModel(nrDoFs);
     kinDyn->loadRobotModel(model);
+    auto paramHandler
+        = std::make_shared<BipedalLocomotion::ParametersHandler::YarpImplementation>();
 
-    manif::SO3d orientationDesired;
-    orientationDesired.setRandom();
-    manif::SO3Tangentd angVelDesired;
-    angVelDesired.setRandom();
-
-    std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> handler =
-        std::make_shared<BipedalLocomotion::ParametersHandler::StdImplementation>();
-    
-    handler->setParameter("verbosity", false);
-
-    handler->setParameter("tasks",
-                                   std::vector<std::string>{"LINK1_TASK"});
-
-
-    auto ikParameterHandler = std::make_shared<BipedalLocomotion::ParametersHandler::StdImplementation>();
-    ikParameterHandler->setParameter("robot_velocity_variable_name", "robotVelocity");
-    handler->setGroup("IK", ikParameterHandler);
-
-    auto SO3ParameterHandler = std::make_shared<BipedalLocomotion::ParametersHandler::StdImplementation>();
-    SO3ParameterHandler->setParameter("frame_name", kinDyn->getFrameName(1));
-    SO3ParameterHandler->setParameter("kp_angular", 1.0);
-    SO3ParameterHandler->setParameter("robot_velocity_variable_name", "robotVelocity");
-
-    handler->setGroup("LINK1_TASK", SO3ParameterHandler);
+    REQUIRE(paramHandler->setFromFile(getConfigPath()));
 
     // inintialize the joint positions and velocities
     Eigen::VectorXd JointPositions(kinDyn->getNrOfDegreesOfFreedom());
@@ -49,16 +31,20 @@ TEST_CASE("InverseKinematic test")
     Eigen::VectorXd qInitial(kinDyn->getNrOfDegreesOfFreedom());
     BiomechanicalAnalysis::IK::HumanIK ik;
 
+    manif::SO3d I_R_IMU;
+    manif::SO3Tangentd I_omega_IMU;
+    I_R_IMU.setRandom();
+    I_omega_IMU.setRandom();
+
     qInitial.setConstant(0.0);
 
-    ik.initialize(handler, kinDyn);
-
+    REQUIRE(ik.initialize(paramHandler, kinDyn));
     REQUIRE(ik.setDt(0.1));
-    REQUIRE(ik.setInitialJointPositions(qInitial));
-    REQUIRE(ik.setLink1OrientationAndAngVel(orientationDesired, angVelDesired));
+    REQUIRE(ik.setNodeSetPoint(3, I_R_IMU, I_omega_IMU));
     REQUIRE(ik.advance());
     REQUIRE(ik.getJointPositions(JointPositions));
     REQUIRE(ik.getJointVelocities(JointVelocities));
+
     std::cout << "JointPositions = " << JointPositions.transpose() << std::endl;
     std::cout << "JointVelocities = " << JointVelocities.transpose() << std::endl;
 }

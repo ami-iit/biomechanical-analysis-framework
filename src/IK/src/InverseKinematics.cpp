@@ -1,15 +1,16 @@
 #include <BiomechanicalAnalysis/IK/InverseKinematics.h>
 #include <BiomechanicalAnalysis/Logging/Logger.h>
 #include <BipedalLocomotion/Conversions/ManifConversions.h>
-#include <iostream>
+#include <iDynTree/EigenHelpers.h>
 
 using namespace BiomechanicalAnalysis::IK;
 using namespace BipedalLocomotion::ContinuousDynamicalSystem;
 using namespace BipedalLocomotion::Conversions;
 using namespace std::chrono_literals;
 
-bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandler::IParametersHandler> handler,
-                std::shared_ptr<iDynTree::KinDynComputations> kinDyn)
+bool HumanIK::initialize(
+    std::weak_ptr<const BipedalLocomotion::ParametersHandler::IParametersHandler> handler,
+    std::shared_ptr<iDynTree::KinDynComputations> kinDyn)
 {
     constexpr std::size_t highPriority = 0;
     constexpr std::size_t lowPriority = 1;
@@ -26,18 +27,36 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
     m_jointPositions.resize(m_kinDyn->getNrOfDegreesOfFreedom());
     m_jointVelocities.resize(m_kinDyn->getNrOfDegreesOfFreedom());
 
-    kinDyn->getRobotState(m_basePose, m_jointPositions, m_baseVelocity, m_jointVelocities, m_gravity);
+    kinDyn->getRobotState(m_basePose,
+                          m_jointPositions,
+                          m_baseVelocity,
+                          m_jointVelocities,
+                          m_gravity);
 
     m_system.dynamics = std::make_shared<FloatingBaseSystemKinematics>();
-    m_system.dynamics->setState({m_basePose.topRightCorner<3, 1>(), toManifRot(m_basePose.topLeftCorner<3,3>()) , m_jointPositions});
+    m_system.dynamics->setState({m_basePose.topRightCorner<3, 1>(),
+                                 toManifRot(m_basePose.topLeftCorner<3, 3>()),
+                                 m_jointPositions});
 
     m_system.integrator = std::make_shared<ForwardEuler<FloatingBaseSystemKinematics>>();
     m_system.integrator->setDynamicalSystem(m_system.dynamics);
+
+    Eigen::Vector3d Weight;
+    Weight.setConstant(10.0);
+
+    m_nrDoFs = kinDyn->getNrOfDegreesOfFreedom();
 
     auto ptr = handler.lock();
     if (ptr == nullptr)
     {
         BiomechanicalAnalysis::log()->error("{} Invalid parameters handler.", logPrefix);
+        return false;
+    }
+
+    std::vector<std::string> tasks;
+    if (!ptr->getParameter("tasks", tasks))
+    {
+        BiomechanicalAnalysis::log()->error("{} Parameter tasks is missing", logPrefix);
         return false;
     }
 
@@ -47,10 +66,78 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
     group->getParameter("robot_velocity_variable_name", variable);
     m_variableHandler.addVariable(variable, kinDyn->getNrOfDegreesOfFreedom() + 6);
 
-    m_link1OrientationTask = std::make_shared<BipedalLocomotion::IK::SO3Task>();
-    ok = ok && m_link1OrientationTask->setKinDyn(kinDyn);
-    ok = ok && m_link1OrientationTask->initialize(ptr->getGroup("LINK1_TASK"));
-    ok = ok && m_qpIK.addTask(m_link1OrientationTask, "link1_task", highPriority);
+    for (const auto& task : tasks)
+    {
+        auto taskHandler = ptr->getGroup(task).lock();
+        if (taskHandler == nullptr)
+        {
+            BiomechanicalAnalysis::log()->error("{} Group {} is missing in the configuration file",
+                                                logPrefix,
+                                                task);
+            return false;
+        }
+        std::string taskType;
+        if (!taskHandler->getParameter("type", taskType))
+        {
+            BiomechanicalAnalysis::log()->error("{} Parameter task_type of the {} task is missing",
+                                                logPrefix,
+                                                task);
+            return false;
+        }
+        if (taskType == "SO3Task")
+        {
+            int nodeNumber;
+            if (!taskHandler->getParameter("node_number", nodeNumber))
+            {
+                BiomechanicalAnalysis::log()->error("{} Parameter node_number of the {} task is "
+                                                    "missing",
+                                                    logPrefix,
+                                                    task);
+                return false;
+            }
+            m_OrientationTasks[nodeNumber].nodeNumber = nodeNumber;
+            m_OrientationTasks[nodeNumber].task
+                = std::make_shared<BipedalLocomotion::IK::SO3Task>();
+            std::vector<double> rotation_matrix;
+            if (taskHandler->getParameter("rotation_matrix", rotation_matrix))
+            {
+                m_OrientationTasks[nodeNumber].IMU_R_link
+                    = BipedalLocomotion::Conversions::toManifRot(
+                        Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(
+                            rotation_matrix.data()));
+            } else
+            {
+                std::string frame_name;
+                taskHandler->getParameter("frame_name", frame_name);
+                BiomechanicalAnalysis::log()->warn("{} Parameter rotation_matrix of the {} task is "
+                                                   "missing, setting the rotation matrix from the "
+                                                   "IMU to the frame {} to identity",
+                                                   logPrefix,
+                                                   task,
+                                                   frame_name);
+                m_OrientationTasks[nodeNumber].IMU_R_link.setIdentity();
+            }
+            ok = ok && m_OrientationTasks[nodeNumber].task->setKinDyn(kinDyn);
+            ok = ok && m_OrientationTasks[nodeNumber].task->initialize(taskHandler);
+            ok = ok
+                 && m_qpIK.addTask(m_OrientationTasks[nodeNumber].task, task, lowPriority, Weight);
+            if (!ok)
+            {
+                BiomechanicalAnalysis::log()->error("{} Error in the initialization of the {} task",
+                                                    logPrefix,
+                                                    task);
+                return false;
+            }
+        } else if (taskType == "GravityTask")
+        {
+            BiomechanicalAnalysis::log()->error("{} GravityTask not implemented yet", logPrefix);
+            return false;
+        } else
+        {
+            BiomechanicalAnalysis::log()->error("{} Invalid task type {}", logPrefix, taskType);
+            return false;
+        }
+    }
 
     m_qpIK.finalize(m_variableHandler);
 
@@ -59,7 +146,8 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
 
 bool HumanIK::setDt(const double dt)
 {
-    m_dtIntegration = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::duration<double>(dt));
+    m_dtIntegration
+        = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::duration<double>(dt));
 
     return m_system.integrator->setIntegrationStep(m_dtIntegration);
 }
@@ -69,31 +157,36 @@ double HumanIK::getDt() const
     return std::chrono::duration_cast<std::chrono::duration<double>>(m_dtIntegration).count();
 }
 
-bool HumanIK::setDoFsNumber(const int nrDoFs)
-{
-    m_nrDoFs = nrDoFs;
-    m_jointPositions.resize(m_nrDoFs);
-    m_jointVelocities.resize(m_nrDoFs);
-
-    return true;
-}
-
 int HumanIK::getDoFsNumber() const
 {
     return m_nrDoFs;
 }
 
-bool HumanIK::setInitialJointPositions(const Eigen::Ref<const Eigen::VectorXd> qInitial)
+bool HumanIK::setNodeSetPoint(const int node,
+                              const manif::SO3d& I_R_IMU,
+                              const manif::SO3Tangentd& I_omega_IMU)
 {
-    m_jointPositions = qInitial;
-
-    return true;
+    bool ok;
+    if (m_OrientationTasks.find(node) == m_OrientationTasks.end())
+    {
+        BiomechanicalAnalysis::log()->error("[HumanIK::setNodeSetPoint] Invalid node number.");
+        return false;
+    }
+    I_R_link = m_OrientationTasks[node].calibrationMatrix * I_R_IMU
+               * m_OrientationTasks[node].IMU_R_link;
+    ok = m_OrientationTasks[node].task->setSetPoint(I_R_link, I_omega_IMU);
+    return ok;
 }
 
-bool HumanIK::setLink1OrientationAndAngVel(const manif::SO3d &link1Orientation,
-                                           const manif::SO3Tangentd &link1AngularVelocity)
+bool HumanIK::TPoseCalibrationNode(const int node, const manif::SO3d& I_R_IMU)
 {
-    m_link1OrientationTask->setSetPoint(link1Orientation, link1AngularVelocity);
+    if (m_OrientationTasks.find(node) == m_OrientationTasks.end())
+    {
+        BiomechanicalAnalysis::log()->error("[HumanIK::setNodeSetPoint] Invalid node number.");
+        return false;
+    }
+    m_OrientationTasks[node].calibrationMatrix
+        = calib_R_link * (I_R_IMU * m_OrientationTasks[node].IMU_R_link).inverse();
 
     return true;
 }
@@ -104,7 +197,7 @@ bool HumanIK::advance()
     ok = ok && m_qpIK.advance();
     ok = ok && m_qpIK.isOutputValid();
 
-    if(!ok)
+    if (!ok)
     {
         BiomechanicalAnalysis::log()->error("[HumanIK::advance] Error in the QP solver.");
         return false;
@@ -115,13 +208,12 @@ bool HumanIK::advance()
     ok = ok && m_system.dynamics->setControlInput({m_baseVelocity, m_jointVelocities});
     ok = ok && m_system.integrator->integrate(0s, m_dtIntegration);
 
-    if(!ok)
+    if (!ok)
     {
         BiomechanicalAnalysis::log()->error("[HumanIK::advance] Error in the integration.");
         return false;
     }
-    const auto& [basePosition, baseRotation, jointPosition]
-                = m_system.integrator->getSolution();
+    const auto& [basePosition, baseRotation, jointPosition] = m_system.integrator->getSolution();
     m_basePose.topRightCorner<3, 1>() = basePosition;
     m_basePose.topLeftCorner<3, 3>() = baseRotation.rotation();
     m_jointPositions = jointPosition;
@@ -132,9 +224,10 @@ bool HumanIK::advance()
 
 bool HumanIK::getJointPositions(Eigen::Ref<Eigen::VectorXd> jointPositions) const
 {
-    if(jointPositions.size() != m_jointPositions.size())
+    if (jointPositions.size() != m_jointPositions.size())
     {
-        BiomechanicalAnalysis::log()->error("[HumanIK::getJointPositions] Invalid size of the input vector.");
+        BiomechanicalAnalysis::log()->error("[HumanIK::getJointPositions] Invalid size of the "
+                                            "input vector.");
         return false;
     }
     jointPositions = m_jointPositions;
@@ -144,9 +237,10 @@ bool HumanIK::getJointPositions(Eigen::Ref<Eigen::VectorXd> jointPositions) cons
 
 bool HumanIK::getJointVelocities(Eigen::Ref<Eigen::VectorXd> jointVelocities) const
 {
-    if(jointVelocities.size() != m_jointVelocities.size())
+    if (jointVelocities.size() != m_jointVelocities.size())
     {
-        BiomechanicalAnalysis::log()->error("[HumanIK::getJointVelocities] Invalid size of the input vector.");
+        BiomechanicalAnalysis::log()->error("[HumanIK::getJointVelocities] Invalid size of the "
+                                            "input vector.");
         return false;
     }
     jointVelocities = m_jointVelocities;

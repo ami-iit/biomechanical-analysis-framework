@@ -20,14 +20,14 @@ using LoggerFactory = BipedalLocomotion::TextLogging::LoggerFactory;
 /**
  * Set the log provider.
  * Calling this method after log() will have no effect.
- * 
- * @param loggerFactory 
+ *
+ * @param loggerFactory
  */
 void setLoggerFactory(const std::shared_ptr<LoggerFactory>& loggerFactory);
 
 /**
  * Set the verbosity of the logger.
- * 
+ *
  * @param verbosity the verbosity of the logger
  */
 void setVerbosity(const Verbosity verbosity);
