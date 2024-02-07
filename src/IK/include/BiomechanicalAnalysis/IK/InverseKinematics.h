@@ -15,6 +15,7 @@
 #include <BipedalLocomotion/ContinuousDynamicalSystem/MultiStateWeightProvider.h>
 #include <BipedalLocomotion/IK/GravityTask.h>
 #include <BipedalLocomotion/IK/QPInverseKinematics.h>
+#include <BipedalLocomotion/IK/R3Task.h>
 #include <BipedalLocomotion/IK/SO3Task.h>
 #include <BipedalLocomotion/ParametersHandler/IParametersHandler.h>
 #include <BipedalLocomotion/System/VariablesHandler.h>
@@ -75,6 +76,16 @@ private:
         const std::string& taskName,
         const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
 
+    /**
+     * initialize the R3 task
+     * @param taskName name of the task
+     * @param handler pointer to the parameters handler
+     * @return true if the R3 task is initialized correctly
+     */
+    bool initializeFloorContactTask(
+        const std::string& taskName,
+        const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
+
     std::chrono::nanoseconds m_dtIntegration; /** Integration time step in nanoseconds */
 
     /**
@@ -125,6 +136,18 @@ private:
         int nodeNumber;
     };
 
+    /**
+     * Struct containing the R3 task from the BipedalLocomotion IK, the node number and the
+     * multiple state weight provider
+     */
+    struct FloorContactTaskStruct
+    {
+        std::shared_ptr<BipedalLocomotion::IK::R3Task> task;
+        std::shared_ptr<BipedalLocomotion::ContinuousDynamicalSystem::MultiStateWeightProvider>
+            weightProvider;
+        int nodeNumber;
+    };
+
     manif::SO3d calib_R_link = manif::SO3d::Identity();
 
     std::unordered_map<int, OrientationTaskStruct> m_OrientationTasks; /** unordered map of the
@@ -133,8 +156,11 @@ private:
     std::unordered_map<int, GravityTaskStruct> m_GravityTasks; /** unordered map of the gravity
                                                                     tasks */
 
+    std::unordered_map<int, FloorContactTaskStruct> m_FloorContactTasks; /** unordered map of the
+                                                                    floor contact tasks */
+
     std::shared_ptr<iDynTree::KinDynComputations> m_kinDyn; /** pointer to the KinDynComputations
-                                                               object */
+    object */
 
     int m_nrDoFs; /** Number of Joint Degrees of Freedom */
 

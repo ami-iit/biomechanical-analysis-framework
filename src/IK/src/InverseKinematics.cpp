@@ -99,6 +99,15 @@ bool HumanIK::initialize(
                                                     task);
                 return false;
             }
+        } else if (taskType == "FloorContactTask")
+        {
+            if (!initializeFloorContactTask(task, taskHandler))
+            {
+                BiomechanicalAnalysis::log()->error("{} Error in the initialization of the {} task",
+                                                    logPrefix,
+                                                    task);
+                return false;
+            }
         } else
         {
             BiomechanicalAnalysis::log()->error("{} Invalid task type {}", logPrefix, taskType);
@@ -161,6 +170,22 @@ bool HumanIK::TPoseCalibrationNode(const int node, const manif::SO3d& I_R_IMU)
 bool HumanIK::advance()
 {
     bool ok{true};
+    // advance the weight providers of the FloorContactTasks and GravityTasks
+    if (!m_FloorContactTasks.empty())
+    {
+        for (auto& task : m_FloorContactTasks)
+        {
+            ok = ok && task.second.weightProvider->advance();
+        }
+    }
+    if (!m_GravityTasks.empty())
+    {
+        for (auto& task : m_GravityTasks)
+        {
+            ok = ok && task.second.weightProvider->advance();
+        }
+    }
+
     ok = ok && m_qpIK.advance();
     ok = ok && m_qpIK.isOutputValid();
 
@@ -326,5 +351,48 @@ bool HumanIK::initializeGravityTask(
                            taskName,
                            1,
                            m_GravityTasks[nodeNumber].weightProvider);
+    return ok;
+}
+
+bool HumanIK::initializeFloorContactTask(
+    const std::string& taskName,
+    const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler)
+{
+    constexpr auto logPrefix = "[HumanIK::initialize]";
+    int nodeNumber;
+    bool ok{true};
+    if (!taskHandler->getParameter("node_number", nodeNumber))
+    {
+        BiomechanicalAnalysis::log()->error("{} Parameter node_number of the {} task is "
+                                            "missing",
+                                            logPrefix,
+                                            taskName);
+        return false;
+    }
+    m_FloorContactTasks[nodeNumber].nodeNumber = nodeNumber;
+    m_FloorContactTasks[nodeNumber].task = std::make_shared<BipedalLocomotion::IK::R3Task>();
+    m_FloorContactTasks[nodeNumber].weightProvider
+        = std::make_shared<BipedalLocomotion::ContinuousDynamicalSystem::MultiStateWeightProvider>();
+    if (!m_FloorContactTasks[nodeNumber].weightProvider->initialize(taskHandler))
+    {
+        BiomechanicalAnalysis::log()->error("{} Error in the initialization of the "
+                                            "MultiStateWeightProvider of {} task",
+                                            logPrefix,
+                                            taskName);
+        return false;
+    }
+    ok = ok && m_FloorContactTasks[nodeNumber].task->setKinDyn(m_kinDyn);
+
+    // imposing that the only controlled direction is the z
+    std::vector<int> mask{0, 0, 1};
+    taskHandler->setParameter("mask", mask);
+
+    ok = ok && m_FloorContactTasks[nodeNumber].task->initialize(taskHandler);
+    ok = ok
+         && m_qpIK.addTask(m_FloorContactTasks[nodeNumber].task,
+                           taskName,
+                           1,
+                           m_FloorContactTasks[nodeNumber].weightProvider);
+
     return ok;
 }
