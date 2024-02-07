@@ -12,13 +12,17 @@
 // BipedalLocomotion
 #include <BipedalLocomotion/ContinuousDynamicalSystem/FloatingBaseSystemKinematics.h>
 #include <BipedalLocomotion/ContinuousDynamicalSystem/ForwardEuler.h>
-#include <BipedalLocomotion/ContinuousDynamicalSystem/MultiStateWeightProvider.h>
 #include <BipedalLocomotion/IK/GravityTask.h>
 #include <BipedalLocomotion/IK/QPInverseKinematics.h>
 #include <BipedalLocomotion/IK/R3Task.h>
 #include <BipedalLocomotion/IK/SO3Task.h>
 #include <BipedalLocomotion/ParametersHandler/IParametersHandler.h>
 #include <BipedalLocomotion/System/VariablesHandler.h>
+
+namespace Eigen
+{
+using Vector1d = Eigen::Matrix<double, 1, 1>;
+}
 
 namespace BiomechanicalAnalysis
 {
@@ -131,9 +135,9 @@ private:
     struct GravityTaskStruct
     {
         std::shared_ptr<BipedalLocomotion::IK::GravityTask> task;
-        std::shared_ptr<BipedalLocomotion::ContinuousDynamicalSystem::MultiStateWeightProvider>
-            weightProvider;
+        Eigen::Vector2d weight;
         int nodeNumber;
+        std::string taskName;
     };
 
     /**
@@ -143,9 +147,9 @@ private:
     struct FloorContactTaskStruct
     {
         std::shared_ptr<BipedalLocomotion::IK::R3Task> task;
-        std::shared_ptr<BipedalLocomotion::ContinuousDynamicalSystem::MultiStateWeightProvider>
-            weightProvider;
+        Eigen::Vector1d weight;
         int nodeNumber;
+        std::string taskName;
     };
 
     manif::SO3d calib_R_link = manif::SO3d::Identity();
@@ -166,6 +170,7 @@ private:
 
     BipedalLocomotion::IK::QPInverseKinematics m_qpIK; /** QP Inverse Kinematics solver */
     BipedalLocomotion::System::VariablesHandler m_variableHandler; /** Variables handler */
+    double m_verticalForceThreshold = 10.0; /** Threshold for the vertical force */
 
 public:
     /**
@@ -263,14 +268,22 @@ public:
      * @param I_R_IMU orientation of the IMU
      * @param I_omega_IMU angular velocity of the IMU
      */
-    bool setNodeSetPoint(const int node,
-                         const manif::SO3d& I_R_IMU,
-                         const manif::SO3Tangentd& I_omega_IMU = manif::SO3d::Tangent::Zero());
+    bool
+    updateOrientationTask(const int node,
+                          const manif::SO3d& I_R_IMU,
+                          const manif::SO3Tangentd& I_omega_IMU = manif::SO3d::Tangent::Zero());
+
+    bool
+    updateGravityTask(const int node, const double verticalForce, const Eigen::Vector3d& gravity);
+
+    bool updateFloorContactTask(const int node, const double verticalForce);
 
     bool TPoseCalibrationNode(const int node, const manif::SO3d& I_R_IMU);
 
     /**
-     * advance the inverse kinematics solver
+     * this function solves the inverse kinematics problem and integrate the joint velocity to
+     * compute the joint positions and the base pose; it also updates the state of the
+     * KinDynComputations object passed to the class
      * @return true if the inverse kinematics solver is advanced correctly
      */
     bool advance();
