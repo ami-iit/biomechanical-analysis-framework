@@ -19,11 +19,6 @@
 #include <BipedalLocomotion/ParametersHandler/IParametersHandler.h>
 #include <BipedalLocomotion/System/VariablesHandler.h>
 
-namespace Eigen
-{
-using Vector1d = Eigen::Matrix<double, 1, 1>;
-}
-
 namespace BiomechanicalAnalysis
 {
 
@@ -135,6 +130,8 @@ private:
     struct GravityTaskStruct
     {
         std::shared_ptr<BipedalLocomotion::IK::GravityTask> task;
+        manif::SO3d IMU_R_link;
+        manif::SO3d calibrationMatrix = manif::SO3d::Identity();
         Eigen::Vector2d weight;
         int nodeNumber;
         std::string taskName;
@@ -147,9 +144,12 @@ private:
     struct FloorContactTaskStruct
     {
         std::shared_ptr<BipedalLocomotion::IK::R3Task> task;
-        Eigen::Vector1d weight;
+        Eigen::Vector3d weight;
         int nodeNumber;
+        bool footInContact{false};
+        Eigen::Vector3d setPointPosition;
         std::string taskName;
+        std::string frameName;
     };
 
     manif::SO3d calib_R_link = manif::SO3d::Identity();
@@ -170,7 +170,7 @@ private:
 
     BipedalLocomotion::IK::QPInverseKinematics m_qpIK; /** QP Inverse Kinematics solver */
     BipedalLocomotion::System::VariablesHandler m_variableHandler; /** Variables handler */
-    double m_verticalForceThreshold = 10.0; /** Threshold for the vertical force */
+    double m_verticalForceThreshold = 30.0; /** Threshold for the vertical force */
 
 public:
     /**
@@ -273,8 +273,7 @@ public:
                           const manif::SO3d& I_R_IMU,
                           const manif::SO3Tangentd& I_omega_IMU = manif::SO3d::Tangent::Zero());
 
-    bool
-    updateGravityTask(const int node, const double verticalForce, const Eigen::Vector3d& gravity);
+    bool updateGravityTask(const int node, const manif::SO3d& I_R_IMU);
 
     bool updateFloorContactTask(const int node, const double verticalForce);
 

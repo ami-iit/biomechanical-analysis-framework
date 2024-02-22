@@ -150,27 +150,22 @@ bool HumanIK::updateOrientationTask(const int node,
     }
     I_R_link = m_OrientationTasks[node].calibrationMatrix * I_R_IMU
                * m_OrientationTasks[node].IMU_R_link;
-    ok = m_OrientationTasks[node].task->setSetPoint(I_R_link, I_omega_IMU);
+    ok = m_OrientationTasks[node]
+             .task->setSetPoint(I_R_link,
+                                m_OrientationTasks[node].calibrationMatrix.rotation()
+                                    * I_omega_IMU.coeffs());
     return ok;
 }
 
-bool HumanIK::updateGravityTask(const int node,
-                                const double verticalForce,
-                                const Eigen::Vector3d& gravity)
+bool HumanIK::updateGravityTask(const int node, const manif::SO3d& I_R_IMU)
 {
     if (m_GravityTasks.find(node) == m_GravityTasks.end())
     {
         BiomechanicalAnalysis::log()->error("[HumanIK::setNodeSetPoint] Invalid node number.");
         return false;
     }
-    if (verticalForce > m_verticalForceThreshold)
-    {
-        m_qpIK.setTaskWeight(m_GravityTasks[node].taskName, m_GravityTasks[node].weight);
-    } else
-    {
-        m_qpIK.setTaskWeight(m_GravityTasks[node].taskName, 0);
-    }
-    m_GravityTasks[node].task->setSetPoint(gravity);
+    I_R_link = m_GravityTasks[node].calibrationMatrix * I_R_IMU * m_GravityTasks[node].IMU_R_link;
+    m_GravityTasks[node].task->setSetPoint(I_R_link.rotation().rightCols(1));
 
     return true;
 }
@@ -182,14 +177,25 @@ bool HumanIK::updateFloorContactTask(const int node, const double verticalForce)
         BiomechanicalAnalysis::log()->error("[HumanIK::setNodeSetPoint] Invalid node number.");
         return false;
     }
-    if (verticalForce > m_verticalForceThreshold)
+
+    if (verticalForce > m_verticalForceThreshold && !m_FloorContactTasks[node].footInContact)
     {
         m_qpIK.setTaskWeight(m_FloorContactTasks[node].taskName, m_FloorContactTasks[node].weight);
-    } else
+        m_FloorContactTasks[node].footInContact = true;
+        m_FloorContactTasks[node].setPointPosition = iDynTree::toEigen(
+            m_kinDyn->getWorldTransform(m_FloorContactTasks[node].frameName).getPosition());
+        m_FloorContactTasks[node].setPointPosition(2) = 0.0;
+    } else if (verticalForce < m_verticalForceThreshold && m_FloorContactTasks[node].footInContact)
     {
-        m_qpIK.setTaskWeight(m_FloorContactTasks[node].taskName, 0);
+        // if the foot is not more in contact, set the weight of the associated task to zero
+        m_qpIK.setTaskWeight(m_FloorContactTasks[node].taskName, Eigen::Vector3d::Zero());
+        m_FloorContactTasks[node].footInContact = false;
     }
-    m_FloorContactTasks[node].task->setSetPoint(Eigen::Vector3d::Zero());
+
+    if (m_FloorContactTasks[node].footInContact)
+    {
+        m_FloorContactTasks[node].task->setSetPoint(m_FloorContactTasks[node].setPointPosition);
+    }
 
     return true;
 }
@@ -220,7 +226,6 @@ bool HumanIK::advance()
     }
     m_jointVelocities = m_qpIK.getOutput().jointVelocity;
     m_baseVelocity = m_qpIK.getOutput().baseVelocity.coeffs();
-    std::cout << "m_baseVelocity = " << m_qpIK.getOutput().baseVelocity << std::endl;
 
     ok = ok && m_system.dynamics->setControlInput({m_baseVelocity, m_jointVelocities});
     ok = ok && m_system.integrator->integrate(0s, m_dtIntegration);
@@ -377,6 +382,23 @@ bool HumanIK::initializeGravityTask(
                                             weight.size());
         return false;
     }
+    std::vector<double> rotation_matrix;
+    if (taskHandler->getParameter("rotation_matrix", rotation_matrix))
+    {
+        m_GravityTasks[nodeNumber].IMU_R_link = BipedalLocomotion::Conversions::toManifRot(
+            Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(rotation_matrix.data()));
+    } else
+    {
+        std::string frame_name;
+        taskHandler->getParameter("frame_name", frame_name);
+        BiomechanicalAnalysis::log()->warn("{} Parameter rotation_matrix of the {} task is "
+                                           "missing, setting the rotation matrix from the "
+                                           "IMU to the frame {} to identity",
+                                           logPrefix,
+                                           taskName,
+                                           frame_name);
+        m_GravityTasks[nodeNumber].IMU_R_link.setIdentity();
+    }
     m_GravityTasks[nodeNumber].weight = Eigen::Map<Eigen::Vector2d>(weight.data());
     m_GravityTasks[nodeNumber].nodeNumber = nodeNumber;
     m_GravityTasks[nodeNumber].taskName = taskName;
@@ -410,7 +432,14 @@ bool HumanIK::initializeFloorContactTask(
                                             taskName);
         return false;
     }
-    double weight;
+    if (!taskHandler->getParameter("frame_name", m_FloorContactTasks[nodeNumber].frameName))
+    {
+        BiomechanicalAnalysis::log()->error("{} Parameter frame_name of the {} task is missing",
+                                            logPrefix,
+                                            taskName);
+        return false;
+    }
+    std::vector<double> weight;
     if (!taskHandler->getParameter("weight", weight))
     {
         BiomechanicalAnalysis::log()->error("{} Parameter weight of the {} task is missing",
@@ -418,14 +447,24 @@ bool HumanIK::initializeFloorContactTask(
                                             taskName);
         return false;
     }
-    m_FloorContactTasks[nodeNumber].weight(0) = weight;
+    // check that the weight is a 3D vector
+    if (weight.size() != 3)
+    {
+        BiomechanicalAnalysis::log()->error("{} The size of the parameter weight of the {} task is "
+                                            "{}, it should be 3",
+                                            logPrefix,
+                                            taskName,
+                                            weight.size());
+        return false;
+    }
+    m_FloorContactTasks[nodeNumber].weight = Eigen::Map<Eigen::Vector3d>(weight.data());
     m_FloorContactTasks[nodeNumber].nodeNumber = nodeNumber;
     m_FloorContactTasks[nodeNumber].taskName = taskName;
     m_FloorContactTasks[nodeNumber].task = std::make_shared<BipedalLocomotion::IK::R3Task>();
 
-    // imposing that the only controlled direction is the z
-    std::vector<bool> mask{false, false, true};
-    taskHandler->setParameter("mask", mask);
+    // // imposing that the only controlled direction is the z
+    // std::vector<bool> mask{false, false, true};
+    // taskHandler->setParameter("mask", mask);
 
     // initializing the floor contact task
     ok = ok && m_FloorContactTasks[nodeNumber].task->setKinDyn(m_kinDyn);
