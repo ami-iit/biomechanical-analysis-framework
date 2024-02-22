@@ -165,19 +165,39 @@ int main()
 {
 
     yarp::os::ResourceFinder rf;
+
+    // create a kinDynComputations object
     auto kinDyn = std::make_shared<iDynTree::KinDynComputations>();
     iDynTree::ModelLoader mdlLoader;
     std::string urdfPath = rf.findFileByName("humanSubject01_48dof.urdf");
     mdlLoader.loadReducedModelFromFile(urdfPath, getJointsList());
     kinDyn->loadRobotModel(mdlLoader.model());
+    kinDyn->setFloatingBase("Pelvis");
+
+    // initialize the visualizer
     iDynTree::Visualizer viz;
+    iDynTree::VisualizerOptions options;
+    options.winWidth = 800;
+    options.winHeight = 600;
+    viz.init(options);
+    viz.setColorPalette("meshcat");
+
+    iDynTree::Position cameraPosition;
+    cameraPosition.zero();
+    cameraPosition[0] = 2.0;
+    cameraPosition[1] = 0.0;
+    cameraPosition[2] = 0.5;
+
+    viz.camera().setPosition(cameraPosition);
+
+    viz.camera().animator()->enableMouseControl(true);
+
     viz.addModel(mdlLoader.model(), "model");
     iDynTree::IModelVisualization& modelViz = viz.modelViz("model");
+    viz.addModel(mdlLoader.model(), "model2");
+    iDynTree::IModelVisualization& modelViz2 = viz.modelViz("model2");
+
     viz.draw();
-    iDynTree::Visualizer viz2;
-    viz2.addModel(mdlLoader.model(), "model2");
-    iDynTree::IModelVisualization& modelViz2 = viz2.modelViz("model2");
-    viz2.draw();
 
     iDynTree::Rotation I_R_IMU;
     iDynTree::AngVelocity I_omega_IMU;
@@ -193,6 +213,8 @@ int main()
     iDynTree::VectorDynSize jointPos, jointPos2;
     iDynTree::Transform w_H_b = iDynTree::Transform::Identity();
     iDynTree::Transform w_H_b2 = iDynTree::Transform::Identity();
+    iDynTree::Position basePositionOld;
+    iDynTree::Position cameraDeltaPosition;
     jointPos.resize(kinDyn->getNrOfDegreesOfFreedom());
     jointPos2.resize(kinDyn->getNrOfDegreesOfFreedom());
     jointVelocities.resize(kinDyn->getNrOfDegreesOfFreedom());
@@ -213,7 +235,7 @@ int main()
         return 1;
     }
 
-    matioCpp::File file("/path/to/ifeel_data.mat");
+    matioCpp::File file("/home/dgorbani/matlab1.mat");
 
     matioCpp::Struct ifeel_data = file.read("ifeel_data").asStruct();
     matioCpp::Struct node12 = ifeel_data("iFeelSuit_vLink_Node_12").asStruct();
@@ -224,6 +246,17 @@ int main()
     matioCpp::Struct joint_positions = human_state("joint_positions").asStruct();
     matioCpp::MultiDimensionalArray<double> jointPos_data
         = joint_positions("data").asMultiDimensionalArray<double>();
+    matioCpp::Struct base_position = human_state("base_position").asStruct();
+    matioCpp::MultiDimensionalArray<double> basePos_data
+        = base_position("data").asMultiDimensionalArray<double>();
+    matioCpp::Struct base_orientation = human_state("base_orientation").asStruct();
+    matioCpp::MultiDimensionalArray<double> baseOrientation_data
+        = base_orientation("data").asMultiDimensionalArray<double>();
+
+    iDynTree::Position w_p_b2_init;
+    w_p_b2_init[0] = basePos_data({0, 0, 0});
+    w_p_b2_init[1] = basePos_data({1, 0, 0});
+    w_p_b2_init[2] = 0;
 
     for (size_t ii = 0; ii < 31; ii++)
     {
@@ -235,7 +268,8 @@ int main()
     size_t dataLength = data.size();
 
     // list of nodes
-    std::vector<int> nodesNumber = {3, 6, 7, 8, 5, 4, 11, 12, 9, 10};
+    std::vector<int> orientationNodes = {1, 2, 3, 6, 7, 8, 5, 4, 11, 12, 9, 10};
+    std::vector<int> floorContactNodes = {1, 2};
 
     BiomechanicalAnalysis::IK::HumanIK ik;
 
@@ -256,12 +290,12 @@ int main()
 
     for (size_t ii = 0; ii < dataLength; ii++)
     {
-        // perform the T-pose calibration if the user inputs 't'
+        // perform the T-pose calibration if the user inputs 'calib'
         if (tPoseFlag)
         {
-            for (auto& node : nodesNumber)
+            for (auto& node : orientationNodes)
             {
-                getNodeData(ifeel_data, node, ii, I_R_IMU, I_omega_IMU);
+                getNodeOrientation(ifeel_data, node, ii, I_R_IMU, I_omega_IMU);
                 ik.TPoseCalibrationNode(node,
                                         manif::SO3d(fromiDynTreeToEigenQuatConversion(I_R_IMU)));
             }
@@ -270,23 +304,30 @@ int main()
         }
 
         // implement cycle over the nodes
-        for (auto& node : nodesNumber)
+        for (auto& node : orientationNodes)
         {
             // cycle over nodes to get orientation and angular velocity
-            getNodeData(ifeel_data, node, ii, I_R_IMU, I_omega_IMU);
+            getNodeOrientation(ifeel_data, node, ii, I_R_IMU, I_omega_IMU);
 
             // manif object is built from Eigen::Quaterniond
             manif::SO3d I_R_IMU_manif = manif::SO3d(fromiDynTreeToEigenQuatConversion(I_R_IMU));
             manif::SO3Tangentd I_omega_IMU_manif
                 = manif::SO3Tangentd(iDynTree::toEigen(I_omega_IMU));
 
-            if (!ik.setNodeSetPoint(node, I_R_IMU_manif, I_omega_IMU_manif))
+            if (!ik.updateOrientationTask(node, I_R_IMU_manif, I_omega_IMU_manif))
             {
                 BiomechanicalAnalysis::log()->error("[error] Cannot set the node number {} set "
                                                     "point",
                                                     node);
                 return 1;
             }
+        }
+        for (auto& node : floorContactNodes)
+        {
+            double force;
+            getNodeOrientation(ifeel_data, node, ii, I_R_IMU, I_omega_IMU);
+            getNodeVerticalForce(ifeel_data, node, ii, force);
+            ik.updateFloorContactTask(node, force);
         }
         if (!ik.advance())
         {
@@ -301,6 +342,17 @@ int main()
         {
             jointPos2[jj] = jointPos_data({jj, 0, ii});
         }
+        iDynTree::Position w_p_b2;
+        w_p_b2[0] = basePos_data({0, 0, ii});
+        w_p_b2[1] = basePos_data({1, 0, ii});
+        w_p_b2[2] = basePos_data({2, 0, ii});
+        iDynTree::Rotation w_R_b2;
+        iDynTree::Vector4 quat2;
+        quat2[0] = baseOrientation_data({0, 0, ii});
+        quat2[1] = baseOrientation_data({1, 0, ii});
+        quat2[2] = baseOrientation_data({2, 0, ii});
+        quat2[3] = baseOrientation_data({3, 0, ii});
+        w_R_b2 = iDynTree::Rotation::RotationFromQuaternion(quat2);
         iDynTree::Rotation w_R_b;
         iDynTree::Position w_p_b;
         iDynTree::toEigen(w_R_b) = baseOrientation;
@@ -308,10 +360,20 @@ int main()
 
         iDynTree::toEigen(jointPos) = jointPositions;
 
+        w_H_b.setRotation(w_R_b);
+        w_H_b2.setRotation(w_R_b2);
+        w_H_b.setPosition(w_p_b);
+        w_H_b2.setPosition(w_p_b2 - w_p_b2_init);
+
+        cameraDeltaPosition = viz.camera().getPosition() - basePositionOld;
+        viz.camera().setPosition(w_p_b + cameraDeltaPosition);
+        viz.camera().setTarget(w_p_b);
+        basePositionOld = w_p_b;
+
         modelViz.setPositions(w_H_b, jointPos);
-        viz.draw();
         modelViz2.setPositions(w_H_b2, jointPos2);
-        viz2.draw();
+
+        viz.draw();
     }
 
     stopThread = true;
