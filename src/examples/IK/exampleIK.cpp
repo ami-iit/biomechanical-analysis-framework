@@ -18,16 +18,18 @@
 #include <BiomechanicalAnalysis/Logging/Logger.h>
 #include <BipedalLocomotion/ParametersHandler/YarpImplementation.h>
 
+#include <ConfigFolderPath.h>
+
 using namespace BiomechanicalAnalysis::Conversions;
 
 std::atomic<bool> tPoseFlag{false};
 std::atomic<bool> stopThread{false};
 
-bool getNodeData(matioCpp::Struct& ifeel_struct,
-                 int nodeNum,
-                 size_t index_i,
-                 iDynTree::Rotation& I_R_IMU,
-                 iDynTree::AngVelocity& I_omeg_IMU)
+bool getNodeOrientation(matioCpp::Struct& ifeel_struct,
+                        int nodeNum,
+                        size_t index_i,
+                        iDynTree::Rotation& I_R_IMU,
+                        iDynTree::AngVelocity& I_omeg_IMU)
 {
     matioCpp::Struct vLink_node
         = ifeel_struct("iFeelSuit_vLink_Node_" + std::to_string(nodeNum)).asStruct();
@@ -69,6 +71,34 @@ bool getNodeData(matioCpp::Struct& ifeel_struct,
     I_omeg_IMU[2] = data1({angVel_z, index0, index_i});
 
     I_R_IMU = iDynTree::Rotation::RotationFromQuaternion(quat);
+
+    return true;
+}
+
+bool getNodeVerticalForce(matioCpp::Struct& ifeel_struct, int nodeNum, size_t index_i, double& force)
+{
+    matioCpp::Struct vLink_node
+        = ifeel_struct("iFeelSuit_ft6D_Node_" + std::to_string(nodeNum)).asStruct();
+    if (!vLink_node.isValid())
+    {
+        BiomechanicalAnalysis::log()->error("Cannot read the iFeelSuit_vLink_Node_{} "
+                                            "struct",
+                                            std::to_string(nodeNum));
+        return false;
+    }
+    matioCpp::MultiDimensionalArray<double> data1
+        = vLink_node("data").asMultiDimensionalArray<double>();
+    if (!data1.isValid())
+    {
+        BiomechanicalAnalysis::log()->error("Cannot read the data field of the node number {}",
+                                            std::to_string(nodeNum));
+        return false;
+    }
+
+    size_t index0 = 0;
+    size_t index_z = 3;
+
+    force = data1({index_z, index0, index_i});
 
     return true;
 }
