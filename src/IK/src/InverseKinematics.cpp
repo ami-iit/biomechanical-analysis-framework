@@ -305,8 +305,6 @@ bool HumanIK::initializeOrientationTask(
     constexpr auto logPrefix = "[HumanIK::initialize]";
     int nodeNumber;
     bool ok{true};
-    Eigen::Vector3d Weight;
-    Weight.setConstant(10.0);
     if (!taskHandler->getParameter("node_number", nodeNumber))
     {
         BiomechanicalAnalysis::log()->error("{} Parameter node_number of the {} task is "
@@ -315,6 +313,25 @@ bool HumanIK::initializeOrientationTask(
                                             taskName);
         return false;
     }
+    std::vector<double> weight;
+    if (!taskHandler->getParameter("weight", weight))
+    {
+        BiomechanicalAnalysis::log()->error("{} Parameter weight of the {} task is missing",
+                                            logPrefix,
+                                            taskName);
+        return false;
+    }
+    // check that the weight is a 3D vector
+    if (weight.size() != 3)
+    {
+        BiomechanicalAnalysis::log()->error("{} The size of the parameter weight of the {} task is "
+                                            "{}, it should be 3",
+                                            logPrefix,
+                                            taskName,
+                                            weight.size());
+        return false;
+    }
+    m_FloorContactTasks[nodeNumber].weight = Eigen::Map<Eigen::Vector3d>(weight.data());
     m_OrientationTasks[nodeNumber].nodeNumber = nodeNumber;
     m_OrientationTasks[nodeNumber].task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
     std::vector<double> rotation_matrix;
@@ -336,7 +353,11 @@ bool HumanIK::initializeOrientationTask(
     }
     ok = ok && m_OrientationTasks[nodeNumber].task->setKinDyn(m_kinDyn);
     ok = ok && m_OrientationTasks[nodeNumber].task->initialize(taskHandler);
-    ok = ok && m_qpIK.addTask(m_OrientationTasks[nodeNumber].task, taskName, 1, Weight);
+    ok = ok
+         && m_qpIK.addTask(m_OrientationTasks[nodeNumber].task,
+                           taskName,
+                           1,
+                           m_FloorContactTasks[nodeNumber].weight);
     if (!ok)
     {
         BiomechanicalAnalysis::log()->error("{} Error in the initialization of the {} task",

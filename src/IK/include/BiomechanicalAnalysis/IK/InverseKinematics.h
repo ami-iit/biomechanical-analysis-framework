@@ -121,6 +121,7 @@ private:
         int nodeNumber;
         manif::SO3d IMU_R_link;
         manif::SO3d calibrationMatrix = manif::SO3d::Identity();
+        Eigen::Vector3d weight;
     };
 
     /**
