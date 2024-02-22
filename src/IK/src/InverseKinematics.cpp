@@ -142,73 +142,93 @@ bool HumanIK::updateOrientationTask(const int node,
                                     const manif::SO3d& I_R_IMU,
                                     const manif::SO3Tangentd& I_omega_IMU)
 {
-    bool ok;
+    // check if the node number is valid
     if (m_OrientationTasks.find(node) == m_OrientationTasks.end())
     {
         BiomechanicalAnalysis::log()->error("[HumanIK::setNodeSetPoint] Invalid node number.");
         return false;
     }
+
+    // compute the rotation matrix from the world to the link frame as:
+    // W_R_link = W_R_WIMU * WIMU_R_IMU * IMU_R_link
     I_R_link = m_OrientationTasks[node].calibrationMatrix * I_R_IMU
                * m_OrientationTasks[node].IMU_R_link;
-    ok = m_OrientationTasks[node]
-             .task->setSetPoint(I_R_link,
-                                m_OrientationTasks[node].calibrationMatrix.rotation()
-                                    * I_omega_IMU.coeffs());
-    return ok;
+    return m_OrientationTasks[node]
+        .task->setSetPoint(I_R_link,
+                           m_OrientationTasks[node].calibrationMatrix.rotation()
+                               * I_omega_IMU.coeffs());
 }
 
 bool HumanIK::updateGravityTask(const int node, const manif::SO3d& I_R_IMU)
 {
+    // check if the node number is valid
     if (m_GravityTasks.find(node) == m_GravityTasks.end())
     {
         BiomechanicalAnalysis::log()->error("[HumanIK::setNodeSetPoint] Invalid node number.");
         return false;
     }
-    I_R_link = m_GravityTasks[node].calibrationMatrix * I_R_IMU * m_GravityTasks[node].IMU_R_link;
-    m_GravityTasks[node].task->setSetPoint(I_R_link.rotation().rightCols(1));
 
-    return true;
+    // compute the rotation matrix from the world to the link frame as:
+    // W_R_link = W_R_WIMU * WIMU_R_IMU * IMU_R_link
+    I_R_link = m_GravityTasks[node].calibrationMatrix * I_R_IMU * m_GravityTasks[node].IMU_R_link;
+
+    // set the set point of the gravity task choosing the z direction of the W_R_link rotation
+    // matrix
+    return m_GravityTasks[node].task->setSetPoint(I_R_link.rotation().rightCols(1));
 }
 
 bool HumanIK::updateFloorContactTask(const int node, const double verticalForce)
 {
+    bool ok{true};
+    // check if the node number is valid
     if (m_FloorContactTasks.find(node) == m_FloorContactTasks.end())
     {
         BiomechanicalAnalysis::log()->error("[HumanIK::setNodeSetPoint] Invalid node number.");
         return false;
     }
 
-    if (verticalForce > m_verticalForceThreshold && !m_FloorContactTasks[node].footInContact)
+    // if the vertical force is greater than the threshold and if the foot is not yet in contact,
+    // set the weight of the associated task to the weight of the task and set the set point of the
+    // task to the position of the frame computed with the legged odometry
+    if (verticalForce > m_FloorContactTasks[node].verticalForceThreshold
+        && !m_FloorContactTasks[node].footInContact)
     {
         m_qpIK.setTaskWeight(m_FloorContactTasks[node].taskName, m_FloorContactTasks[node].weight);
         m_FloorContactTasks[node].footInContact = true;
         m_FloorContactTasks[node].setPointPosition = iDynTree::toEigen(
             m_kinDyn->getWorldTransform(m_FloorContactTasks[node].frameName).getPosition());
         m_FloorContactTasks[node].setPointPosition(2) = 0.0;
-    } else if (verticalForce < m_verticalForceThreshold && m_FloorContactTasks[node].footInContact)
+    } else if (verticalForce < m_FloorContactTasks[node].verticalForceThreshold
+               && m_FloorContactTasks[node].footInContact)
     {
         // if the foot is not more in contact, set the weight of the associated task to zero
         m_qpIK.setTaskWeight(m_FloorContactTasks[node].taskName, Eigen::Vector3d::Zero());
         m_FloorContactTasks[node].footInContact = false;
     }
 
+    // if the foot is in contact, set the set point of the task
     if (m_FloorContactTasks[node].footInContact)
     {
-        m_FloorContactTasks[node].task->setSetPoint(m_FloorContactTasks[node].setPointPosition);
+        ok = m_FloorContactTasks[node].task->setSetPoint(
+            m_FloorContactTasks[node].setPointPosition);
     }
 
-    return true;
+    return ok;
 }
 
 bool HumanIK::TPoseCalibrationNode(const int node, const manif::SO3d& I_R_IMU)
 {
+    // check if the node number is valid
     if (m_OrientationTasks.find(node) == m_OrientationTasks.end())
     {
         BiomechanicalAnalysis::log()->error("[HumanIK::setNodeSetPoint] Invalid node number.");
         return false;
     }
+    // compute the rotation matrix from the world to the world of the IMU as:
+    // W_R_WIMU = R_calib * (WIMU_R_IMU * IMU_R_link)^{T}
+    // where R_calib is assumed to be the identity
     m_OrientationTasks[node].calibrationMatrix
-        = calib_R_link * (I_R_IMU * m_OrientationTasks[node].IMU_R_link).inverse();
+        = calib_W_R_link * (I_R_IMU * m_OrientationTasks[node].IMU_R_link).inverse();
 
     return true;
 }
@@ -302,7 +322,7 @@ bool HumanIK::initializeOrientationTask(
     const std::string& taskName,
     const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler)
 {
-    constexpr auto logPrefix = "[HumanIK::initialize]";
+    constexpr auto logPrefix = "[HumanIK::initializeOrientationTask]";
     int nodeNumber;
     bool ok{true};
     if (!taskHandler->getParameter("node_number", nodeNumber))
@@ -372,7 +392,7 @@ bool HumanIK::initializeGravityTask(
     const std::string& taskName,
     const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler)
 {
-    constexpr auto logPrefix = "[HumanIK::initialize]";
+    constexpr auto logPrefix = "[HumanIK::initializeGravityTask]";
     int nodeNumber;
     bool ok{true};
     Eigen::Vector2d Weight;
@@ -442,7 +462,7 @@ bool HumanIK::initializeFloorContactTask(
     const std::string& taskName,
     const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler)
 {
-    constexpr auto logPrefix = "[HumanIK::initialize]";
+    constexpr auto logPrefix = "[HumanIK::initializeFloorContactTask]";
     int nodeNumber;
     bool ok{true};
     if (!taskHandler->getParameter("node_number", nodeNumber))

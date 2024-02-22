@@ -154,7 +154,8 @@ private:
         double verticalForceThreshold;
     };
 
-    manif::SO3d calib_R_link = manif::SO3d::Identity();
+    manif::SO3d calib_W_R_link = manif::SO3d::Identity(); /** calibration matrix between the world
+                                                           and the link */
 
     std::unordered_map<int, OrientationTaskStruct> m_OrientationTasks; /** unordered map of the
                                                                     orientation tasks */
@@ -172,7 +173,6 @@ private:
 
     BipedalLocomotion::IK::QPInverseKinematics m_qpIK; /** QP Inverse Kinematics solver */
     BipedalLocomotion::System::VariablesHandler m_variableHandler; /** Variables handler */
-    double m_verticalForceThreshold = 30.0; /** Threshold for the vertical force */
 
 public:
     /**
