@@ -177,7 +177,7 @@ int main()
     auto paramHandler
         = std::make_shared<BipedalLocomotion::ParametersHandler::YarpImplementation>();
 
-    if (!paramHandler->setFromFile("/path/to/exampleIK.ini"))
+    if (!paramHandler->setFromFile(getConfigPath()))
     {
         BiomechanicalAnalysis::log()->error("Cannot configure the parameter handler");
         return 1;

@@ -1,0 +1,16 @@
+/**
+ * @file FolderPath.h(.in)
+ * @authors Davide Gorbani
+ */
+
+#ifndef CONFIG_FOLDERPATH_H_IN
+#define CONFIG_FOLDERPATH_H_IN
+
+#define SOURCE_CONFIG_DIR "@CMAKE_CURRENT_SOURCE_DIR@"
+
+inline std::string getConfigPath()
+{
+    return std::string(SOURCE_CONFIG_DIR) + "/exampleIK.ini";
+}
+
+#endif // CONFIG_FOLDERPATH_H_IN
