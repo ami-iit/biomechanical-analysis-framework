@@ -235,7 +235,7 @@ int main()
         return 1;
     }
 
-    matioCpp::File file("/home/dgorbani/matlab1.mat");
+    matioCpp::File file("/path/to/matlab1.mat");
 
     matioCpp::Struct ifeel_data = file.read("ifeel_data").asStruct();
     matioCpp::Struct node12 = ifeel_data("iFeelSuit_vLink_Node_12").asStruct();
