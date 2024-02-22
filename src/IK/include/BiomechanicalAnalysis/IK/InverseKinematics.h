@@ -151,6 +151,7 @@ private:
         Eigen::Vector3d setPointPosition;
         std::string taskName;
         std::string frameName;
+        double verticalForceThreshold;
     };
 
     manif::SO3d calib_R_link = manif::SO3d::Identity();

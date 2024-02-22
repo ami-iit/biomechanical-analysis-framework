@@ -478,6 +478,15 @@ bool HumanIK::initializeFloorContactTask(
                                             weight.size());
         return false;
     }
+    if (!taskHandler->getParameter("vertical_force_threshold",
+                                   m_FloorContactTasks[nodeNumber].verticalForceThreshold))
+    {
+        BiomechanicalAnalysis::log()->error("{} Parameter vertical_force_threshold of the {} task "
+                                            "is missing",
+                                            logPrefix,
+                                            taskName);
+        return false;
+    }
     m_FloorContactTasks[nodeNumber].weight = Eigen::Map<Eigen::Vector3d>(weight.data());
     m_FloorContactTasks[nodeNumber].nodeNumber = nodeNumber;
     m_FloorContactTasks[nodeNumber].taskName = taskName;
