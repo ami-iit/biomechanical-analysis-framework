@@ -299,20 +299,40 @@ public:
     int getDoFsNumber() const;
 
     /**
-     * set the orientation and the angular velocity of a given node
+     * set the orientation and the angular velocity for a given node of a SO3 task
      * @param node node number
      * @param I_R_IMU orientation of the IMU
      * @param I_omega_IMU angular velocity of the IMU
+     * @return true if the orientation setpoint is set correctly
      */
     bool
     updateOrientationTask(const int node,
                           const manif::SO3d& I_R_IMU,
                           const manif::SO3Tangentd& I_omega_IMU = manif::SO3d::Tangent::Zero());
 
+    /**
+     * set the orientation setpoint for a given node of a gravity task
+     * @param node node number
+     * @param I_R_IMU orientation of the IMU
+     * @param I_omega_IMU angular velocity of the IMU
+     * @return true if the orientation setpoint is set correctly
+     */
     bool updateGravityTask(const int node, const manif::SO3d& I_R_IMU);
 
+    /**
+     * set the position setpoint for a given node of a floor contact task
+     * @param node node number
+     * @param verticalForce vertical force
+     * @return true if the orientation setpoint is set correctly
+     */
     bool updateFloorContactTask(const int node, const double verticalForce);
 
+    /**
+     * set the calibration matrix between the IMU and the link
+     * @param node node number
+     * @param I_R_IMU calibration matrix
+     * @return true if the calibration matrix is set correctly
+     */
     bool TPoseCalibrationNode(const int node, const manif::SO3d& I_R_IMU);
 
     /**
