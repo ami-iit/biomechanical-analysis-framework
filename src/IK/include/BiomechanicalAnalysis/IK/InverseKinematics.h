@@ -208,19 +208,35 @@ public:
      * |:---------:|:------------------------------:|:---------------:|:---------------------------------------------------------------------------------------:|:---------:|
      * | `SO3Task` |           `type`               |     `string`    |                         Type of the task. The value to be set is `SO3Task`              |  Yes |
      * | `SO3Task` | `robot_velocity_variable_name` |     `string`    |Name of the variable contained in `VariablesHandler` describing the generalized robot velocity|  Yes |
-     * | `SO3Task` |           `node`               |      `int`      |                    Node number of the task. The node number must be unique.             |  Yes |
+     * | `SO3Task` |        `node_number`           |      `int`      |                    Node number of the task. The node number must be unique.             |  Yes |
      * | `SO3Task` |      `rotation_matrix`         | `vector<double>`|    Rotation matrix between the IMU and the link. By default it set to identity.         |  No  |
      * | `SO3Task` |         `frame_name`           |     `string`    |                          Name of the frame in which the task is expressed.              |  Yes |
      * | `SO3Task` |         `kp_angular`           |     `double`    |                        Value of the gain of the angular velocity feedback.              |  Yes |
+     * | `SO3Task` |           `weight`             | `vector<double>`|                        Weight of the task. Default value is (1.0, 1.0, 1.0)             |  yes |
      * `SO3Task` is a placeholder for the name of the task contained in the `tasks` list.
+     *
      * The "GravityTask" requires the following parameters:
      * |    Group    |         Parameter Name         |    Type    |                                         Description                                          | Mandatory |
      * |:-----------:|:------------------------------:|:----------:|:--------------------------------------------------------------------------------------------:|:---------:|
      * |`GravityTask`|           `type`               |  `string`  |                         Type of the task. The value to be set is `GravityTask`               |  Yes  |
      * |`GravityTask`| `robot_velocity_variable_name` |  `string`  |Name of the variable contained in `VariablesHandler` describing the generalized robot velocity|  Yes  |
-     * |`GravityTask`|           `node`               |   `int`    |                    Node number of the task. The node number must be unique.                  |  Yes  |
+     * |`GravityTask`|        `node_number`           |   `int`    |                    Node number of the task. The node number must be unique.                  |  Yes  |
      * |`GravityTask`|            `kp`                |  `double`  |                          Gain of the distance controller                                     |  Yes  |
      * |`GravityTask`|     `target_frame_name`        |  `string`  |                 Name of the frame to which apply the gravity task                            |  Yes  |
+     * |`GravityTask`|           `weight`             |`vector<double>`|                                Weight of the task                                        |  Yes  |
+     * |`GravityTask`|      `rotation_matrix`         |`vector<double>`|     Rotation matrix between the IMU and the link. By default it set to identity.         |  No   |
+     *
+     * The "floorContactTask" requires the following parameters:
+     * |    Group    |         Parameter Name         |    Type    |                                         Description                                          | Mandatory |
+     * |:-----------:|:------------------------------:|:----------:|:--------------------------------------------------------------------------------------------:|:---------:|
+     * |`FloorContactTask`|           `type`               |  `string`  |                       Type of the task. The value to be set is `FloorContactTask`       |  Yes  |
+     * |`FloorContactTask`| `robot_velocity_variable_name` |  `string`  |Name of the variable contained in `VariablesHandler` describing the generalized robot velocity|  Yes  |
+     * |`FloorContactTask`|         `node_number`          |   `int`    |                  Node number of the task. The node number must be unique.               |  Yes  |
+     * |`FloorContactTask`|          `kp_linear`           |  `double`  |                          Gain of the distance controller                                |  Yes  |
+     * |`FloorContactTask`|         `frame_name`           |  `string`  |                 Name of the frame to which apply the floor contact task                 |  Yes  |
+     * |`FloorContactTask`|   `vertical_force_threshold`   |  `double`  |                 Threshold of the vertical force to consider the foot in contact         |  Yes  |
+     * |`FloorContactTask`|           `weight`             |  `vector<double>`  |                           Weight of the task                                    |  Yes  |
+     *
      * @note The following `ini` file presents an example of the configuration that can be used to
      * build the HumanIK class.
      *  ~~~~~{.ini}
@@ -236,9 +252,27 @@ public:
      * frame_name                      "Pelvis"
      * kp_angular                      5.0
      * node_number                     3
+     * weight                          (1.0, 1.0, 1.0)
      * rotation_matrix                 (0.0, 1.0, 0.0,
      *                                  0.0, 0.0, -1.0,
      *                                 -1.0, 0.0, 0.0)
+     *
+     * [GRAVITY_TASK_1]
+     * type                            "GravityTask"
+     * robot_velocity_variable_name    "robot_velocity"
+     * target_frame_name               "link10"
+     * kp                              1.0
+     * node_number                     10
+     * weight                          (1.0 1.0)
+     *
+     * [RIGHT_TOE_TASK]
+     * type                            "FloorContactTask"
+     * robot_velocity_variable_name    "robot_velocity"
+     * frame_name                      "RightToe"
+     * kp_linear                       60.0
+     * node_number                     2
+     * weight                          (1.0 1.0 1.0)
+     * vertical_force_threshold        60.0
     */
     // clang-format on
     bool
