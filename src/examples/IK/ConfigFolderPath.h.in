@@ -10,7 +10,7 @@
 
 inline std::string getConfigPath()
 {
-    return std::string(SOURCE_CONFIG_DIR) + "/exampleIK.ini";
+    return std::string(SOURCE_CONFIG_DIR);
 }
 
 #endif // CONFIG_FOLDERPATH_H_IN

@@ -169,7 +169,7 @@ int main()
     // create a kinDynComputations object
     auto kinDyn = std::make_shared<iDynTree::KinDynComputations>();
     iDynTree::ModelLoader mdlLoader;
-    std::string urdfPath = rf.findFileByName("humanSubject01_48dof.urdf");
+    std::string urdfPath = rf.findFileByName("humanSubject03_48dof.urdf");
     mdlLoader.loadReducedModelFromFile(urdfPath, getJointsList());
     kinDyn->loadRobotModel(mdlLoader.model());
     kinDyn->setFloatingBase("Pelvis");
@@ -196,6 +196,8 @@ int main()
     iDynTree::IModelVisualization& modelViz = viz.modelViz("model");
     viz.addModel(mdlLoader.model(), "model2");
     iDynTree::IModelVisualization& modelViz2 = viz.modelViz("model2");
+    iDynTree::ColorViz modelColor(1.0, 0.0, 0.0, 1.0);
+    modelViz2.setModelColor(modelColor);
 
     viz.draw();
 
@@ -229,7 +231,7 @@ int main()
     auto paramHandler
         = std::make_shared<BipedalLocomotion::ParametersHandler::YarpImplementation>();
 
-    if (!paramHandler->setFromFile(getConfigPath()))
+    if (!paramHandler->setFromFile(getConfigPath() + "/exampleIK.ini"))
     {
         BiomechanicalAnalysis::log()->error("Cannot configure the parameter handler");
         return 1;
