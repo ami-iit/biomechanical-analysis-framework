@@ -67,7 +67,7 @@
 # Each file is generated twice, one for the build directory and one for
 # the installation directory.  The ``INSTALL_DESTINATION`` argument can be
 # passed to install the files in a location different from the default
-# one (``CMake`` on Windows, ``CMAKEINSTALLLIBDIR/cmake/{Name}``
+# one (``CMake`` on Windows, ``${CMAKE_INSTALL_LIBDIR}/cmake/${Name}``
 # on other platforms.  The ``EXPORT_DESTINATION`` argument can be passed to
 # generate the files in the build tree in a location different from the default
 # one (``CMAKE_BINARY_DIR``).  If this is a relative path, it is considered
@@ -470,25 +470,25 @@ function(INSTALL_BASIC_PACKAGE_FILES _Name)
       unset(_set_include_dir_code)
       unset(_target_list)
       foreach(_target ${_targets})
-        list(APPEND _target_list IBPFNAMESPACE{_target})
+        list(APPEND _target_list ${_IBPF_NAMESPACE}${_target})
       endforeach()
       if(DEFINED ${_IBPF_VARS_PREFIX}_BUILD_INCLUDEDIR OR
          DEFINED BUILD_${_IBPF_VARS_PREFIX}_INCLUDEDIR OR
          DEFINED ${_IBPF_VARS_PREFIX}_INSTALL_INCLUDEDIR OR
          DEFINED INSTALL_${_IBPF_VARS_PREFIX}_INCLUDEDIR)
         set(_get_include_dir "set(${_IBPF_VARS_PREFIX}_INCLUDEDIR \"\@PACKAGE_${_IBPF_VARS_PREFIX}_INCLUDEDIR\@\")\n")
-        set(_set_include_dir "set(${_Name}_INCLUDE_DIRS \"${${_IBPF_VARS_PREFIX}_INCLUDEDIR}\")")
+        set(_set_include_dir "set(${_Name}_INCLUDE_DIRS \"\${${_IBPF_VARS_PREFIX}_INCLUDEDIR}\")")
       elseif(DEFINED ${_IBPF_VARS_PREFIX}_BUILD_INCLUDE_DIR OR
              DEFINED BUILD_${_IBPF_VARS_PREFIX}_INCLUDE_DIR OR
              DEFINED ${_IBPF_VARS_PREFIX}_INSTALL_INCLUDE_DIR OR
              DEFINED INSTALL_${_IBPF_VARS_PREFIX}_INCLUDE_DIR)
         set(_get_include_dir "set(${_IBPF_VARS_PREFIX}_INCLUDE_DIR \"\@PACKAGE_${_IBPF_VARS_PREFIX}_INCLUDE_DIR\@\")\n")
-        set(_set_include_dir "set(${_Name}_INCLUDE_DIRS \"${${_IBPF_VARS_PREFIX}_INCLUDE_DIR}\")")
+        set(_set_include_dir "set(${_Name}_INCLUDE_DIRS \"\${${_IBPF_VARS_PREFIX}_INCLUDE_DIR}\")")
       else()
         unset(_include_dir_list)
         foreach(_target ${_targets})
-          set(_get_include_dir "${_get_include_dir}get_property(${_IBPF_VARS_PREFIX}_${_target}_INCLUDE_DIR TARGET IBPFNAMESPACE{_target} PROPERTY INTERFACE_INCLUDE_DIRECTORIES)\n")
-          list(APPEND _include_dir_list "\"${${_IBPF_VARS_PREFIX}_${_target}_INCLUDE_DIR}\"")
+          set(_get_include_dir "${_get_include_dir}get_property(${_IBPF_VARS_PREFIX}_${_target}_INCLUDE_DIR TARGET ${_IBPF_NAMESPACE}${_target} PROPERTY INTERFACE_INCLUDE_DIRECTORIES)\n")
+          list(APPEND _include_dir_list "\"\${${_IBPF_VARS_PREFIX}_${_target}_INCLUDE_DIR}\"")
         endforeach()
         string(REPLACE ";" " " _include_dir_list "${_include_dir_list}")
         string(REPLACE ";" " " _target_list "${_target_list}")
@@ -500,12 +500,17 @@ function(INSTALL_BASIC_PACKAGE_FILES _Name)
     # Write the file
     file(WRITE "${_config_cmake_in}"
 "set(${_IBPF_VARS_PREFIX}_VERSION \@PACKAGE_VERSION\@)
+
 \@PACKAGE_INIT\@
+
 \@PACKAGE_DEPENDENCIES\@
-if(NOT TARGET IBPFNAMESPACE{_first_target})
-  include(\"${CMAKE_CURRENT_LIST_DIR}/${_targets_filename}\")
+
+if(NOT TARGET ${_IBPF_NAMESPACE}${_first_target})
+  include(\"\${CMAKE_CURRENT_LIST_DIR}/${_targets_filename}\")
 endif()
+
 ${_compatibility_vars}
+
 \@INCLUDED_FILE_CONTENT\@
 ")
   endif()
@@ -576,7 +581,7 @@ ${_compatibility_vars}
 
     if (DEFINED _IBPF_OVERRIDE_MODULE_PATH)
 
-      string(APPEND PACKAGE_DEPENDENCIES "set(CMAKE_MODULE_PATH_BK_${_IBPF_VARS_PREFIX} ${CMAKE_MODULE_PATH})\n")
+      string(APPEND PACKAGE_DEPENDENCIES "set(CMAKE_MODULE_PATH_BK_${_IBPF_VARS_PREFIX} \${CMAKE_MODULE_PATH})\n")
       set(_overridden_module_path "")
       foreach(_path ${_IBPF_OVERRIDE_MODULE_PATH})
 
@@ -587,7 +592,7 @@ ${_compatibility_vars}
           endif()
 
           file(RELATIVE_PATH _relative_path ${CMAKE_INSTALL_PREFIX} ${_absolute_module_path})
-          string(APPEND _overridden_module_path " ${PACKAGE_PREFIX_DIR}/${_relative_path}")
+          string(APPEND _overridden_module_path " \${PACKAGE_PREFIX_DIR}/${_relative_path}")
       endforeach()
       string(APPEND PACKAGE_DEPENDENCIES "set(CMAKE_MODULE_PATH${_overridden_module_path})\n")
       # If OVERRIDE_MODULE_PATH is used, then if a dependency is not found find_dependency will
@@ -615,7 +620,7 @@ endif()
       foreach(_dep ${_IBPF_DEPENDENCIES})
         if("${_dep}" MATCHES ".+ .+")
             string(REPLACE " " ";" _dep_list "${_dep}")
-            list(INSERT _dep_list 1 ${_${_Name}_FIND_PARTS_QUIET} ${_${_Name}_FIND_PARTS_REQUIRED})
+            list(INSERT _dep_list 1 \${_${_Name}_FIND_PARTS_QUIET} \${_${_Name}_FIND_PARTS_REQUIRED})
             string(REPLACE ";" " " _depx "${_dep_list}")
             string(APPEND PACKAGE_DEPENDENCIES "find_package(${_depx})\n")
         else()
@@ -626,7 +631,7 @@ endif()
         foreach(_dep ${_IBPF_PRIVATE_DEPENDENCIES})
           if("${_dep}" MATCHES ".+ .+")
             string(REPLACE " " ";" _dep_list "${_dep}")
-            list(INSERT _dep_list 1 ${_${_Name}_FIND_PARTS_QUIET} ${_${_Name}_FIND_PARTS_REQUIRED})
+            list(INSERT _dep_list 1 \${_${_Name}_FIND_PARTS_QUIET} \${_${_Name}_FIND_PARTS_REQUIRED})
             string(REPLACE ";" "\n       " _depx "${_dep_list}")
             string(APPEND PACKAGE_DEPENDENCIES "find_package(${_depx})\n")
           else()
@@ -649,7 +654,7 @@ endif()
     endif()
 
     if(DEFINED _IBPF_OVERRIDE_MODULE_PATH)
-      string(APPEND PACKAGE_DEPENDENCIES "set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH_BK_${_IBPF_VARS_PREFIX}})\n")
+      string(APPEND PACKAGE_DEPENDENCIES "set(CMAKE_MODULE_PATH \${CMAKE_MODULE_PATH_BK_${_IBPF_VARS_PREFIX}})\n")
     endif()
 
     set(PACKAGE_DEPENDENCIES "${PACKAGE_DEPENDENCIES}\n###############################################################################\n")
