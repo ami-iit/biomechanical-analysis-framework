@@ -31,28 +31,6 @@ namespace IK
 // clang-format off
 /**
  * @brief HumanIK class is a class in which the inverse kinematics problem is solved.
- * @note the following parameters are required by the class
- * |   Group   |         Parameter Name         |       Type      |                                           Description                                          | Mandatory |
- * |:---------:|:------------------------------:|:---------------:|:----------------------------------------------------------------------------------------------:|:---------:|
- * |           |           `tasks`              | `vector<string>`|         Vector containing the list of the tasks considered in the IK.                          |    Yes    |
- * |   `IK`    | `robot_velocity_variable_name` |     `string`    | Name of the variable contained in `VariablesHandler` describing the generalized robot velocity |    Yes    |
- * |   `IK`    |           `verbosity`          |      `bool`     |                         Verbosity of the solver. Default value `false`                         |     No    |
- * Where the generalized robot velocity is a vector containing the base spatialvelocity
- * (expressed in mixed representation) and the joint velocities.
- * For **each** task listed in the parameter `tasks` the user must specify all the parameters
- * required by the task itself but `robot_velocity_variable_name` since is already specified in
- * the `IK` group. Moreover, each task requires a parameter `type` that identifies the type of
- * task. Up to now, only the "SO3Task" is implemented.
- * The "SO3Task" requires the following parameters:
- * |   Group   |         Parameter Name         |       Type      |                                       Description                                       | Mandatory |
- * |:---------:|:------------------------------:|:---------------:|:---------------------------------------------------------------------------------------:|:---------:|
- * | `SO3Task` |           `type`               |     `string`    |                         Type of the task. The value to be set is `SO3Task`              |  Yes |
- * | `SO3Task` | `robot_velocity_variable_name` |     `string`    |Name of the variable contained in `VariablesHandler` describing the generalized robot velocity|  Yes |
- * | `SO3Task` |           `node`               |      `int`      |                    Node number of the task. The node number must be unique.             |  Yes |
- * | `SO3Task` |      `rotation_matrix`         | `vector<double>`|    Rotation matrix between the IMU and the link. By default it set to identity.         |  No  |
- * | `SO3Task` |         `frame_name`           |     `string`    |                          Name of the frame in which the task is expressed.              |  Yes |
- * | `SO3Task` |         `kp_angular`           |     `double`    |                        Value of the gain of the angular velocity feedback.              |  Yes |
- * `SO3Task` is a placeholder for the name of the task contained in the `tasks` list.
 */
 // clang-format on
 class HumanIK
@@ -256,10 +234,28 @@ public:
      * |`FloorContactTask`|   `vertical_force_threshold`   |  `double`  |                 Threshold of the vertical force to consider the foot in contact         |  Yes  |
      * |`FloorContactTask`|           `weight`             |  `vector<double>`  |                           Weight of the task                                    |  Yes  |
      *
+     * The "JointRegularizationTask" requires the following parameters:
+     * |          Group          |         Parameter Name         |    Type    |                                         Description                                          | Mandatory |
+     * |:-----------------------:|:------------------------------:|:----------:|:--------------------------------------------------------------------------------------------:|:---------:|
+     * |`JointRegularizationTask`|            `type`              |  `string`  |                Type of the task. The value to be set is `JointRegularizationTask`            |    Yes    |
+     * |`JointRegularizationTask`| `robot_velocity_variable_name` |  `string`  |Name of the variable contained in `VariablesHandler` describing the generalized robot velocity|    Yes    |
+     * |`JointRegularizationTask`|           `weight`             |  `double`  |                                Weight associated to the task.                                |    No     |
+     *
+     * The "JointConstraintsTask" requires the following parameters:
+     * |        Group         |         Parameter Name         |    Type    |                                         Description                                          | Mandatory |
+     * |:--------------------:|:------------------------------:|:----------:|:--------------------------------------------------------------------------------------------:|:---------:|
+     * |`JointConstraintsTask`|            `type`              |  `string`  |                 Type of the task. The value to be set is `JointConstraintsTask`              |    Yes    |
+     * |`JointConstraintsTask`| `robot_velocity_variable_name` |  `string`  |Name of the variable contained in `VariablesHandler` describing the generalized robot velocity|    Yes    |
+     * |`JointConstraintsTask`|       `use_model_limits`       |   `bool`   |           Flag to be set to true if the limits to be used are the ones of the urdf model     |    Yes    |
+     * |`JointConstraintsTask`|        `sampling_time`         |  `double`  |                                   Sampling time in seconds                                   |    Yes    |
+     * |`JointConstraintsTask`|          `k_limits`            |  `double`  |             Proportional controller gain. It must be a positive number lower than 1          |    Yes    |
+     * |`JointConstraintsTask`|        `joints_list`           |`vector<string>`| Vector containing the joints name to set the limits. Required `use_model_limits` is set to false.   |    No     |
+     * |`JointConstraintsTask`|        `upper_limits`          |`vector<double>`| Vector containing the upper limits of the specified joints. Required `use_model_limits` is set to false.   |    No     |
+     * |`JointConstraintsTask`|        `lower_limits`          |`vector<double>`| Vector containing the lower limits of the specified joints. Required `use_model_limits` is set to false.   |    No     |
      * @note The following `ini` file presents an example of the configuration that can be used to
      * build the HumanIK class.
      *  ~~~~~{.ini}
-     * tasks                           ("PELVIS_TASK")
+     * tasks                           ("PELVIS_TASK", "GRAVITY_TASK", "RIGHT_TOE_TASK", "JOINT_LIMITS_TASK", "JOINT_REG_TASK")
      *
      * [IK]
      * robot_velocity_variable_name    "robot_velocity"
@@ -276,7 +272,7 @@ public:
      *                                  0.0, 0.0, -1.0,
      *                                 -1.0, 0.0, 0.0)
      *
-     * [GRAVITY_TASK_1]
+     * [GRAVITY_TASK]
      * type                            "GravityTask"
      * robot_velocity_variable_name    "robot_velocity"
      * target_frame_name               "link10"
@@ -292,6 +288,21 @@ public:
      * node_number                     2
      * weight                          (1.0 1.0 1.0)
      * vertical_force_threshold        60.0
+     * 
+     * [JOINT_LIMITS_TASK]
+     * type                            "JointConstraintTask"
+     * robot_velocity_variable_name    "robot_velocity"
+     * use_model_limits                false
+     * sampling_time                   0.01
+     * k_limits                        1.0
+     * joints_list                     ("jLeftKnee_rotz", "jRightKnee_rotz", "jLeftAnkle_rotz", "jRightAnkle_rotz")
+     * upper_bounds                    (0.0, 0.0, 0.0, 0.0)
+     * lower_bounds                    (0.0, 0.0, 0.0, 0.0)
+     * 
+     * [JOINT_REG_TASK]
+     * type                            "JointRegularizationTask"
+     * robot_velocity_variable_name    "robot_velocity"
+     * weight                          0.000001
     */
     // clang-format on
     bool
