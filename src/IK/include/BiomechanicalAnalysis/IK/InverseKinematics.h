@@ -13,6 +13,7 @@
 #include <BipedalLocomotion/ContinuousDynamicalSystem/FloatingBaseSystemKinematics.h>
 #include <BipedalLocomotion/ContinuousDynamicalSystem/ForwardEuler.h>
 #include <BipedalLocomotion/IK/GravityTask.h>
+#include <BipedalLocomotion/IK/JointLimitsTask.h>
 #include <BipedalLocomotion/IK/JointTrackingTask.h>
 #include <BipedalLocomotion/IK/QPInverseKinematics.h>
 #include <BipedalLocomotion/IK/R3Task.h>
@@ -87,7 +88,13 @@ private:
         const std::string& taskName,
         const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
 
-    bool initializeJointRegularizationTask();
+    bool initializeJointRegularizationTask(
+        const std::string& taskName,
+        const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
+
+    bool initializeJointConstraintsTask(
+        const std::string& taskName,
+        const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
 
     std::chrono::nanoseconds m_dtIntegration; /** Integration time step in nanoseconds */
 
@@ -162,6 +169,9 @@ private:
         m_jointRegularizationTask; /** Joint
                                      regularization
                                      task */
+
+    std::shared_ptr<BipedalLocomotion::IK::JointLimitsTask> m_jointConstraintsTask; /** Joint limits
+                                                                                       task */
 
     manif::SO3d calib_W_R_link = manif::SO3d::Identity(); /** calibration matrix between the world
                                                            and the link */
