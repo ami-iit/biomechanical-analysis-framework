@@ -353,10 +353,7 @@ public:
      * @param jointVelocities joint velocities, by defualt it is set to zero
      * @return true if the joint regularization task is set correctly
      */
-    bool updateJointRegularizationTask(const Eigen::Ref<const Eigen::VectorXd> jointPositions
-                                       = Eigen::VectorXd::Zero(),
-                                       const Eigen::Ref<const Eigen::VectorXd> jointVelocities
-                                       = Eigen::VectorXd::Zero());
+    bool updateJointRegularizationTask();
 
     /**
      * update the joint constraint task.

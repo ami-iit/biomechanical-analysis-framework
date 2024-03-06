@@ -235,10 +235,9 @@ bool HumanIK::updateFloorContactTask(const int node, const double verticalForce)
     return ok;
 }
 
-bool HumanIK::updateJointRegularizationTask(const Eigen::Ref<const Eigen::VectorXd> jointPositions,
-                                            const Eigen::Ref<const Eigen::VectorXd> jointVelocities)
+bool HumanIK::updateJointRegularizationTask()
 {
-    return m_jointRegularizationTask->setSetPoint(jointPositions, jointVelocities);
+    return m_jointRegularizationTask->setSetPoint(Eigen::VectorXd::Zero(m_nrDoFs));
 }
 
 bool HumanIK::updateJointConstraintsTask()
@@ -567,12 +566,21 @@ bool HumanIK::initializeJointRegularizationTask(
     bool ok{true};
     std::vector<double> kp(m_kinDyn->getNrOfDegreesOfFreedom(), 0.0);
     taskHandler->setParameter("kp", kp);
+    double weight;
+    if (!taskHandler->getParameter("weight", weight))
+    {
+        BiomechanicalAnalysis::log()->error("[HumanIK::initializeJointRegularizationTask] "
+                                            "Parameter "
+                                            "'weight' of the {} task is missing",
+                                            taskName);
+        return false;
+    }
     m_jointRegularizationTask = std::make_shared<BipedalLocomotion::IK::JointTrackingTask>();
     ok = ok & m_jointRegularizationTask->setKinDyn(m_kinDyn);
     ok = ok & m_jointRegularizationTask->initialize(taskHandler);
-    Eigen::VectorXd weight(m_kinDyn->getNrOfDegreesOfFreedom());
-    weight.setConstant(1e-6);
-    ok = ok & m_qpIK.addTask(m_jointRegularizationTask, taskName, 1, weight);
+    Eigen::VectorXd weightVector(m_kinDyn->getNrOfDegreesOfFreedom());
+    weightVector.setConstant(weight);
+    ok = ok & m_qpIK.addTask(m_jointRegularizationTask, taskName, 1, weightVector);
 
     return ok;
 }
@@ -592,9 +600,16 @@ bool HumanIK::initializeJointConstraintsTask(
     }
     m_jointConstraintsTask = std::make_shared<BipedalLocomotion::IK::JointLimitsTask>();
     ok = ok & m_jointConstraintsTask->setKinDyn(m_kinDyn);
-    std::vector<double> klim(m_kinDyn->getNrOfDegreesOfFreedom(), 0.0);
+    double k_lim;
+    if (!taskHandler->getParameter("k_limits", k_lim))
+    {
+        BiomechanicalAnalysis::log()->error("[HumanIK::initializeJointConstraintsTask] Parameter "
+                                            "'k_limits' of the {} task is missing",
+                                            taskName);
+        return false;
+    }
+    std::vector<double> klim(m_kinDyn->getNrOfDegreesOfFreedom(), k_lim);
     taskHandler->setParameter("klim", klim);
-    taskHandler->setParameter("sampling_time", 0.01);
     if (useModelLimits)
     {
         ok = ok & m_jointConstraintsTask->initialize(taskHandler);
@@ -650,8 +665,11 @@ bool HumanIK::initializeJointConstraintsTask(
         }
         std::vector<double> lowerLimits(m_kinDyn->getNrOfDegreesOfFreedom());
         std::vector<double> upperLimits(m_kinDyn->getNrOfDegreesOfFreedom());
-        lowerLimits.assign(m_kinDyn->getNrOfDegreesOfFreedom(), -100);
-        upperLimits.assign(m_kinDyn->getNrOfDegreesOfFreedom(), 100);
+        for (int i = 0; i < m_kinDyn->getNrOfDegreesOfFreedom(); i++)
+        {
+            lowerLimits[i] = m_kinDyn->model().getJoint(i)->getMinPosLimit(i);
+            upperLimits[i] = m_kinDyn->model().getJoint(i)->getMaxPosLimit(i);
+        }
         for (std::size_t i = 0; i < jointIndices.size(); i++)
         {
             lowerLimits[jointIndices[i]] = lowerBounds[i];
