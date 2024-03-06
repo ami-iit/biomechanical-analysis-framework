@@ -115,6 +115,8 @@ bool HumanIK::initialize(
         }
     }
 
+    initializeJointRegularizationTask();
+
     m_qpIK.finalize(m_variableHandler);
 
     return ok;
@@ -167,6 +169,8 @@ bool HumanIK::updateGravityTask(const int node, const manif::SO3d& I_R_IMU)
         BiomechanicalAnalysis::log()->error("[HumanIK::setNodeSetPoint] Invalid node number.");
         return false;
     }
+
+    m_jointRegularizationTask->setSetPoint(Eigen::VectorXd::Zero(m_nrDoFs));
 
     // compute the rotation matrix from the world to the link frame as:
     // W_R_link = W_R_WIMU * WIMU_R_IMU * IMU_R_link
@@ -528,4 +532,21 @@ bool HumanIK::initializeFloorContactTask(
                            m_FloorContactTasks[nodeNumber].weight);
 
     return ok;
+}
+
+bool HumanIK::initializeJointRegularizationTask()
+{
+    bool ok{true};
+    auto groupRegTask = std::make_shared<BipedalLocomotion::ParametersHandler::StdImplementation>();
+    groupRegTask->setParameter("robot_velocity_variable_name", "robot_velocity");
+    std::vector<double> kp(m_kinDyn->getNrOfDegreesOfFreedom(), 0.0);
+    groupRegTask->setParameter("kp", kp);
+    m_jointRegularizationTask = std::make_shared<BipedalLocomotion::IK::JointTrackingTask>();
+    ok = ok & m_jointRegularizationTask->setKinDyn(m_kinDyn);
+    ok = ok & m_jointRegularizationTask->initialize(groupRegTask);
+    Eigen::VectorXd weight(m_kinDyn->getNrOfDegreesOfFreedom());
+    weight.setConstant(1.0);
+    ok = ok & m_qpIK.addTask(m_jointRegularizationTask, "joint_regularization", 1, weight);
+
+    return true;
 }

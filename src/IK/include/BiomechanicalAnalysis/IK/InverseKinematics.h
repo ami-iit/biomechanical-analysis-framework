@@ -13,10 +13,12 @@
 #include <BipedalLocomotion/ContinuousDynamicalSystem/FloatingBaseSystemKinematics.h>
 #include <BipedalLocomotion/ContinuousDynamicalSystem/ForwardEuler.h>
 #include <BipedalLocomotion/IK/GravityTask.h>
+#include <BipedalLocomotion/IK/JointTrackingTask.h>
 #include <BipedalLocomotion/IK/QPInverseKinematics.h>
 #include <BipedalLocomotion/IK/R3Task.h>
 #include <BipedalLocomotion/IK/SO3Task.h>
 #include <BipedalLocomotion/ParametersHandler/IParametersHandler.h>
+#include <BipedalLocomotion/ParametersHandler/StdImplementation.h>
 #include <BipedalLocomotion/System/VariablesHandler.h>
 
 namespace BiomechanicalAnalysis
@@ -84,6 +86,8 @@ private:
     bool initializeFloorContactTask(
         const std::string& taskName,
         const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
+
+    bool initializeJointRegularizationTask();
 
     std::chrono::nanoseconds m_dtIntegration; /** Integration time step in nanoseconds */
 
@@ -153,6 +157,11 @@ private:
         std::string frameName;
         double verticalForceThreshold;
     };
+
+    std::shared_ptr<BipedalLocomotion::IK::JointTrackingTask>
+        m_jointRegularizationTask; /** Joint
+                                     regularization
+                                     task */
 
     manif::SO3d calib_W_R_link = manif::SO3d::Identity(); /** calibration matrix between the world
                                                            and the link */
