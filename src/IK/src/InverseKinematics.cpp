@@ -41,9 +41,6 @@ bool HumanIK::initialize(
     m_system.integrator = std::make_shared<ForwardEuler<FloatingBaseSystemKinematics>>();
     m_system.integrator->setDynamicalSystem(m_system.dynamics);
 
-    Eigen::Vector3d Weight;
-    Weight.setConstant(10.0);
-
     m_nrDoFs = kinDyn->getNrOfDegreesOfFreedom();
 
     auto ptr = handler.lock();
@@ -86,42 +83,7 @@ bool HumanIK::initialize(
         }
         if (taskType == "SO3Task")
         {
-            int nodeNumber;
-            if (!taskHandler->getParameter("node_number", nodeNumber))
-            {
-                BiomechanicalAnalysis::log()->error("{} Parameter node_number of the {} task is "
-                                                    "missing",
-                                                    logPrefix,
-                                                    task);
-                return false;
-            }
-            m_OrientationTasks[nodeNumber].nodeNumber = nodeNumber;
-            m_OrientationTasks[nodeNumber].task
-                = std::make_shared<BipedalLocomotion::IK::SO3Task>();
-            std::vector<double> rotation_matrix;
-            if (taskHandler->getParameter("rotation_matrix", rotation_matrix))
-            {
-                m_OrientationTasks[nodeNumber].IMU_R_link
-                    = BipedalLocomotion::Conversions::toManifRot(
-                        Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(
-                            rotation_matrix.data()));
-            } else
-            {
-                std::string frame_name;
-                taskHandler->getParameter("frame_name", frame_name);
-                BiomechanicalAnalysis::log()->warn("{} Parameter rotation_matrix of the {} task is "
-                                                   "missing, setting the rotation matrix from the "
-                                                   "IMU to the frame {} to identity",
-                                                   logPrefix,
-                                                   task,
-                                                   frame_name);
-                m_OrientationTasks[nodeNumber].IMU_R_link.setIdentity();
-            }
-            ok = ok && m_OrientationTasks[nodeNumber].task->setKinDyn(kinDyn);
-            ok = ok && m_OrientationTasks[nodeNumber].task->initialize(taskHandler);
-            ok = ok
-                 && m_qpIK.addTask(m_OrientationTasks[nodeNumber].task, task, lowPriority, Weight);
-            if (!ok)
+            if (!initializeOrientationTask(task, taskHandler))
             {
                 BiomechanicalAnalysis::log()->error("{} Error in the initialization of the {} task",
                                                     logPrefix,
@@ -130,8 +92,22 @@ bool HumanIK::initialize(
             }
         } else if (taskType == "GravityTask")
         {
-            BiomechanicalAnalysis::log()->error("{} GravityTask not implemented yet", logPrefix);
-            return false;
+            if (!initializeGravityTask(task, taskHandler))
+            {
+                BiomechanicalAnalysis::log()->error("{} Error in the initialization of the {} task",
+                                                    logPrefix,
+                                                    task);
+                return false;
+            }
+        } else if (taskType == "FloorContactTask")
+        {
+            if (!initializeFloorContactTask(task, taskHandler))
+            {
+                BiomechanicalAnalysis::log()->error("{} Error in the initialization of the {} task",
+                                                    logPrefix,
+                                                    task);
+                return false;
+            }
         } else
         {
             BiomechanicalAnalysis::log()->error("{} Invalid task type {}", logPrefix, taskType);
@@ -162,31 +138,97 @@ int HumanIK::getDoFsNumber() const
     return m_nrDoFs;
 }
 
-bool HumanIK::setNodeSetPoint(const int node,
-                              const manif::SO3d& I_R_IMU,
-                              const manif::SO3Tangentd& I_omega_IMU)
+bool HumanIK::updateOrientationTask(const int node,
+                                    const manif::SO3d& I_R_IMU,
+                                    const manif::SO3Tangentd& I_omega_IMU)
 {
-    bool ok;
+    // check if the node number is valid
     if (m_OrientationTasks.find(node) == m_OrientationTasks.end())
     {
         BiomechanicalAnalysis::log()->error("[HumanIK::setNodeSetPoint] Invalid node number.");
         return false;
     }
+
+    // compute the rotation matrix from the world to the link frame as:
+    // W_R_link = W_R_WIMU * WIMU_R_IMU * IMU_R_link
     I_R_link = m_OrientationTasks[node].calibrationMatrix * I_R_IMU
                * m_OrientationTasks[node].IMU_R_link;
-    ok = m_OrientationTasks[node].task->setSetPoint(I_R_link, I_omega_IMU);
+    return m_OrientationTasks[node]
+        .task->setSetPoint(I_R_link,
+                           m_OrientationTasks[node].calibrationMatrix.rotation()
+                               * I_omega_IMU.coeffs());
+}
+
+bool HumanIK::updateGravityTask(const int node, const manif::SO3d& I_R_IMU)
+{
+    // check if the node number is valid
+    if (m_GravityTasks.find(node) == m_GravityTasks.end())
+    {
+        BiomechanicalAnalysis::log()->error("[HumanIK::setNodeSetPoint] Invalid node number.");
+        return false;
+    }
+
+    // compute the rotation matrix from the world to the link frame as:
+    // W_R_link = W_R_WIMU * WIMU_R_IMU * IMU_R_link
+    I_R_link = m_GravityTasks[node].calibrationMatrix * I_R_IMU * m_GravityTasks[node].IMU_R_link;
+
+    // set the set point of the gravity task choosing the z direction of the W_R_link rotation
+    // matrix
+    return m_GravityTasks[node].task->setSetPoint(I_R_link.rotation().rightCols(1));
+}
+
+bool HumanIK::updateFloorContactTask(const int node, const double verticalForce)
+{
+    bool ok{true};
+    // check if the node number is valid
+    if (m_FloorContactTasks.find(node) == m_FloorContactTasks.end())
+    {
+        BiomechanicalAnalysis::log()->error("[HumanIK::setNodeSetPoint] Invalid node number.");
+        return false;
+    }
+
+    // if the vertical force is greater than the threshold and if the foot is not yet in contact,
+    // set the weight of the associated task to the weight of the task and set the set point of the
+    // task to the position of the frame computed with the legged odometry
+    if (verticalForce > m_FloorContactTasks[node].verticalForceThreshold
+        && !m_FloorContactTasks[node].footInContact)
+    {
+        m_qpIK.setTaskWeight(m_FloorContactTasks[node].taskName, m_FloorContactTasks[node].weight);
+        m_FloorContactTasks[node].footInContact = true;
+        m_FloorContactTasks[node].setPointPosition = iDynTree::toEigen(
+            m_kinDyn->getWorldTransform(m_FloorContactTasks[node].frameName).getPosition());
+        m_FloorContactTasks[node].setPointPosition(2) = 0.0;
+    } else if (verticalForce < m_FloorContactTasks[node].verticalForceThreshold
+               && m_FloorContactTasks[node].footInContact)
+    {
+        // if the foot is not more in contact, set the weight of the associated task to zero
+        m_qpIK.setTaskWeight(m_FloorContactTasks[node].taskName, Eigen::Vector3d::Zero());
+        m_FloorContactTasks[node].footInContact = false;
+    }
+
+    // if the foot is in contact, set the set point of the task
+    if (m_FloorContactTasks[node].footInContact)
+    {
+        ok = m_FloorContactTasks[node].task->setSetPoint(
+            m_FloorContactTasks[node].setPointPosition);
+    }
+
     return ok;
 }
 
 bool HumanIK::TPoseCalibrationNode(const int node, const manif::SO3d& I_R_IMU)
 {
+    // check if the node number is valid
     if (m_OrientationTasks.find(node) == m_OrientationTasks.end())
     {
         BiomechanicalAnalysis::log()->error("[HumanIK::setNodeSetPoint] Invalid node number.");
         return false;
     }
+    // compute the rotation matrix from the world to the world of the IMU as:
+    // W_R_WIMU = R_calib * (WIMU_R_IMU * IMU_R_link)^{T}
+    // where R_calib is assumed to be the identity
     m_OrientationTasks[node].calibrationMatrix
-        = calib_R_link * (I_R_IMU * m_OrientationTasks[node].IMU_R_link).inverse();
+        = calib_W_R_link * (I_R_IMU * m_OrientationTasks[node].IMU_R_link).inverse();
 
     return true;
 }
@@ -274,4 +316,216 @@ bool HumanIK::getBaseAngularVelocity(Eigen::Ref<Eigen::Vector3d> baseAngularVelo
     baseAngularVelocity = m_baseVelocity.bottomRows<3>();
 
     return true;
+}
+
+bool HumanIK::initializeOrientationTask(
+    const std::string& taskName,
+    const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler)
+{
+    constexpr auto logPrefix = "[HumanIK::initializeOrientationTask]";
+    int nodeNumber;
+    bool ok{true};
+    if (!taskHandler->getParameter("node_number", nodeNumber))
+    {
+        BiomechanicalAnalysis::log()->error("{} Parameter node_number of the {} task is "
+                                            "missing",
+                                            logPrefix,
+                                            taskName);
+        return false;
+    }
+    std::vector<double> weight;
+    if (!taskHandler->getParameter("weight", weight))
+    {
+        BiomechanicalAnalysis::log()->error("{} Parameter weight of the {} task is missing",
+                                            logPrefix,
+                                            taskName);
+        return false;
+    }
+    // check that the weight is a 3D vector
+    if (weight.size() != 3)
+    {
+        BiomechanicalAnalysis::log()->error("{} The size of the parameter weight of the {} task is "
+                                            "{}, it should be 3",
+                                            logPrefix,
+                                            taskName,
+                                            weight.size());
+        return false;
+    }
+    m_FloorContactTasks[nodeNumber].weight = Eigen::Map<Eigen::Vector3d>(weight.data());
+    m_OrientationTasks[nodeNumber].nodeNumber = nodeNumber;
+    m_OrientationTasks[nodeNumber].task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
+    std::vector<double> rotation_matrix;
+    if (taskHandler->getParameter("rotation_matrix", rotation_matrix))
+    {
+        m_OrientationTasks[nodeNumber].IMU_R_link = BipedalLocomotion::Conversions::toManifRot(
+            Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(rotation_matrix.data()));
+    } else
+    {
+        std::string frame_name;
+        taskHandler->getParameter("frame_name", frame_name);
+        BiomechanicalAnalysis::log()->warn("{} Parameter rotation_matrix of the {} task is "
+                                           "missing, setting the rotation matrix from the "
+                                           "IMU to the frame {} to identity",
+                                           logPrefix,
+                                           taskName,
+                                           frame_name);
+        m_OrientationTasks[nodeNumber].IMU_R_link.setIdentity();
+    }
+    ok = ok && m_OrientationTasks[nodeNumber].task->setKinDyn(m_kinDyn);
+    ok = ok && m_OrientationTasks[nodeNumber].task->initialize(taskHandler);
+    ok = ok
+         && m_qpIK.addTask(m_OrientationTasks[nodeNumber].task,
+                           taskName,
+                           1,
+                           m_FloorContactTasks[nodeNumber].weight);
+    if (!ok)
+    {
+        BiomechanicalAnalysis::log()->error("{} Error in the initialization of the {} task",
+                                            logPrefix,
+                                            taskName);
+        return false;
+    }
+    return ok;
+}
+
+bool HumanIK::initializeGravityTask(
+    const std::string& taskName,
+    const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler)
+{
+    constexpr auto logPrefix = "[HumanIK::initializeGravityTask]";
+    int nodeNumber;
+    bool ok{true};
+    Eigen::Vector2d Weight;
+    Weight.setConstant(10.0);
+    if (!taskHandler->getParameter("node_number", nodeNumber))
+    {
+        BiomechanicalAnalysis::log()->error("{} Parameter node_number of the {} task is "
+                                            "missing",
+                                            logPrefix,
+                                            taskName);
+        return false;
+    }
+    std::vector<double> weight;
+    if (!taskHandler->getParameter("weight", weight))
+    {
+        BiomechanicalAnalysis::log()->error("{} Parameter weight of the {} task is missing",
+                                            logPrefix,
+                                            taskName);
+        return false;
+    }
+    // check that the weight is a 2D vector
+    if (weight.size() != 2)
+    {
+        BiomechanicalAnalysis::log()->error("{} The size of the parameter weight of the {} task is "
+                                            "{}, it should be 2",
+                                            logPrefix,
+                                            taskName,
+                                            weight.size());
+        return false;
+    }
+    std::vector<double> rotation_matrix;
+    if (taskHandler->getParameter("rotation_matrix", rotation_matrix))
+    {
+        m_GravityTasks[nodeNumber].IMU_R_link = BipedalLocomotion::Conversions::toManifRot(
+            Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(rotation_matrix.data()));
+    } else
+    {
+        std::string frame_name;
+        taskHandler->getParameter("frame_name", frame_name);
+        BiomechanicalAnalysis::log()->warn("{} Parameter rotation_matrix of the {} task is "
+                                           "missing, setting the rotation matrix from the "
+                                           "IMU to the frame {} to identity",
+                                           logPrefix,
+                                           taskName,
+                                           frame_name);
+        m_GravityTasks[nodeNumber].IMU_R_link.setIdentity();
+    }
+    m_GravityTasks[nodeNumber].weight = Eigen::Map<Eigen::Vector2d>(weight.data());
+    m_GravityTasks[nodeNumber].nodeNumber = nodeNumber;
+    m_GravityTasks[nodeNumber].taskName = taskName;
+    m_GravityTasks[nodeNumber].task = std::make_shared<BipedalLocomotion::IK::GravityTask>();
+
+    // initializing the gravity task
+    ok = ok && m_GravityTasks[nodeNumber].task->setKinDyn(m_kinDyn);
+    ok = ok && m_GravityTasks[nodeNumber].task->initialize(taskHandler);
+
+    // adding the gravity task to the QP solver
+    ok = ok
+         && m_qpIK.addTask(m_GravityTasks[nodeNumber].task,
+                           taskName,
+                           1,
+                           m_GravityTasks[nodeNumber].weight);
+    return ok;
+}
+
+bool HumanIK::initializeFloorContactTask(
+    const std::string& taskName,
+    const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler)
+{
+    constexpr auto logPrefix = "[HumanIK::initializeFloorContactTask]";
+    int nodeNumber;
+    bool ok{true};
+    if (!taskHandler->getParameter("node_number", nodeNumber))
+    {
+        BiomechanicalAnalysis::log()->error("{} Parameter node_number of the {} task is "
+                                            "missing",
+                                            logPrefix,
+                                            taskName);
+        return false;
+    }
+    if (!taskHandler->getParameter("frame_name", m_FloorContactTasks[nodeNumber].frameName))
+    {
+        BiomechanicalAnalysis::log()->error("{} Parameter frame_name of the {} task is missing",
+                                            logPrefix,
+                                            taskName);
+        return false;
+    }
+    std::vector<double> weight;
+    if (!taskHandler->getParameter("weight", weight))
+    {
+        BiomechanicalAnalysis::log()->error("{} Parameter weight of the {} task is missing",
+                                            logPrefix,
+                                            taskName);
+        return false;
+    }
+    // check that the weight is a 3D vector
+    if (weight.size() != 3)
+    {
+        BiomechanicalAnalysis::log()->error("{} The size of the parameter weight of the {} task is "
+                                            "{}, it should be 3",
+                                            logPrefix,
+                                            taskName,
+                                            weight.size());
+        return false;
+    }
+    if (!taskHandler->getParameter("vertical_force_threshold",
+                                   m_FloorContactTasks[nodeNumber].verticalForceThreshold))
+    {
+        BiomechanicalAnalysis::log()->error("{} Parameter vertical_force_threshold of the {} task "
+                                            "is missing",
+                                            logPrefix,
+                                            taskName);
+        return false;
+    }
+    m_FloorContactTasks[nodeNumber].weight = Eigen::Map<Eigen::Vector3d>(weight.data());
+    m_FloorContactTasks[nodeNumber].nodeNumber = nodeNumber;
+    m_FloorContactTasks[nodeNumber].taskName = taskName;
+    m_FloorContactTasks[nodeNumber].task = std::make_shared<BipedalLocomotion::IK::R3Task>();
+
+    // // imposing that the only controlled direction is the z
+    // std::vector<bool> mask{false, false, true};
+    // taskHandler->setParameter("mask", mask);
+
+    // initializing the floor contact task
+    ok = ok && m_FloorContactTasks[nodeNumber].task->setKinDyn(m_kinDyn);
+    ok = ok && m_FloorContactTasks[nodeNumber].task->initialize(taskHandler);
+
+    // adding the floor contact task to the QP solver
+    ok = ok
+         && m_qpIK.addTask(m_FloorContactTasks[nodeNumber].task,
+                           taskName,
+                           1,
+                           m_FloorContactTasks[nodeNumber].weight);
+
+    return ok;
 }

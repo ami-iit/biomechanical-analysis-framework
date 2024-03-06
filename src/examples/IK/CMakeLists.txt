@@ -1,4 +1,7 @@
 
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/ConfigFolderPath.h.in" "${CMAKE_CURRENT_BINARY_DIR}/ConfigFolderPath.h" @ONLY)
+
 find_package(matioCpp REQUIRED)
 
 add_executable(exampleIK)

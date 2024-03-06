@@ -21,8 +21,12 @@ TEST_CASE("InverseKinematic test")
     kinDyn->loadRobotModel(model);
     auto paramHandler
         = std::make_shared<BipedalLocomotion::ParametersHandler::YarpImplementation>();
+    auto gravityTaskParamHandler
+        = std::make_shared<BipedalLocomotion::ParametersHandler::YarpImplementation>();
+    auto FloorContactTaskParamHandler
+        = std::make_shared<BipedalLocomotion::ParametersHandler::YarpImplementation>();
 
-    REQUIRE(paramHandler->setFromFile(getConfigPath()));
+    REQUIRE(paramHandler->setFromFile(getConfigPath() + "/configTestIK.ini"));
 
     // inintialize the joint positions and velocities
     Eigen::VectorXd JointPositions(kinDyn->getNrOfDegreesOfFreedom());
@@ -35,12 +39,17 @@ TEST_CASE("InverseKinematic test")
     manif::SO3Tangentd I_omega_IMU;
     I_R_IMU.setRandom();
     I_omega_IMU.setRandom();
+    double ZForce = 20.0;
+    Eigen::Vector3d desiredDirection;
+    desiredDirection << 1.0, 2.0, 3.0;
 
     qInitial.setConstant(0.0);
 
     REQUIRE(ik.initialize(paramHandler, kinDyn));
     REQUIRE(ik.setDt(0.1));
-    REQUIRE(ik.setNodeSetPoint(3, I_R_IMU, I_omega_IMU));
+    REQUIRE(ik.updateOrientationTask(3, I_R_IMU, I_omega_IMU));
+    REQUIRE(ik.updateFloorContactTask(10, 11.0));
+    REQUIRE(ik.updateGravityTask(10, I_R_IMU));
     REQUIRE(ik.advance());
     REQUIRE(ik.getJointPositions(JointPositions));
     REQUIRE(ik.getJointVelocities(JointVelocities));

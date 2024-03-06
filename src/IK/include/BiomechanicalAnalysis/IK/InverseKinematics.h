@@ -12,7 +12,9 @@
 // BipedalLocomotion
 #include <BipedalLocomotion/ContinuousDynamicalSystem/FloatingBaseSystemKinematics.h>
 #include <BipedalLocomotion/ContinuousDynamicalSystem/ForwardEuler.h>
+#include <BipedalLocomotion/IK/GravityTask.h>
 #include <BipedalLocomotion/IK/QPInverseKinematics.h>
+#include <BipedalLocomotion/IK/R3Task.h>
 #include <BipedalLocomotion/IK/SO3Task.h>
 #include <BipedalLocomotion/ParametersHandler/IParametersHandler.h>
 #include <BipedalLocomotion/System/VariablesHandler.h>
@@ -53,6 +55,36 @@ namespace IK
 class HumanIK
 {
 private:
+    /**
+     * initialize the SO3 task
+     * @param taskName name of the task
+     * @param handler pointer to the parameters handler
+     * @return true if the SO3 task is initialized correctly
+     */
+    bool initializeOrientationTask(
+        const std::string& taskName,
+        const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
+
+    /**
+     * initialize the gravity task
+     * @param taskName name of the task
+     * @param handler pointer to the parameters handler
+     * @return true if the gravity task is initialized correctly
+     */
+    bool initializeGravityTask(
+        const std::string& taskName,
+        const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
+
+    /**
+     * initialize the R3 task
+     * @param taskName name of the task
+     * @param handler pointer to the parameters handler
+     * @return true if the R3 task is initialized correctly
+     */
+    bool initializeFloorContactTask(
+        const std::string& taskName,
+        const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
+
     std::chrono::nanoseconds m_dtIntegration; /** Integration time step in nanoseconds */
 
     /**
@@ -68,39 +100,74 @@ private:
     };
 
     System m_system; /** Struct containing the integrator and the dynamics */
-
     Eigen::VectorXd m_jointPositions; /** Position of the joints */
     Eigen::VectorXd m_jointVelocities; /** Velocity of the joints */
     Eigen::Matrix4d m_basePose; /** SO3 pose of the base */
     Eigen::Matrix<double, 6, 1> m_baseVelocity; /** Vector containing the linear and angular
                                                    velocity of the base */
     Eigen::Vector3d m_gravity; /** Gravity vector */
-
     manif::SO3d I_R_link_manif; /** orientation of the link in the inertial frame */
     manif::SO3Tangentd I_omega_link_manif; /** angular velocity of the link in the inertial frame */
-
     manif::SO3d I_R_link; /** orientation of the link in the inertial frame */
     manif::SO3Tangentd I_omega_link; /** angular velocity of the link in the inertial frame */
 
     /**
-     * Struct containing the orientation task, the node number and the rotation matrix between the
-     * IMU and the link
+     * Struct containing the SO3 task from the BipedalLocomotion IK, the node number and the
+     * rotation matrix between the IMU and the link
      */
-    struct OrientationTask
+    struct OrientationTaskStruct
     {
         std::shared_ptr<BipedalLocomotion::IK::SO3Task> task;
         int nodeNumber;
         manif::SO3d IMU_R_link;
         manif::SO3d calibrationMatrix = manif::SO3d::Identity();
+        Eigen::Vector3d weight;
     };
 
-    manif::SO3d calib_R_link = manif::SO3d::Identity();
+    /**
+     * Struct containing the gravity task from the BipedalLocomotion IK, the node number and the
+     * multiple state weight provider
+     */
+    struct GravityTaskStruct
+    {
+        std::shared_ptr<BipedalLocomotion::IK::GravityTask> task;
+        manif::SO3d IMU_R_link;
+        manif::SO3d calibrationMatrix = manif::SO3d::Identity();
+        Eigen::Vector2d weight;
+        int nodeNumber;
+        std::string taskName;
+    };
 
-    std::unordered_map<int, OrientationTask> m_OrientationTasks; /** unordered map of the
+    /**
+     * Struct containing the R3 task from the BipedalLocomotion IK, the node number and the
+     * multiple state weight provider
+     */
+    struct FloorContactTaskStruct
+    {
+        std::shared_ptr<BipedalLocomotion::IK::R3Task> task;
+        Eigen::Vector3d weight;
+        int nodeNumber;
+        bool footInContact{false};
+        Eigen::Vector3d setPointPosition;
+        std::string taskName;
+        std::string frameName;
+        double verticalForceThreshold;
+    };
+
+    manif::SO3d calib_W_R_link = manif::SO3d::Identity(); /** calibration matrix between the world
+                                                           and the link */
+
+    std::unordered_map<int, OrientationTaskStruct> m_OrientationTasks; /** unordered map of the
                                                                     orientation tasks */
 
+    std::unordered_map<int, GravityTaskStruct> m_GravityTasks; /** unordered map of the gravity
+                                                                    tasks */
+
+    std::unordered_map<int, FloorContactTaskStruct> m_FloorContactTasks; /** unordered map of the
+                                                                    floor contact tasks */
+
     std::shared_ptr<iDynTree::KinDynComputations> m_kinDyn; /** pointer to the KinDynComputations
-                                                               object */
+    object */
 
     int m_nrDoFs; /** Number of Joint Degrees of Freedom */
 
@@ -141,11 +208,35 @@ public:
      * |:---------:|:------------------------------:|:---------------:|:---------------------------------------------------------------------------------------:|:---------:|
      * | `SO3Task` |           `type`               |     `string`    |                         Type of the task. The value to be set is `SO3Task`              |  Yes |
      * | `SO3Task` | `robot_velocity_variable_name` |     `string`    |Name of the variable contained in `VariablesHandler` describing the generalized robot velocity|  Yes |
-     * | `SO3Task` |           `node`               |      `int`      |                    Node number of the task. The node number must be unique.             |  Yes |
+     * | `SO3Task` |        `node_number`           |      `int`      |                    Node number of the task. The node number must be unique.             |  Yes |
      * | `SO3Task` |      `rotation_matrix`         | `vector<double>`|    Rotation matrix between the IMU and the link. By default it set to identity.         |  No  |
      * | `SO3Task` |         `frame_name`           |     `string`    |                          Name of the frame in which the task is expressed.              |  Yes |
      * | `SO3Task` |         `kp_angular`           |     `double`    |                        Value of the gain of the angular velocity feedback.              |  Yes |
+     * | `SO3Task` |           `weight`             | `vector<double>`|                        Weight of the task. Default value is (1.0, 1.0, 1.0)             |  yes |
      * `SO3Task` is a placeholder for the name of the task contained in the `tasks` list.
+     *
+     * The "GravityTask" requires the following parameters:
+     * |    Group    |         Parameter Name         |    Type    |                                         Description                                          | Mandatory |
+     * |:-----------:|:------------------------------:|:----------:|:--------------------------------------------------------------------------------------------:|:---------:|
+     * |`GravityTask`|           `type`               |  `string`  |                         Type of the task. The value to be set is `GravityTask`               |  Yes  |
+     * |`GravityTask`| `robot_velocity_variable_name` |  `string`  |Name of the variable contained in `VariablesHandler` describing the generalized robot velocity|  Yes  |
+     * |`GravityTask`|        `node_number`           |   `int`    |                    Node number of the task. The node number must be unique.                  |  Yes  |
+     * |`GravityTask`|            `kp`                |  `double`  |                          Gain of the distance controller                                     |  Yes  |
+     * |`GravityTask`|     `target_frame_name`        |  `string`  |                 Name of the frame to which apply the gravity task                            |  Yes  |
+     * |`GravityTask`|           `weight`             |`vector<double>`|                                Weight of the task                                        |  Yes  |
+     * |`GravityTask`|      `rotation_matrix`         |`vector<double>`|     Rotation matrix between the IMU and the link. By default it set to identity.         |  No   |
+     *
+     * The "floorContactTask" requires the following parameters:
+     * |    Group    |         Parameter Name         |    Type    |                                         Description                                          | Mandatory |
+     * |:-----------:|:------------------------------:|:----------:|:--------------------------------------------------------------------------------------------:|:---------:|
+     * |`FloorContactTask`|           `type`               |  `string`  |                       Type of the task. The value to be set is `FloorContactTask`       |  Yes  |
+     * |`FloorContactTask`| `robot_velocity_variable_name` |  `string`  |Name of the variable contained in `VariablesHandler` describing the generalized robot velocity|  Yes  |
+     * |`FloorContactTask`|         `node_number`          |   `int`    |                  Node number of the task. The node number must be unique.               |  Yes  |
+     * |`FloorContactTask`|          `kp_linear`           |  `double`  |                          Gain of the distance controller                                |  Yes  |
+     * |`FloorContactTask`|         `frame_name`           |  `string`  |                 Name of the frame to which apply the floor contact task                 |  Yes  |
+     * |`FloorContactTask`|   `vertical_force_threshold`   |  `double`  |                 Threshold of the vertical force to consider the foot in contact         |  Yes  |
+     * |`FloorContactTask`|           `weight`             |  `vector<double>`  |                           Weight of the task                                    |  Yes  |
+     *
      * @note The following `ini` file presents an example of the configuration that can be used to
      * build the HumanIK class.
      *  ~~~~~{.ini}
@@ -161,9 +252,27 @@ public:
      * frame_name                      "Pelvis"
      * kp_angular                      5.0
      * node_number                     3
+     * weight                          (1.0, 1.0, 1.0)
      * rotation_matrix                 (0.0, 1.0, 0.0,
      *                                  0.0, 0.0, -1.0,
      *                                 -1.0, 0.0, 0.0)
+     *
+     * [GRAVITY_TASK_1]
+     * type                            "GravityTask"
+     * robot_velocity_variable_name    "robot_velocity"
+     * target_frame_name               "link10"
+     * kp                              1.0
+     * node_number                     10
+     * weight                          (1.0 1.0)
+     *
+     * [RIGHT_TOE_TASK]
+     * type                            "FloorContactTask"
+     * robot_velocity_variable_name    "robot_velocity"
+     * frame_name                      "RightToe"
+     * kp_linear                       60.0
+     * node_number                     2
+     * weight                          (1.0 1.0 1.0)
+     * vertical_force_threshold        60.0
     */
     // clang-format on
     bool
@@ -190,19 +299,46 @@ public:
     int getDoFsNumber() const;
 
     /**
-     * set the orientation and the angular velocity of a given node
+     * set the orientation and the angular velocity for a given node of a SO3 task
      * @param node node number
      * @param I_R_IMU orientation of the IMU
      * @param I_omega_IMU angular velocity of the IMU
+     * @return true if the orientation setpoint is set correctly
      */
-    bool setNodeSetPoint(const int node,
-                         const manif::SO3d& I_R_IMU,
-                         const manif::SO3Tangentd& I_omega_IMU = manif::SO3d::Tangent::Zero());
+    bool
+    updateOrientationTask(const int node,
+                          const manif::SO3d& I_R_IMU,
+                          const manif::SO3Tangentd& I_omega_IMU = manif::SO3d::Tangent::Zero());
 
+    /**
+     * set the orientation setpoint for a given node of a gravity task
+     * @param node node number
+     * @param I_R_IMU orientation of the IMU
+     * @param I_omega_IMU angular velocity of the IMU
+     * @return true if the orientation setpoint is set correctly
+     */
+    bool updateGravityTask(const int node, const manif::SO3d& I_R_IMU);
+
+    /**
+     * set the position setpoint for a given node of a floor contact task
+     * @param node node number
+     * @param verticalForce vertical force
+     * @return true if the orientation setpoint is set correctly
+     */
+    bool updateFloorContactTask(const int node, const double verticalForce);
+
+    /**
+     * set the calibration matrix between the IMU and the link
+     * @param node node number
+     * @param I_R_IMU calibration matrix
+     * @return true if the calibration matrix is set correctly
+     */
     bool TPoseCalibrationNode(const int node, const manif::SO3d& I_R_IMU);
 
     /**
-     * advance the inverse kinematics solver
+     * this function solves the inverse kinematics problem and integrate the joint velocity to
+     * compute the joint positions and the base pose; it also updates the state of the
+     * KinDynComputations object passed to the class
      * @return true if the inverse kinematics solver is advanced correctly
      */
     bool advance();
