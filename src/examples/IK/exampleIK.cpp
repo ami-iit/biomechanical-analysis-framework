@@ -270,7 +270,7 @@ int main()
     size_t dataLength = data.size();
 
     // list of nodes
-    std::vector<int> orientationNodes = {1, 2, 3, 6, 7, 8, 5, 4, 11, 12, 9, 10};
+    std::vector<int> orientationNodes = {3, 6, 7, 8, 5, 4, 11, 12, 9, 10};
     std::vector<int> floorContactNodes = {1, 2};
 
     BiomechanicalAnalysis::IK::HumanIK ik;
@@ -330,7 +330,11 @@ int main()
             getNodeOrientation(ifeel_data, node, ii, I_R_IMU, I_omega_IMU);
             getNodeVerticalForce(ifeel_data, node, ii, force);
             ik.updateFloorContactTask(node, force);
+            manif::SO3d I_R_IMU_manif = manif::SO3d(fromiDynTreeToEigenQuatConversion(I_R_IMU));
+            ik.updateGravityTask(node, I_R_IMU_manif);
         }
+        ik.updateJointConstraintsTask();
+        ik.updateJointRegularizationTask();
         if (!ik.advance())
         {
             BiomechanicalAnalysis::log()->error("Cannot advance the inverse kinematics solver");
