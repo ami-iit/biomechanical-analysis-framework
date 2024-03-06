@@ -235,6 +235,17 @@ bool HumanIK::updateFloorContactTask(const int node, const double verticalForce)
     return ok;
 }
 
+bool HumanIK::updateJointRegularizationTask(const Eigen::Ref<const Eigen::VectorXd> jointPositions,
+                                            const Eigen::Ref<const Eigen::VectorXd> jointVelocities)
+{
+    return m_jointRegularizationTask->setSetPoint(jointPositions, jointVelocities);
+}
+
+bool HumanIK::updateJointConstraintsTask()
+{
+    return m_jointConstraintsTask->update();
+}
+
 bool HumanIK::TPoseCalibrationNode(const int node, const manif::SO3d& I_R_IMU)
 {
     // check if the node number is valid
