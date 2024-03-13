@@ -654,7 +654,7 @@ bool HumanIK::initializeJointConstraintsTask(
         for (const auto& jointName : jointNamesList)
         {
             auto index = m_kinDyn->model().getJointIndex(jointName);
-            if (index < 0)
+            if (!m_kinDyn->model().isValidJointIndex(index))
             {
                 BiomechanicalAnalysis::log()->error("[HumanIK::initializeJointConstraintsTask] "
                                                     "Joint {} is not present in the model",
