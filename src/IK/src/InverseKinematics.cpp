@@ -576,11 +576,11 @@ bool HumanIK::initializeJointRegularizationTask(
         return false;
     }
     m_jointRegularizationTask = std::make_shared<BipedalLocomotion::IK::JointTrackingTask>();
-    ok = ok & m_jointRegularizationTask->setKinDyn(m_kinDyn);
-    ok = ok & m_jointRegularizationTask->initialize(taskHandler);
+    ok = ok && m_jointRegularizationTask->setKinDyn(m_kinDyn);
+    ok = ok && m_jointRegularizationTask->initialize(taskHandler);
     Eigen::VectorXd weightVector(m_kinDyn->getNrOfDegreesOfFreedom());
     weightVector.setConstant(weight);
-    ok = ok & m_qpIK.addTask(m_jointRegularizationTask, taskName, 1, weightVector);
+    ok = ok && m_qpIK.addTask(m_jointRegularizationTask, taskName, 1, weightVector);
 
     return ok;
 }
@@ -599,7 +599,7 @@ bool HumanIK::initializeJointConstraintsTask(
         return false;
     }
     m_jointConstraintsTask = std::make_shared<BipedalLocomotion::IK::JointLimitsTask>();
-    ok = ok & m_jointConstraintsTask->setKinDyn(m_kinDyn);
+    ok = ok && m_jointConstraintsTask->setKinDyn(m_kinDyn);
     double k_lim;
     if (!taskHandler->getParameter("k_limits", k_lim))
     {
@@ -612,7 +612,7 @@ bool HumanIK::initializeJointConstraintsTask(
     taskHandler->setParameter("klim", klim);
     if (useModelLimits)
     {
-        ok = ok & m_jointConstraintsTask->initialize(taskHandler);
+        ok = ok && m_jointConstraintsTask->initialize(taskHandler);
     } else
     {
         std::vector<std::string> jointNamesList;
@@ -677,9 +677,9 @@ bool HumanIK::initializeJointConstraintsTask(
         }
         taskHandler->setParameter("lower_limits", lowerLimits);
         taskHandler->setParameter("upper_limits", upperLimits);
-        ok = ok & m_jointConstraintsTask->initialize(taskHandler);
+        ok = ok && m_jointConstraintsTask->initialize(taskHandler);
     }
-    ok = ok & m_qpIK.addTask(m_jointConstraintsTask, taskName, 0);
+    ok = ok && m_qpIK.addTask(m_jointConstraintsTask, taskName, 0);
 
     return ok;
 }
