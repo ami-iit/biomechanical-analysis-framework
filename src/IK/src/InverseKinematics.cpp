@@ -2,6 +2,7 @@
 #include <BiomechanicalAnalysis/Logging/Logger.h>
 #include <BipedalLocomotion/Conversions/ManifConversions.h>
 #include <iDynTree/EigenHelpers.h>
+#include <iDynTree/Model.h>
 
 using namespace BiomechanicalAnalysis::IK;
 using namespace BipedalLocomotion::ContinuousDynamicalSystem;
@@ -102,6 +103,24 @@ bool HumanIK::initialize(
         } else if (taskType == "FloorContactTask")
         {
             if (!initializeFloorContactTask(task, taskHandler))
+            {
+                BiomechanicalAnalysis::log()->error("{} Error in the initialization of the {} task",
+                                                    logPrefix,
+                                                    task);
+                return false;
+            }
+        } else if (taskType == "JointRegularizationTask")
+        {
+            if (!initializeJointRegularizationTask(task, taskHandler))
+            {
+                BiomechanicalAnalysis::log()->error("{} Error in the initialization of the {} task",
+                                                    logPrefix,
+                                                    task);
+                return false;
+            }
+        } else if (taskType == "JointConstraintTask")
+        {
+            if (!initializeJointConstraintsTask(task, taskHandler))
             {
                 BiomechanicalAnalysis::log()->error("{} Error in the initialization of the {} task",
                                                     logPrefix,
@@ -214,6 +233,16 @@ bool HumanIK::updateFloorContactTask(const int node, const double verticalForce)
     }
 
     return ok;
+}
+
+bool HumanIK::updateJointRegularizationTask()
+{
+    return m_jointRegularizationTask->setSetPoint(Eigen::VectorXd::Zero(m_nrDoFs));
+}
+
+bool HumanIK::updateJointConstraintsTask()
+{
+    return m_jointConstraintsTask->update();
 }
 
 bool HumanIK::TPoseCalibrationNode(const int node, const manif::SO3d& I_R_IMU)
@@ -526,6 +555,131 @@ bool HumanIK::initializeFloorContactTask(
                            taskName,
                            1,
                            m_FloorContactTasks[nodeNumber].weight);
+
+    return ok;
+}
+
+bool HumanIK::initializeJointRegularizationTask(
+    const std::string& taskName,
+    const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler)
+{
+    bool ok{true};
+    std::vector<double> kp(m_kinDyn->getNrOfDegreesOfFreedom(), 0.0);
+    taskHandler->setParameter("kp", kp);
+    double weight;
+    if (!taskHandler->getParameter("weight", weight))
+    {
+        BiomechanicalAnalysis::log()->error("[HumanIK::initializeJointRegularizationTask] "
+                                            "Parameter "
+                                            "'weight' of the {} task is missing",
+                                            taskName);
+        return false;
+    }
+    m_jointRegularizationTask = std::make_shared<BipedalLocomotion::IK::JointTrackingTask>();
+    ok = ok && m_jointRegularizationTask->setKinDyn(m_kinDyn);
+    ok = ok && m_jointRegularizationTask->initialize(taskHandler);
+    Eigen::VectorXd weightVector(m_kinDyn->getNrOfDegreesOfFreedom());
+    weightVector.setConstant(weight);
+    ok = ok && m_qpIK.addTask(m_jointRegularizationTask, taskName, 1, weightVector);
+
+    return ok;
+}
+
+bool HumanIK::initializeJointConstraintsTask(
+    const std::string& taskName,
+    const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler)
+{
+    bool ok{true};
+    bool useModelLimits;
+    if (!taskHandler->getParameter("use_model_limits", useModelLimits))
+    {
+        BiomechanicalAnalysis::log()->error("[HumanIK::initializeJointConstraintsTask] Parameter "
+                                            "'use_model_limits' of the {} task is missing",
+                                            taskName);
+        return false;
+    }
+    m_jointConstraintsTask = std::make_shared<BipedalLocomotion::IK::JointLimitsTask>();
+    ok = ok && m_jointConstraintsTask->setKinDyn(m_kinDyn);
+    double k_lim;
+    if (!taskHandler->getParameter("k_limits", k_lim))
+    {
+        BiomechanicalAnalysis::log()->error("[HumanIK::initializeJointConstraintsTask] Parameter "
+                                            "'k_limits' of the {} task is missing",
+                                            taskName);
+        return false;
+    }
+    std::vector<double> klim(m_kinDyn->getNrOfDegreesOfFreedom(), k_lim);
+    taskHandler->setParameter("klim", klim);
+    if (useModelLimits)
+    {
+        ok = ok && m_jointConstraintsTask->initialize(taskHandler);
+    } else
+    {
+        std::vector<std::string> jointNamesList;
+        if (!taskHandler->getParameter("joints_list", jointNamesList))
+        {
+            BiomechanicalAnalysis::log()->error("[HumanIK::initializeJointConstraintsTask] "
+                                                "Parameter "
+                                                "'joints_list' of the {} task is missing",
+                                                taskName);
+            return false;
+        }
+        std::vector<double> lowerBounds;
+        std::vector<double> upperBounds;
+        if (!taskHandler->getParameter("lower_bounds", lowerBounds)
+            || !taskHandler->getParameter("upper_bounds", upperBounds))
+        {
+            BiomechanicalAnalysis::log()->error("[HumanIK::initializeJointConstraintsTask] "
+                                                "Parameter "
+                                                "'lower_bounds' and/or 'upper_bounds of the {} "
+                                                "task is missing",
+                                                taskName);
+            return false;
+        }
+        if (jointNamesList.size() != lowerBounds.size()
+            || jointNamesList.size() != upperBounds.size())
+        {
+            BiomechanicalAnalysis::log()->error("[HumanIK::initializeJointConstraintsTask] "
+                                                "The size of the parameter 'lower_bounds' and "
+                                                "'upper_bounds' of the {} "
+                                                "task are {}, {}, they should be equal to the size "
+                                                "of the parameters 'joints_list' that is {}",
+                                                taskName,
+                                                lowerBounds.size(),
+                                                upperBounds.size(),
+                                                jointNamesList.size());
+            return false;
+        }
+        std::vector<int> jointIndices;
+        for (const auto& jointName : jointNamesList)
+        {
+            auto index = m_kinDyn->model().getJointIndex(jointName);
+            if (!m_kinDyn->model().isValidJointIndex(index))
+            {
+                BiomechanicalAnalysis::log()->error("[HumanIK::initializeJointConstraintsTask] "
+                                                    "Joint {} is not present in the model",
+                                                    jointName);
+                return false;
+            }
+            jointIndices.emplace_back(index);
+        }
+        std::vector<double> lowerLimits(m_kinDyn->getNrOfDegreesOfFreedom());
+        std::vector<double> upperLimits(m_kinDyn->getNrOfDegreesOfFreedom());
+        for (int i = 0; i < m_kinDyn->getNrOfDegreesOfFreedom(); i++)
+        {
+            lowerLimits[i] = m_kinDyn->model().getJoint(i)->getMinPosLimit(i);
+            upperLimits[i] = m_kinDyn->model().getJoint(i)->getMaxPosLimit(i);
+        }
+        for (std::size_t i = 0; i < jointIndices.size(); i++)
+        {
+            lowerLimits[jointIndices[i]] = lowerBounds[i];
+            upperLimits[jointIndices[i]] = upperBounds[i];
+        }
+        taskHandler->setParameter("lower_limits", lowerLimits);
+        taskHandler->setParameter("upper_limits", upperLimits);
+        ok = ok && m_jointConstraintsTask->initialize(taskHandler);
+    }
+    ok = ok && m_qpIK.addTask(m_jointConstraintsTask, taskName, 0);
 
     return ok;
 }

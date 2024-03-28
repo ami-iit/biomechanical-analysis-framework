@@ -50,6 +50,8 @@ TEST_CASE("InverseKinematic test")
     REQUIRE(ik.updateOrientationTask(3, I_R_IMU, I_omega_IMU));
     REQUIRE(ik.updateFloorContactTask(10, 11.0));
     REQUIRE(ik.updateGravityTask(10, I_R_IMU));
+    REQUIRE(ik.updateJointConstraintsTask());
+    REQUIRE(ik.updateJointRegularizationTask());
     REQUIRE(ik.advance());
     REQUIRE(ik.getJointPositions(JointPositions));
     REQUIRE(ik.getJointVelocities(JointVelocities));
