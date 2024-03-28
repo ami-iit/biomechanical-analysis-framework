@@ -7,7 +7,9 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/ConfigFolderPath.h.in" "${CMAKE_CURRENT_BINARY_DIR}/ConfigFolderPath.h" @ONLY)
 
 find_package(matioCpp REQUIRED)
-find_package(BipedalLocomotionFramework 0.12.0 REQUIRED)
+if(NOT BipedalLocomotionFramework_FOUND)
+  find_package(BipedalLocomotionFramework 0.16.0 REQUIRED)
+endif()
 find_package(BiomechanicalAnalysisFramework REQUIRED)
 find_package(YARP 3.4.0 REQUIRED)
 
