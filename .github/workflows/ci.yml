@@ -82,6 +82,7 @@ jobs:
                   -DCMAKE_BUILD_TYPE=${{matrix.build_type}} \
                   -DFRAMEWORK_COMPILE_YarpImplementation=ON \
                   -DBUILD_TESTING:BOOL=ON \
+                  -DBUILD_EXAMPLES:BOOL=ON \
                   -DCMAKE_INSTALL_PREFIX=${GITHUB_WORKSPACE}/install
 
         - name: Configure [Windows]
@@ -95,6 +96,7 @@ jobs:
                   -DCMAKE_BUILD_TYPE=${{matrix.build_type}} \
                   -DFRAMEWORK_COMPILE_YarpImplementation=ON \
                   -DBUILD_TESTING:BOOL=ON \
+                  -DBUILD_EXAMPLES:BOOL=ON \
                   -DCMAKE_INSTALL_PREFIX=${GITHUB_WORKSPACE}/install
                     
         # Build step          
