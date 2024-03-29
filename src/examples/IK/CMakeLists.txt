@@ -10,8 +10,9 @@ find_package(matioCpp REQUIRED)
 if(NOT BipedalLocomotionFramework_FOUND)
   find_package(BipedalLocomotionFramework 0.16.0 REQUIRED)
 endif()
-find_package(BiomechanicalAnalysisFramework REQUIRED)
-find_package(YARP 3.4.0 REQUIRED)
+if(NOT FRAMEWORK_COMPILE_examples)
+    find_package(BiomechanicalAnalysisFramework REQUIRED)
+endif()
 
 add_executable(exampleIK)
 
