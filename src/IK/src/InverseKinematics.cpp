@@ -9,25 +9,34 @@ using namespace BipedalLocomotion::ContinuousDynamicalSystem;
 using namespace BipedalLocomotion::Conversions;
 using namespace std::chrono_literals;
 
+
+
+// Method which initializes the object HumanIK and tasks for IK
+
 bool HumanIK::initialize(
     std::weak_ptr<const BipedalLocomotion::ParametersHandler::IParametersHandler> handler,
     std::shared_ptr<iDynTree::KinDynComputations> kinDyn)
 {
+    // set priorities variables
     constexpr std::size_t highPriority = 0;
     constexpr std::size_t lowPriority = 1;
     constexpr auto logPrefix = "[HumanIK::initialize]";
 
+    // Check the validity of the kinDyn object
     if ((kinDyn == nullptr) || (!kinDyn->isValid()))
     {
         BiomechanicalAnalysis::log()->error("{} Invalid kinDyn object.", logPrefix);
         return false;
     }
 
+    //Initialize kinDyn variable
     m_kinDyn = kinDyn;
 
+    // resize kinematic variables based on DoF
     m_jointPositions.resize(m_kinDyn->getNrOfDegreesOfFreedom());
     m_jointVelocities.resize(m_kinDyn->getNrOfDegreesOfFreedom());
 
+    // Retrieve the state of the system
     kinDyn->getRobotState(m_basePose,
                           m_jointPositions,
                           m_baseVelocity,
@@ -42,6 +51,7 @@ bool HumanIK::initialize(
     m_system.integrator = std::make_shared<ForwardEuler<FloatingBaseSystemKinematics>>();
     m_system.integrator->setDynamicalSystem(m_system.dynamics);
 
+    // Variable for number of DoF of the model
     m_nrDoFs = kinDyn->getNrOfDegreesOfFreedom();
 
     auto ptr = handler.lock();
@@ -64,9 +74,13 @@ bool HumanIK::initialize(
     group->getParameter("robot_velocity_variable_name", variable);
     m_variableHandler.addVariable(variable, kinDyn->getNrOfDegreesOfFreedom() + 6);
 
+
+    // Cycle on the tasks to be initialized
     for (const auto& task : tasks)
     {
+        // Initialize a pointer to the task parameters
         auto taskHandler = ptr->getGroup(task).lock();
+        // Check validity of the pointer
         if (taskHandler == nullptr)
         {
             BiomechanicalAnalysis::log()->error("{} Group {} is missing in the configuration file",
@@ -74,7 +88,10 @@ bool HumanIK::initialize(
                                                 task);
             return false;
         }
+        // Retrieve the task type from the parameter set
         std::string taskType;
+
+        // Check if operation successful
         if (!taskHandler->getParameter("type", taskType))
         {
             BiomechanicalAnalysis::log()->error("{} Parameter task_type of the {} task is missing",
@@ -82,6 +99,7 @@ bool HumanIK::initialize(
                                                 task);
             return false;
         }
+        // Initialize SO3 task
         if (taskType == "SO3Task")
         {
             if (!initializeOrientationTask(task, taskHandler))
@@ -91,6 +109,7 @@ bool HumanIK::initialize(
                                                     task);
                 return false;
             }
+        // Initialize GravityTask    
         } else if (taskType == "GravityTask")
         {
             if (!initializeGravityTask(task, taskHandler))
@@ -100,6 +119,7 @@ bool HumanIK::initialize(
                                                     task);
                 return false;
             }
+        // Initialize FloorContactTask    
         } else if (taskType == "FloorContactTask")
         {
             if (!initializeFloorContactTask(task, taskHandler))
@@ -109,6 +129,7 @@ bool HumanIK::initialize(
                                                     task);
                 return false;
             }
+        // Initialize JointRegularizationTask
         } else if (taskType == "JointRegularizationTask")
         {
             if (!initializeJointRegularizationTask(task, taskHandler))
@@ -118,6 +139,7 @@ bool HumanIK::initialize(
                                                     task);
                 return false;
             }
+        // Initialize JointConstraintTask
         } else if (taskType == "JointConstraintTask")
         {
             if (!initializeJointConstraintsTask(task, taskHandler))
@@ -139,45 +161,56 @@ bool HumanIK::initialize(
     return ok;
 }
 
+// Set integration time step
 bool HumanIK::setDt(const double dt)
 {
+    // Convert time step from seconds to nanoseconds
     m_dtIntegration
         = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::duration<double>(dt));
 
+    // Set integration step for the dynamical system
     return m_system.integrator->setIntegrationStep(m_dtIntegration);
 }
 
+// Get integration time step
 double HumanIK::getDt() const
 {
+    // Convert integration time step from nanoseconds to seconds and return
     return std::chrono::duration_cast<std::chrono::duration<double>>(m_dtIntegration).count();
 }
 
+// Get number of Degrees of Freedom (DoFs)
 int HumanIK::getDoFsNumber() const
 {
+    // Return the number of Degrees of Freedom
     return m_nrDoFs;
 }
 
+// Update the orientation task for a given node
 bool HumanIK::updateOrientationTask(const int node,
                                     const manif::SO3d& I_R_IMU,
                                     const manif::SO3Tangentd& I_omega_IMU)
 {
-    // check if the node number is valid
+    // Check if the node number is valid
     if (m_OrientationTasks.find(node) == m_OrientationTasks.end())
     {
         BiomechanicalAnalysis::log()->error("[HumanIK::setNodeSetPoint] Invalid node number.");
         return false;
     }
 
-    // compute the rotation matrix from the world to the link frame as:
+    // Compute the rotation matrix from the world to the link frame as:
     // W_R_link = W_R_WIMU * WIMU_R_IMU * IMU_R_link
     I_R_link = m_OrientationTasks[node].calibrationMatrix * I_R_IMU
                * m_OrientationTasks[node].IMU_R_link;
+
+    // Set the setpoint for the orientation task of the node
     return m_OrientationTasks[node]
         .task->setSetPoint(I_R_link,
                            m_OrientationTasks[node].calibrationMatrix.rotation()
                                * I_omega_IMU.coeffs());
 }
 
+// Update the gravity task for a given node
 bool HumanIK::updateGravityTask(const int node, const manif::SO3d& I_R_IMU)
 {
     // check if the node number is valid
@@ -196,6 +229,8 @@ bool HumanIK::updateGravityTask(const int node, const manif::SO3d& I_R_IMU)
     return m_GravityTasks[node].task->setSetPoint(I_R_link.rotation().rightCols(1));
 }
 
+
+// Update the floor contact task for a given node
 bool HumanIK::updateFloorContactTask(const int node, const double verticalForce)
 {
     bool ok{true};
@@ -237,13 +272,16 @@ bool HumanIK::updateFloorContactTask(const int node, const double verticalForce)
 
 bool HumanIK::updateJointRegularizationTask()
 {
+    // Set the set point of the joint regularization task to a zero vector of size m_nrDoFs
     return m_jointRegularizationTask->setSetPoint(Eigen::VectorXd::Zero(m_nrDoFs));
 }
 
 bool HumanIK::updateJointConstraintsTask()
 {
+    // Update the joint constraints task
     return m_jointConstraintsTask->update();
 }
+
 
 bool HumanIK::TPoseCalibrationNode(const int node, const manif::SO3d& I_R_IMU)
 {
@@ -261,46 +299,63 @@ bool HumanIK::TPoseCalibrationNode(const int node, const manif::SO3d& I_R_IMU)
 
     return true;
 }
-
 bool HumanIK::advance()
 {
+    // Initialize ok flag to true
     bool ok{true};
+
+    // Advance the QP solver
     ok = ok && m_qpIK.advance();
+    // Check if the output of the QP solver is valid
     ok = ok && m_qpIK.isOutputValid();
 
+    // If there's an error in the QP solver, log an error and return false
     if (!ok)
     {
         BiomechanicalAnalysis::log()->error("[HumanIK::advance] Error in the QP solver.");
         return false;
     }
+
+    // Get joint velocities and base velocities from the QP solver output
     m_jointVelocities = m_qpIK.getOutput().jointVelocity;
     m_baseVelocity = m_qpIK.getOutput().baseVelocity.coeffs();
 
+    // Set control input to the system dynamics
     ok = ok && m_system.dynamics->setControlInput({m_baseVelocity, m_jointVelocities});
+    // Integrate the system dynamics
     ok = ok && m_system.integrator->integrate(0s, m_dtIntegration);
 
+    // If there's an error in the integration, log an error and return false
     if (!ok)
     {
         BiomechanicalAnalysis::log()->error("[HumanIK::advance] Error in the integration.");
         return false;
     }
+
+    // Get the solution (base position, base rotation, joint positions) from the integrator
     const auto& [basePosition, baseRotation, jointPosition] = m_system.integrator->getSolution();
+    // Update the base pose and joint positions
     m_basePose.topRightCorner<3, 1>() = basePosition;
     m_basePose.topLeftCorner<3, 3>() = baseRotation.rotation();
     m_jointPositions = jointPosition;
+
+    // Set the robot state to the KinDynComputations object
     m_kinDyn->setRobotState(m_basePose, jointPosition, m_baseVelocity, m_jointVelocities, m_gravity);
 
+    // Return whether the process was successful
     return ok;
 }
 
 bool HumanIK::getJointPositions(Eigen::Ref<Eigen::VectorXd> jointPositions) const
 {
+    // Check if the size of the input vector matches the size of the joint positions vector
     if (jointPositions.size() != m_jointPositions.size())
     {
-        BiomechanicalAnalysis::log()->error("[HumanIK::getJointPositions] Invalid size of the "
-                                            "input vector.");
+        BiomechanicalAnalysis::log()->error("[HumanIK::getJointPositions] Invalid size of the input vector.");
         return false;
     }
+    
+    // Assign joint positions to the input vector
     jointPositions = m_jointPositions;
 
     return true;
@@ -308,12 +363,14 @@ bool HumanIK::getJointPositions(Eigen::Ref<Eigen::VectorXd> jointPositions) cons
 
 bool HumanIK::getJointVelocities(Eigen::Ref<Eigen::VectorXd> jointVelocities) const
 {
+    // Check if the size of the input vector matches the size of the joint velocities vector
     if (jointVelocities.size() != m_jointVelocities.size())
     {
-        BiomechanicalAnalysis::log()->error("[HumanIK::getJointVelocities] Invalid size of the "
-                                            "input vector.");
+        BiomechanicalAnalysis::log()->error("[HumanIK::getJointVelocities] Invalid size of the input vector.");
         return false;
     }
+    
+    // Assign joint velocities to the input vector
     jointVelocities = m_jointVelocities;
 
     return true;
@@ -321,13 +378,16 @@ bool HumanIK::getJointVelocities(Eigen::Ref<Eigen::VectorXd> jointVelocities) co
 
 bool HumanIK::getBasePosition(Eigen::Ref<Eigen::Vector3d> basePosition) const
 {
+    // Assign the base position to the input vector
     basePosition = m_basePose.topRightCorner<3, 1>();
 
     return true;
 }
 
+
 bool HumanIK::getBaseLinearVelocity(Eigen::Ref<Eigen::Vector3d> baseVelocity) const
 {
+    // Assign the linear velocity of the base to the input vector
     baseVelocity = m_baseVelocity.topRows<3>();
 
     return true;
@@ -335,6 +395,7 @@ bool HumanIK::getBaseLinearVelocity(Eigen::Ref<Eigen::Vector3d> baseVelocity) co
 
 bool HumanIK::getBaseOrientation(Eigen::Ref<Eigen::Matrix3d> baseOrientation) const
 {
+    // Assign the orientation of the base to the input matrix
     baseOrientation = m_basePose.topLeftCorner<3, 3>();
 
     return true;
@@ -342,6 +403,7 @@ bool HumanIK::getBaseOrientation(Eigen::Ref<Eigen::Matrix3d> baseOrientation) co
 
 bool HumanIK::getBaseAngularVelocity(Eigen::Ref<Eigen::Vector3d> baseAngularVelocity) const
 {
+    // Assign the angular velocity of the base to the input vector
     baseAngularVelocity = m_baseVelocity.bottomRows<3>();
 
     return true;
@@ -351,17 +413,24 @@ bool HumanIK::initializeOrientationTask(
     const std::string& taskName,
     const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler)
 {
+    // Log prefix for error messages
     constexpr auto logPrefix = "[HumanIK::initializeOrientationTask]";
+    
+    // Variable to store the node number
     int nodeNumber;
+    // Flag to indicate successful initialization
     bool ok{true};
+    
+    // Retrieve node number parameter from the task handler
     if (!taskHandler->getParameter("node_number", nodeNumber))
     {
-        BiomechanicalAnalysis::log()->error("{} Parameter node_number of the {} task is "
-                                            "missing",
+        BiomechanicalAnalysis::log()->error("{} Parameter node_number of the {} task is missing",
                                             logPrefix,
                                             taskName);
         return false;
     }
+    
+    // Retrieve weight parameter from the task handler
     std::vector<double> weight;
     if (!taskHandler->getParameter("weight", weight))
     {
@@ -370,43 +439,57 @@ bool HumanIK::initializeOrientationTask(
                                             taskName);
         return false;
     }
-    // check that the weight is a 3D vector
+    
+    // Check that the weight is a 3D vector
     if (weight.size() != 3)
     {
-        BiomechanicalAnalysis::log()->error("{} The size of the parameter weight of the {} task is "
-                                            "{}, it should be 3",
+        BiomechanicalAnalysis::log()->error("{} The size of the parameter weight of the {} task is {}, it should be 3",
                                             logPrefix,
                                             taskName,
                                             weight.size());
         return false;
     }
+    
+    // Map weight vector to Eigen::Vector3d and assign it to the corresponding task
     m_FloorContactTasks[nodeNumber].weight = Eigen::Map<Eigen::Vector3d>(weight.data());
+    
+    // Set node number for the orientation task
     m_OrientationTasks[nodeNumber].nodeNumber = nodeNumber;
+    
+    // Create an SO3Task object for the orientation task
     m_OrientationTasks[nodeNumber].task = std::make_shared<BipedalLocomotion::IK::SO3Task>();
+    
+    // Retrieve rotation matrix parameter from the task handler
     std::vector<double> rotation_matrix;
     if (taskHandler->getParameter("rotation_matrix", rotation_matrix))
     {
+        // Convert rotation matrix to ManifRot and assign it to IMU_R_link
         m_OrientationTasks[nodeNumber].IMU_R_link = BipedalLocomotion::Conversions::toManifRot(
             Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(rotation_matrix.data()));
-    } else
+    }
+    else
     {
+        // If rotation_matrix parameter is missing, set IMU_R_link to identity
         std::string frame_name;
         taskHandler->getParameter("frame_name", frame_name);
-        BiomechanicalAnalysis::log()->warn("{} Parameter rotation_matrix of the {} task is "
-                                           "missing, setting the rotation matrix from the "
-                                           "IMU to the frame {} to identity",
+        BiomechanicalAnalysis::log()->warn("{} Parameter rotation_matrix of the {} task is missing, setting the rotation matrix from the IMU to the frame {} to identity",
                                            logPrefix,
                                            taskName,
                                            frame_name);
         m_OrientationTasks[nodeNumber].IMU_R_link.setIdentity();
     }
+    
+    // Initialize the SO3Task object
     ok = ok && m_OrientationTasks[nodeNumber].task->setKinDyn(m_kinDyn);
     ok = ok && m_OrientationTasks[nodeNumber].task->initialize(taskHandler);
-    ok = ok
-         && m_qpIK.addTask(m_OrientationTasks[nodeNumber].task,
-                           taskName,
-                           1,
-                           m_FloorContactTasks[nodeNumber].weight);
+    
+    // Add the orientation task to the QP solver
+    ok = ok && m_qpIK.addTask(m_OrientationTasks[nodeNumber].task,
+                               taskName,
+                               1,
+                               m_FloorContactTasks[nodeNumber].weight);
+    
+    // Check if initialization was successful
     if (!ok)
     {
         BiomechanicalAnalysis::log()->error("{} Error in the initialization of the {} task",
@@ -414,26 +497,37 @@ bool HumanIK::initializeOrientationTask(
                                             taskName);
         return false;
     }
+    
     return ok;
 }
+
 
 bool HumanIK::initializeGravityTask(
     const std::string& taskName,
     const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler)
 {
+    // Log prefix for error messages
     constexpr auto logPrefix = "[HumanIK::initializeGravityTask]";
+    
+    // Variable to store the node number
     int nodeNumber;
+    // Flag to indicate successful initialization
     bool ok{true};
+    
+    // Default weight for the gravity task
     Eigen::Vector2d Weight;
     Weight.setConstant(10.0);
+    
+    // Retrieve node number parameter from the task handler
     if (!taskHandler->getParameter("node_number", nodeNumber))
     {
-        BiomechanicalAnalysis::log()->error("{} Parameter node_number of the {} task is "
-                                            "missing",
+        BiomechanicalAnalysis::log()->error("{} Parameter node_number of the {} task is missing",
                                             logPrefix,
                                             taskName);
         return false;
     }
+    
+    // Retrieve weight parameter from the task handler
     std::vector<double> weight;
     if (!taskHandler->getParameter("weight", weight))
     {
@@ -442,48 +536,58 @@ bool HumanIK::initializeGravityTask(
                                             taskName);
         return false;
     }
-    // check that the weight is a 2D vector
+    
+    // Check that the weight is a 2D vector
     if (weight.size() != 2)
     {
-        BiomechanicalAnalysis::log()->error("{} The size of the parameter weight of the {} task is "
-                                            "{}, it should be 2",
+        BiomechanicalAnalysis::log()->error("{} The size of the parameter weight of the {} task is {}, it should be 2",
                                             logPrefix,
                                             taskName,
                                             weight.size());
         return false;
     }
+    
+    // Retrieve rotation matrix parameter from the task handler
     std::vector<double> rotation_matrix;
     if (taskHandler->getParameter("rotation_matrix", rotation_matrix))
     {
+        // Convert rotation matrix to ManifRot and assign it to IMU_R_link
         m_GravityTasks[nodeNumber].IMU_R_link = BipedalLocomotion::Conversions::toManifRot(
             Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(rotation_matrix.data()));
-    } else
+    }
+    else
     {
+        // If rotation_matrix parameter is missing, set IMU_R_link to identity
         std::string frame_name;
         taskHandler->getParameter("frame_name", frame_name);
-        BiomechanicalAnalysis::log()->warn("{} Parameter rotation_matrix of the {} task is "
-                                           "missing, setting the rotation matrix from the "
-                                           "IMU to the frame {} to identity",
+        BiomechanicalAnalysis::log()->warn("{} Parameter rotation_matrix of the {} task is missing, setting the rotation matrix from the IMU to the frame {} to identity",
                                            logPrefix,
                                            taskName,
                                            frame_name);
         m_GravityTasks[nodeNumber].IMU_R_link.setIdentity();
     }
+    
+    // Map weight vector to Eigen::Vector2d and assign it to the corresponding task
     m_GravityTasks[nodeNumber].weight = Eigen::Map<Eigen::Vector2d>(weight.data());
+    
+    // Set node number and task name for the gravity task
     m_GravityTasks[nodeNumber].nodeNumber = nodeNumber;
     m_GravityTasks[nodeNumber].taskName = taskName;
+    
+    // Create an GravityTask object for the gravity task
     m_GravityTasks[nodeNumber].task = std::make_shared<BipedalLocomotion::IK::GravityTask>();
-
-    // initializing the gravity task
+    
+    // Initialize the GravityTask object
     ok = ok && m_GravityTasks[nodeNumber].task->setKinDyn(m_kinDyn);
     ok = ok && m_GravityTasks[nodeNumber].task->initialize(taskHandler);
-
-    // adding the gravity task to the QP solver
-    ok = ok
-         && m_qpIK.addTask(m_GravityTasks[nodeNumber].task,
-                           taskName,
-                           1,
-                           m_GravityTasks[nodeNumber].weight);
+    
+    // Add the gravity task to the QP solver
+    ok = ok && m_qpIK.addTask(m_GravityTasks[nodeNumber].task,
+                               taskName,
+                               1,
+                               m_GravityTasks[nodeNumber].weight);
+    
+    // Check if initialization was successful
     return ok;
 }
 
@@ -491,17 +595,24 @@ bool HumanIK::initializeFloorContactTask(
     const std::string& taskName,
     const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler)
 {
+    // Log prefix for error messages
     constexpr auto logPrefix = "[HumanIK::initializeFloorContactTask]";
+    
+    // Variable to store the node number
     int nodeNumber;
+    // Flag to indicate successful initialization
     bool ok{true};
+    
+    // Retrieve node number parameter from the task handler
     if (!taskHandler->getParameter("node_number", nodeNumber))
     {
-        BiomechanicalAnalysis::log()->error("{} Parameter node_number of the {} task is "
-                                            "missing",
+        BiomechanicalAnalysis::log()->error("{} Parameter node_number of the {} task is missing",
                                             logPrefix,
                                             taskName);
         return false;
     }
+    
+    // Retrieve frame name parameter from the task handler and assign it to the corresponding FloorContactTask
     if (!taskHandler->getParameter("frame_name", m_FloorContactTasks[nodeNumber].frameName))
     {
         BiomechanicalAnalysis::log()->error("{} Parameter frame_name of the {} task is missing",
@@ -509,6 +620,8 @@ bool HumanIK::initializeFloorContactTask(
                                             taskName);
         return false;
     }
+    
+    // Retrieve weight parameter from the task handler
     std::vector<double> weight;
     if (!taskHandler->getParameter("weight", weight))
     {
@@ -517,71 +630,91 @@ bool HumanIK::initializeFloorContactTask(
                                             taskName);
         return false;
     }
-    // check that the weight is a 3D vector
+    
+    // Check that the weight is a 3D vector
     if (weight.size() != 3)
     {
-        BiomechanicalAnalysis::log()->error("{} The size of the parameter weight of the {} task is "
-                                            "{}, it should be 3",
+        BiomechanicalAnalysis::log()->error("{} The size of the parameter weight of the {} task is {}, it should be 3",
                                             logPrefix,
                                             taskName,
                                             weight.size());
         return false;
     }
+    
+    // Retrieve vertical force threshold parameter from the task handler and assign it to the corresponding FloorContactTask
     if (!taskHandler->getParameter("vertical_force_threshold",
                                    m_FloorContactTasks[nodeNumber].verticalForceThreshold))
     {
-        BiomechanicalAnalysis::log()->error("{} Parameter vertical_force_threshold of the {} task "
-                                            "is missing",
+        BiomechanicalAnalysis::log()->error("{} Parameter vertical_force_threshold of the {} task is missing",
                                             logPrefix,
                                             taskName);
         return false;
     }
+    
+    // Map weight vector to Eigen::Vector3d and assign it to the corresponding FloorContactTask
     m_FloorContactTasks[nodeNumber].weight = Eigen::Map<Eigen::Vector3d>(weight.data());
+    
+    // Set node number and task name for the FloorContactTask
     m_FloorContactTasks[nodeNumber].nodeNumber = nodeNumber;
     m_FloorContactTasks[nodeNumber].taskName = taskName;
+    
+    // Create an R3Task object for the floor contact task
     m_FloorContactTasks[nodeNumber].task = std::make_shared<BipedalLocomotion::IK::R3Task>();
-
-    // // imposing that the only controlled direction is the z
-    // std::vector<bool> mask{false, false, true};
-    // taskHandler->setParameter("mask", mask);
-
-    // initializing the floor contact task
+    
+    // Initialize the R3Task object
     ok = ok && m_FloorContactTasks[nodeNumber].task->setKinDyn(m_kinDyn);
     ok = ok && m_FloorContactTasks[nodeNumber].task->initialize(taskHandler);
-
-    // adding the floor contact task to the QP solver
-    ok = ok
-         && m_qpIK.addTask(m_FloorContactTasks[nodeNumber].task,
-                           taskName,
-                           1,
-                           m_FloorContactTasks[nodeNumber].weight);
-
+    
+    // Add the floor contact task to the QP solver
+    ok = ok && m_qpIK.addTask(m_FloorContactTasks[nodeNumber].task,
+                               taskName,
+                               1,
+                               m_FloorContactTasks[nodeNumber].weight);
+    
+    // Check if initialization was successful
     return ok;
 }
+
 
 bool HumanIK::initializeJointRegularizationTask(
     const std::string& taskName,
     const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler)
 {
+    // Flag to indicate successful initialization
     bool ok{true};
+    
+    // Initialize a vector of proportional gains (kp) with zeros
     std::vector<double> kp(m_kinDyn->getNrOfDegreesOfFreedom(), 0.0);
+    
+    // Set the proportional gains (kp) parameter for the task
     taskHandler->setParameter("kp", kp);
+    
+    // Retrieve the weight parameter from the task handler
     double weight;
     if (!taskHandler->getParameter("weight", weight))
     {
+        // If weight parameter is missing, log an error and return false
         BiomechanicalAnalysis::log()->error("[HumanIK::initializeJointRegularizationTask] "
-                                            "Parameter "
-                                            "'weight' of the {} task is missing",
+                                            "Parameter 'weight' of the {} task is missing",
                                             taskName);
         return false;
     }
+    
+    // Create a JointTrackingTask object for joint regularization
     m_jointRegularizationTask = std::make_shared<BipedalLocomotion::IK::JointTrackingTask>();
+    
+    // Initialize the JointTrackingTask object
     ok = ok && m_jointRegularizationTask->setKinDyn(m_kinDyn);
     ok = ok && m_jointRegularizationTask->initialize(taskHandler);
+    
+    // Create a weight vector with constant values based on the weight parameter
     Eigen::VectorXd weightVector(m_kinDyn->getNrOfDegreesOfFreedom());
     weightVector.setConstant(weight);
+    
+    // Add the joint regularization task to the QP solver with the specified weight vector
     ok = ok && m_qpIK.addTask(m_jointRegularizationTask, taskName, 1, weightVector);
 
+    // Return true if initialization was successful, otherwise return false
     return ok;
 }
 
@@ -589,53 +722,80 @@ bool HumanIK::initializeJointConstraintsTask(
     const std::string& taskName,
     const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler)
 {
+    // Flag to indicate successful initialization
     bool ok{true};
+
+    // Variable to store whether to use model limits or custom joint constraints
     bool useModelLimits;
+
+    // Check if the 'use_model_limits' parameter is present in the task handler
     if (!taskHandler->getParameter("use_model_limits", useModelLimits))
     {
+        // If 'use_model_limits' parameter is missing, log an error and return false
         BiomechanicalAnalysis::log()->error("[HumanIK::initializeJointConstraintsTask] Parameter "
                                             "'use_model_limits' of the {} task is missing",
                                             taskName);
         return false;
     }
+
+    // Create a JointLimitsTask object for joint constraints
     m_jointConstraintsTask = std::make_shared<BipedalLocomotion::IK::JointLimitsTask>();
+
+    // Set the KinDyn object for the JointLimitsTask
     ok = ok && m_jointConstraintsTask->setKinDyn(m_kinDyn);
+
+    // Variable to store the value of 'k_limits' parameter
     double k_lim;
+
+    // Check if the 'k_limits' parameter is present in the task handler
     if (!taskHandler->getParameter("k_limits", k_lim))
     {
+        // If 'k_limits' parameter is missing, log an error and return false
         BiomechanicalAnalysis::log()->error("[HumanIK::initializeJointConstraintsTask] Parameter "
                                             "'k_limits' of the {} task is missing",
                                             taskName);
         return false;
     }
+
+    // Create a vector of k_limits with size equal to the number of degrees of freedom
     std::vector<double> klim(m_kinDyn->getNrOfDegreesOfFreedom(), k_lim);
+
+    // Set the 'klim' parameter for the task
     taskHandler->setParameter("klim", klim);
+
+    // If 'useModelLimits' is true, initialize the JointLimitsTask with model limits
     if (useModelLimits)
     {
         ok = ok && m_jointConstraintsTask->initialize(taskHandler);
-    } else
+    }
+    else
     {
+        // Otherwise, initialize the JointLimitsTask with custom joint constraints
+
+        // Retrieve the list of joint names from the task handler
         std::vector<std::string> jointNamesList;
         if (!taskHandler->getParameter("joints_list", jointNamesList))
         {
             BiomechanicalAnalysis::log()->error("[HumanIK::initializeJointConstraintsTask] "
-                                                "Parameter "
-                                                "'joints_list' of the {} task is missing",
+                                                "Parameter 'joints_list' of the {} task is missing",
                                                 taskName);
             return false;
         }
+
+        // Retrieve the lower and upper bounds for the custom joint constraints
         std::vector<double> lowerBounds;
         std::vector<double> upperBounds;
         if (!taskHandler->getParameter("lower_bounds", lowerBounds)
             || !taskHandler->getParameter("upper_bounds", upperBounds))
         {
             BiomechanicalAnalysis::log()->error("[HumanIK::initializeJointConstraintsTask] "
-                                                "Parameter "
-                                                "'lower_bounds' and/or 'upper_bounds of the {} "
+                                                "Parameter 'lower_bounds' and/or 'upper_bounds' of the {} "
                                                 "task is missing",
                                                 taskName);
             return false;
         }
+
+        // Check if the size of the lists matches
         if (jointNamesList.size() != lowerBounds.size()
             || jointNamesList.size() != upperBounds.size())
         {
@@ -650,6 +810,8 @@ bool HumanIK::initializeJointConstraintsTask(
                                                 jointNamesList.size());
             return false;
         }
+
+        // Get the joint indices corresponding to the joint names
         std::vector<int> jointIndices;
         for (const auto& jointName : jointNamesList)
         {
@@ -663,23 +825,36 @@ bool HumanIK::initializeJointConstraintsTask(
             }
             jointIndices.emplace_back(index);
         }
+
+        // Create vectors to store lower and upper limits
         std::vector<double> lowerLimits(m_kinDyn->getNrOfDegreesOfFreedom());
         std::vector<double> upperLimits(m_kinDyn->getNrOfDegreesOfFreedom());
+
+        // Populate the lower and upper limits with model limits
         for (int i = 0; i < m_kinDyn->getNrOfDegreesOfFreedom(); i++)
         {
             lowerLimits[i] = m_kinDyn->model().getJoint(i)->getMinPosLimit(i);
             upperLimits[i] = m_kinDyn->model().getJoint(i)->getMaxPosLimit(i);
         }
+
+        // Update the lower and upper limits with custom values for specified joints
         for (std::size_t i = 0; i < jointIndices.size(); i++)
         {
             lowerLimits[jointIndices[i]] = lowerBounds[i];
             upperLimits[jointIndices[i]] = upperBounds[i];
         }
+
+        // Set the 'lower_limits' and 'upper_limits' parameters for the task
         taskHandler->setParameter("lower_limits", lowerLimits);
         taskHandler->setParameter("upper_limits", upperLimits);
+
+        // Initialize the JointLimitsTask with custom joint constraints
         ok = ok && m_jointConstraintsTask->initialize(taskHandler);
     }
+
+    // Add the joint constraints task to the QP solver
     ok = ok && m_qpIK.addTask(m_jointConstraintsTask, taskName, 0);
 
+    // Return true if initialization was successful, otherwise return false
     return ok;
 }
