@@ -302,9 +302,9 @@ int main()
     }
 
     // Load data from Matlab files
-    matioCpp::File file("/path/to/matlab1.mat");
-    matioCpp::Struct ifeel_data = file.read("ifeel_data").asStruct();
-    matioCpp::Struct node12 = ifeel_data("iFeelSuit_vLink_Node_12").asStruct();
+    matioCpp::File file("/path/to/matlab1.mat");// Create a file object to read data from MATLAB file "matlab1.mat"
+    matioCpp::Struct ifeel_data = file.read("ifeel_data").asStruct();// Read "ifeel_data" structure from the MATLAB file and convert it to a structure
+    matioCpp::Struct node12 = ifeel_data("iFeelSuit_vLink_Node_12").asStruct();// Access structure "iFeelSuit_vLink_Node_12" within "ifeel_data" structure and convert it to a structure
     matioCpp::File file2("/path/to/human_data.mat");    matioCpp::Struct human_data = file2.read("human_data").asStruct(); // Read "human_data" structure from the MATLAB file and convert it to a structure
     matioCpp::Struct human_data = file2.read("human_data").asStruct(); // Read "human_data" structure from the MATLAB file and convert it to a structure    
     matioCpp::Struct human_state = human_data("human_state").asStruct(); // Access structure "human_state" within "human_data" structure and convert it to a structure
