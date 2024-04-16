@@ -108,8 +108,12 @@ private:
     {
         std::shared_ptr<BipedalLocomotion::IK::SO3Task> task;
         int nodeNumber;
-        manif::SO3d IMU_R_link;
-        manif::SO3d calibrationMatrix = manif::SO3d::Identity();
+        manif::SO3d IMU_R_link; // Rotation matrix from the IMU to related link, set through config
+                                // file
+        manif::SO3d calibrationMatrix = manif::SO3d::Identity(); // Initialization (to Identity) of
+                                                                 // Rotation matrix from the World to
+                                                                 // the World of the IMU, which will
+                                                                 // be calibrated using Tpose script
         Eigen::Vector3d weight;
     };
 
@@ -154,8 +158,10 @@ private:
     manif::SO3d calib_W_R_link = manif::SO3d::Identity(); /** calibration matrix between the world
                                                            and the link */
 
-    std::unordered_map<int, OrientationTaskStruct> m_OrientationTasks; /** unordered map of the
-                                                                    orientation tasks */
+    std::unordered_map<int, OrientationTaskStruct> m_OrientationTasks; /** unordered map of type
+                                                                        OrientationTaskStruct, each
+                                                                        element referring to a
+                                                                        node*/
 
     std::unordered_map<int, GravityTaskStruct> m_GravityTasks; /** unordered map of the gravity
                                                                     tasks */
