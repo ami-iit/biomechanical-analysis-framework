@@ -9,8 +9,6 @@ using namespace BipedalLocomotion::ContinuousDynamicalSystem;
 using namespace BipedalLocomotion::Conversions;
 using namespace std::chrono_literals;
 
-// Method which initializes the object HumanIK and tasks for IK
-
 bool HumanIK::initialize(
     std::weak_ptr<const BipedalLocomotion::ParametersHandler::IParametersHandler> handler,
     std::shared_ptr<iDynTree::KinDynComputations> kinDyn)
