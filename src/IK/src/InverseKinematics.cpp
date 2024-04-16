@@ -273,7 +273,8 @@ bool HumanIK::updateJointConstraintsTask()
 bool HumanIK::TPoseCalibrationNode(const int node, const manif::SO3d& I_R_IMU)
 {
     // check if the node number is valid
-    if (m_OrientationTasks.find(node) == m_OrientationTasks.end())
+    if ((m_OrientationTasks.find(node) == m_OrientationTasks.end())
+        && (m_GravityTasks.find(node) == m_GravityTasks.end()))
     {
         BiomechanicalAnalysis::log()->error("[HumanIK::setNodeSetPoint] Invalid node number.");
         return false;
@@ -281,11 +282,21 @@ bool HumanIK::TPoseCalibrationNode(const int node, const manif::SO3d& I_R_IMU)
     // compute the rotation matrix from the world to the world of the IMU as:
     // W_R_WIMU = R_calib * (WIMU_R_IMU * IMU_R_link)^{T}
     // where R_calib is assumed to be the identity
-    m_OrientationTasks[node].calibrationMatrix
-        = calib_W_R_link * (I_R_IMU * m_OrientationTasks[node].IMU_R_link).inverse();
+    // The if condition checks whether the task is m_OrientationTasks or m_GravityTasks
+    if (m_OrientationTasks.find(node) != m_OrientationTasks.end())
+    {
+        m_OrientationTasks[node].calibrationMatrix
+            = calib_W_R_link * (I_R_IMU * m_OrientationTasks[node].IMU_R_link).inverse();
+
+    } else
+    {
+        m_GravityTasks[node].calibrationMatrix
+            = calib_W_R_link * (I_R_IMU * m_GravityTasks[node].IMU_R_link).inverse();
+    }
 
     return true;
 }
+
 bool HumanIK::advance()
 {
     // Initialize ok flag to true
