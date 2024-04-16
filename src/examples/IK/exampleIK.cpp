@@ -308,7 +308,13 @@ int main()
     matioCpp::File file2("/path/to/human_data.mat"); // Read "human_data" structure from the MATLAB file and convert it to a structure
     matioCpp::Struct human_data = file2.read("human_data").asStruct(); // Read "human_data" structure from the MATLAB file and convert it to a structure    
     matioCpp::Struct human_state = human_data("human_state").asStruct(); // Access structure "human_state" within "human_data" structure and convert it to a structure
-    matioCpp::Struct joint_positions = human_state("joint_positions").asStruct(); // Access structure "joint_positions" within "human_state" structure and convert it to a structure
+    matioCpp::Struct joint_state = human_data("joints_state").asStruct(); // Access structure
+                                                                          // "human_state" within
+                                                                          // "human_data" structure
+                                                                          // and convert it to a
+                                                                          // structure
+    matioCpp::Struct joint_positions = joint_state("positions").asStruct(); // Access structure
+                                                                            // "joint_positions" within "human_state" structure and convert it to a structure
     matioCpp::MultiDimensionalArray<double> jointPos_data = joint_positions("data").asMultiDimensionalArray<double>(); // Access multidimensional array "data" within "joint_positions" structure and convert it to a multidimensional array of type double
     matioCpp::Struct base_position = human_state("base_position").asStruct(); // Access structure "base_position" within "human_state" structure and convert it to a structure
     matioCpp::MultiDimensionalArray<double> basePos_data = base_position("data").asMultiDimensionalArray<double>(); // Access multidimensional array "data" within "base_position" structure and convert it to a multidimensional array of type double
