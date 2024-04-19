@@ -276,7 +276,7 @@ bool HumanIK::TPoseCalibrationNode(const int node, const manif::SO3d& I_R_IMU)
     if ((m_OrientationTasks.find(node) == m_OrientationTasks.end())
         && (m_GravityTasks.find(node) == m_GravityTasks.end()))
     {
-        BiomechanicalAnalysis::log()->error("[HumanIK::setNodeSetPoint] Invalid node number.");
+        BiomechanicalAnalysis::log()->error("[HumanIK::TPoseCalibrationNode] Invalid node number.");
         return false;
     }
     // compute the rotation matrix from the world to the world of the IMU as:
@@ -331,7 +331,7 @@ bool HumanIK::advance()
     }
 
     // Get the solution (base position, base rotation, joint positions) from the integrator
-    const auto & [ basePosition, baseRotation, jointPosition ] = m_system.integrator->getSolution();
+    const auto& [basePosition, baseRotation, jointPosition] = m_system.integrator->getSolution();
     // Update the base pose and joint positions
     m_basePose.topRightCorner<3, 1>() = basePosition;
     m_basePose.topLeftCorner<3, 3>() = baseRotation.rotation();
@@ -442,11 +442,11 @@ bool HumanIK::initializeOrientationTask(
     // Check that the weight is a 3D vector
     if (weight.size() != 3)
     {
-        BiomechanicalAnalysis::log()
-            ->error("{} The size of the parameter weight of the {} task is {}, it should be 3",
-                    logPrefix,
-                    taskName,
-                    weight.size());
+        BiomechanicalAnalysis::log()->error("{} The size of the parameter weight of the {} task is "
+                                            "{}, it should be 3",
+                                            logPrefix,
+                                            taskName,
+                                            weight.size());
         return false;
     }
 
@@ -474,12 +474,12 @@ bool HumanIK::initializeOrientationTask(
         // If rotation_matrix parameter is missing, set IMU_R_link to identity
         std::string frame_name;
         taskHandler->getParameter("frame_name", frame_name);
-        BiomechanicalAnalysis::log()
-            ->warn("{} Parameter rotation_matrix of the {} task is missing, setting the rotation "
-                   "matrix from the IMU to the frame {} to identity",
-                   logPrefix,
-                   taskName,
-                   frame_name);
+        BiomechanicalAnalysis::log()->warn("{} Parameter rotation_matrix of the {} task is "
+                                           "missing, setting the rotation "
+                                           "matrix from the IMU to the frame {} to identity",
+                                           logPrefix,
+                                           taskName,
+                                           frame_name);
         m_OrientationTasks[nodeNumber].IMU_R_link.setIdentity();
     }
     //*****************************************************************************************************
@@ -545,11 +545,11 @@ bool HumanIK::initializeGravityTask(
     // Check that the weight is a 2D vector
     if (weight.size() != 2)
     {
-        BiomechanicalAnalysis::log()
-            ->error("{} The size of the parameter weight of the {} task is {}, it should be 2",
-                    logPrefix,
-                    taskName,
-                    weight.size());
+        BiomechanicalAnalysis::log()->error("{} The size of the parameter weight of the {} task is "
+                                            "{}, it should be 2",
+                                            logPrefix,
+                                            taskName,
+                                            weight.size());
         return false;
     }
 
@@ -568,12 +568,12 @@ bool HumanIK::initializeGravityTask(
         // If rotation_matrix parameter is missing, set IMU_R_link to identity
         std::string frame_name;
         taskHandler->getParameter("frame_name", frame_name);
-        BiomechanicalAnalysis::log()
-            ->warn("{} Parameter rotation_matrix of the {} task is missing, setting the rotation "
-                   "matrix from the IMU to the frame {} to identity",
-                   logPrefix,
-                   taskName,
-                   frame_name);
+        BiomechanicalAnalysis::log()->warn("{} Parameter rotation_matrix of the {} task is "
+                                           "missing, setting the rotation "
+                                           "matrix from the IMU to the frame {} to identity",
+                                           logPrefix,
+                                           taskName,
+                                           frame_name);
         m_GravityTasks[nodeNumber].IMU_R_link.setIdentity();
     }
 
@@ -648,11 +648,11 @@ bool HumanIK::initializeFloorContactTask(
     // Check that the weight is a 3D vector
     if (weight.size() != 3)
     {
-        BiomechanicalAnalysis::log()
-            ->error("{} The size of the parameter weight of the {} task is {}, it should be 3",
-                    logPrefix,
-                    taskName,
-                    weight.size());
+        BiomechanicalAnalysis::log()->error("{} The size of the parameter weight of the {} task is "
+                                            "{}, it should be 3",
+                                            logPrefix,
+                                            taskName,
+                                            weight.size());
         return false;
     }
 
@@ -661,10 +661,10 @@ bool HumanIK::initializeFloorContactTask(
     if (!taskHandler->getParameter("vertical_force_threshold",
                                    m_FloorContactTasks[nodeNumber].verticalForceThreshold))
     {
-        BiomechanicalAnalysis::log()
-            ->error("{} Parameter vertical_force_threshold of the {} task is missing",
-                    logPrefix,
-                    taskName);
+        BiomechanicalAnalysis::log()->error("{} Parameter vertical_force_threshold of the {} task "
+                                            "is missing",
+                                            logPrefix,
+                                            taskName);
         return false;
     }
 
