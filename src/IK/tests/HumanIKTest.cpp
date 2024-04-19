@@ -43,6 +43,13 @@ TEST_CASE("InverseKinematic test")
     Eigen::Vector3d desiredDirection;
     desiredDirection << 1.0, 2.0, 3.0;
 
+    std::unordered_map<int, BiomechanicalAnalysis::IK::nodeData> mapNodeData;
+    mapNodeData[11].I_R_IMU.setIdentity();
+    mapNodeData[6].I_R_IMU = I_R_IMU;
+    mapNodeData[6].I_omega_IMU = I_omega_IMU;
+    mapNodeData[7].I_R_IMU = I_R_IMU;
+    mapNodeData[7].I_omega_IMU = I_omega_IMU;
+
     qInitial.setConstant(0.0);
 
     REQUIRE(ik.initialize(paramHandler, kinDyn));
@@ -50,6 +57,7 @@ TEST_CASE("InverseKinematic test")
     REQUIRE(ik.updateOrientationTask(3, I_R_IMU, I_omega_IMU));
     REQUIRE(ik.updateFloorContactTask(10, 11.0));
     REQUIRE(ik.updateGravityTask(10, I_R_IMU));
+    REQUIRE(ik.updateOrientationGravityTasks(mapNodeData));
     REQUIRE(ik.updateJointConstraintsTask());
     REQUIRE(ik.updateJointRegularizationTask());
     REQUIRE(ik.advance());
