@@ -352,11 +352,11 @@ int main()
                                                             // structure and
                                                             // convert it to a
                                                             // structure
-    matioCpp::File file2("/path/to/human_data.mat"); // Create another
-                                                     // file object to
-                                                     // read data from
-                                                     // MATLAB file
-                                                     // "human_data.mat"
+    matioCpp::File file2("/path/to/human_data1.mat"); // Create another
+                                                      // file object to
+                                                      // read data from
+                                                      // MATLAB file
+                                                      // "human_data.mat"
     matioCpp::Struct human_data = file2.read("human_data").asStruct(); // Read "human_data"
                                                                        // structure from the MATLAB
                                                                        // file and convert it to a
@@ -438,7 +438,7 @@ int main()
         return 1; // Return error code
     }
 
-    // Set robot state for IK
+    // Set robot state for IK to zero
     kinDyn->setRobotState(basePose,
                           initialJointPositions,
                           baseVelocity,
@@ -457,6 +457,7 @@ int main()
         // Perform the T-pose calibration if the user inputs 'calib'
         if (tPoseFlag)
         {
+            // Span nodes belonging to orientationNodes list
             for (auto& node : orientationNodes)
             {
                 // Retrieve orientation and angular velocity for each node
@@ -466,6 +467,18 @@ int main()
                 ik.TPoseCalibrationNode(node,
                                         manif::SO3d(fromiDynTreeToEigenQuatConversion(I_R_IMU)));
             }
+
+            // Span nodes belonging to floorContactNodes list - shoes nodes
+            for (auto& node : floorContactNodes)
+            {
+                // Retrieve orientation and angular velocity for each node
+                getNodeOrientation(ifeel_data, node, ii, I_R_IMU, I_omega_IMU);
+
+                // Perform T-Pose calibration for each node
+                ik.TPoseCalibrationNode(node,
+                                        manif::SO3d(fromiDynTreeToEigenQuatConversion(I_R_IMU)));
+            }
+
             BiomechanicalAnalysis::log()->info("T-pose calibration done");
             tPoseFlag = false;
         }
