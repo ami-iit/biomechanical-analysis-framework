@@ -174,6 +174,7 @@ private:
     object */
 
     int m_nrDoFs; /** Number of Joint Degrees of Freedom */
+    bool tPose{false}; /** Flag for resetting the integrator state */
 
     BipedalLocomotion::IK::QPInverseKinematics m_qpIK; /** QP Inverse Kinematics solver */
     BipedalLocomotion::System::VariablesHandler m_variableHandler; /** Variables handler */

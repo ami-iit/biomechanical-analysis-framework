@@ -272,6 +272,7 @@ bool HumanIK::updateJointConstraintsTask()
 
 bool HumanIK::TPoseCalibrationNode(const int node, const manif::SO3d& I_R_IMU)
 {
+tPose = true;
     // check if the node number is valid
     if ((m_OrientationTasks.find(node) == m_OrientationTasks.end())
         && (m_GravityTasks.find(node) == m_GravityTasks.end()))
@@ -328,6 +329,17 @@ bool HumanIK::advance()
     {
         BiomechanicalAnalysis::log()->error("[HumanIK::advance] Error in the integration.");
         return false;
+    }
+
+    if (tPose)
+    {
+        Eigen::Matrix4d basePose; // Pose of the base
+        Eigen::VectorXd initialJointPositions; // Initial positions of the joints
+        basePose.setIdentity(); // Set the base pose to the identity matrix
+        initialJointPositions.resize(this->getDoFsNumber());
+        initialJointPositions.setZero();
+        m_system.dynamics->setState({basePose.topRightCorner<3, 1>(), toManifRot(basePose.topLeftCorner<3, 3>()), initialJointPositions});
+        tPose = false;
     }
 
     // Get the solution (base position, base rotation, joint positions) from the integrator
