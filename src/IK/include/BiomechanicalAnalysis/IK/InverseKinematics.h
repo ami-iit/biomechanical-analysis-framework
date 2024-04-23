@@ -42,9 +42,8 @@ private:
      * @param handler pointer to the parameters handler
      * @return true if the SO3 task is initialized correctly
      */
-    bool initializeOrientationTask(
-        const std::string& taskName,
-        const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
+    bool initializeOrientationTask(const std::string& taskName,
+                                   const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
 
     /**
      * initialize the gravity task
@@ -52,9 +51,8 @@ private:
      * @param handler pointer to the parameters handler
      * @return true if the gravity task is initialized correctly
      */
-    bool initializeGravityTask(
-        const std::string& taskName,
-        const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
+    bool initializeGravityTask(const std::string& taskName,
+                               const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
 
     /**
      * initialize the R3 task
@@ -62,17 +60,14 @@ private:
      * @param handler pointer to the parameters handler
      * @return true if the R3 task is initialized correctly
      */
-    bool initializeFloorContactTask(
-        const std::string& taskName,
-        const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
+    bool initializeFloorContactTask(const std::string& taskName,
+                                    const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
 
-    bool initializeJointRegularizationTask(
-        const std::string& taskName,
-        const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
+    bool initializeJointRegularizationTask(const std::string& taskName,
+                                           const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
 
-    bool initializeJointConstraintsTask(
-        const std::string& taskName,
-        const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
+    bool initializeJointConstraintsTask(const std::string& taskName,
+                                        const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
 
     std::chrono::nanoseconds m_dtIntegration; /** Integration time step in nanoseconds */
 
@@ -84,8 +79,7 @@ private:
         std::shared_ptr<BipedalLocomotion::ContinuousDynamicalSystem::ForwardEuler<
             BipedalLocomotion::ContinuousDynamicalSystem::FloatingBaseSystemKinematics>>
             integrator;
-        std::shared_ptr<BipedalLocomotion::ContinuousDynamicalSystem::FloatingBaseSystemKinematics>
-            dynamics;
+        std::shared_ptr<BipedalLocomotion::ContinuousDynamicalSystem::FloatingBaseSystemKinematics> dynamics;
     };
 
     System m_system; /** Struct containing the integrator and the dynamics */
@@ -148,10 +142,9 @@ private:
         double verticalForceThreshold;
     };
 
-    std::shared_ptr<BipedalLocomotion::IK::JointTrackingTask>
-        m_jointRegularizationTask; /** Joint
-                                     regularization
-                                     task */
+    std::shared_ptr<BipedalLocomotion::IK::JointTrackingTask> m_jointRegularizationTask; /** Joint
+                                                                                           regularization
+                                                                                           task */
 
     std::shared_ptr<BipedalLocomotion::IK::JointLimitsTask> m_jointConstraintsTask; /** Joint limits
                                                                                        task */
@@ -313,9 +306,8 @@ public:
      * weight                          0.000001
     */
     // clang-format on
-    bool
-    initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandler::IParametersHandler> handler,
-               std::shared_ptr<iDynTree::KinDynComputations> kinDyn);
+    bool initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandler::IParametersHandler> handler,
+                    std::shared_ptr<iDynTree::KinDynComputations> kinDyn);
 
     /**
      * set the integration time step
@@ -344,9 +336,7 @@ public:
      * @return true if the orientation setpoint is set correctly
      */
     bool
-    updateOrientationTask(const int node,
-                          const manif::SO3d& I_R_IMU,
-                          const manif::SO3Tangentd& I_omega_IMU = manif::SO3d::Tangent::Zero());
+    updateOrientationTask(const int node, const manif::SO3d& I_R_IMU, const manif::SO3Tangentd& I_omega_IMU = manif::SO3d::Tangent::Zero());
 
     /**
      * set the orientation setpoint for a given node of a gravity task
