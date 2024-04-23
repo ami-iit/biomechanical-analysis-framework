@@ -185,7 +185,8 @@ bool HumanIK::updateOrientationTask(const int node,
     // Check if the node number is valid
     if (m_OrientationTasks.find(node) == m_OrientationTasks.end())
     {
-        BiomechanicalAnalysis::log()->error("[HumanIK::setNodeSetPoint] Invalid node number.");
+        BiomechanicalAnalysis::log()->error("[HumanIK::setNodeSetPoint] Invalid node number {}.",
+                                            node);
         return false;
     }
 
@@ -206,7 +207,8 @@ bool HumanIK::updateGravityTask(const int node, const manif::SO3d& I_R_IMU)
     // check if the node number is valid
     if (m_GravityTasks.find(node) == m_GravityTasks.end())
     {
-        BiomechanicalAnalysis::log()->error("[HumanIK::setNodeSetPoint] Invalid node number.");
+        BiomechanicalAnalysis::log()->error("[HumanIK::setNodeSetPoint] Invalid node number {}.",
+                                            node);
         return false;
     }
 
@@ -270,6 +272,41 @@ bool HumanIK::updateJointConstraintsTask()
     return m_jointConstraintsTask->update();
 }
 
+bool HumanIK::updateOrientationGravityTasks(std::unordered_map<int, nodeData> nodeStruct)
+{
+    // Update the orientation and gravity tasks
+    for (const auto& [node, data] : nodeStruct)
+    {
+        if (m_OrientationTasks.find(node) != m_OrientationTasks.end())
+        {
+            if (!updateOrientationTask(node, data.I_R_IMU, data.I_omega_IMU))
+            {
+                BiomechanicalAnalysis::log()->error("[HumanIK::updateOrientationGravityTasks] "
+                                                    "Error in updating the orientation task of "
+                                                    "node {}",
+                                                    node);
+                return false;
+            }
+        } else if (m_GravityTasks.find(node) != m_GravityTasks.end())
+        {
+            if (!updateGravityTask(node, data.I_R_IMU))
+            {
+                BiomechanicalAnalysis::log()->error("[HumanIK::updateOrientationGravityTasks] "
+                                                    "Error in updating the gravity task of node {}",
+                                                    node);
+                return false;
+            }
+        } else
+        {
+            BiomechanicalAnalysis::log()->error("[HumanIK::updateOrientationGravityTasks] "
+                                                "Invalid node number {}.",
+                                                node);
+            return false;
+        }
+    }
+    return true;
+}
+
 bool HumanIK::TPoseCalibrationNode(const int node, const manif::SO3d& I_R_IMU)
 {
     // check if the node number is valid
@@ -294,6 +331,22 @@ bool HumanIK::TPoseCalibrationNode(const int node, const manif::SO3d& I_R_IMU)
             = calib_W_R_link * (I_R_IMU * m_GravityTasks[node].IMU_R_link).inverse();
     }
 
+    return true;
+}
+
+bool HumanIK::TPoseCalibrationNodes(std::unordered_map<int, nodeData> nodeStruct)
+{
+    // Update the orientation and gravity tasks
+    for (const auto& [node, data] : nodeStruct)
+    {
+        if (!TPoseCalibrationNode(node, data.I_R_IMU))
+        {
+            BiomechanicalAnalysis::log()->error("[HumanIK::TPoseCalibrationNodes] Error in "
+                                                "calibrating the node {}",
+                                                node);
+            return false;
+        }
+    }
     return true;
 }
 
