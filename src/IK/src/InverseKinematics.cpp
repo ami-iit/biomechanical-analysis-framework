@@ -334,6 +334,22 @@ bool HumanIK::TPoseCalibrationNode(const int node, const manif::SO3d& I_R_IMU)
     return true;
 }
 
+bool HumanIK::TPoseCalibrationNodes(std::unordered_map<int, nodeData> nodeStruct)
+{
+    // Update the orientation and gravity tasks
+    for (const auto& [node, data] : nodeStruct)
+    {
+        if (!TPoseCalibrationNode(node, data.I_R_IMU))
+        {
+            BiomechanicalAnalysis::log()->error("[HumanIK::TPoseCalibrationNodes] Error in "
+                                                "calibrating the node {}",
+                                                node);
+            return false;
+        }
+    }
+    return true;
+}
+
 bool HumanIK::advance()
 {
     // Initialize ok flag to true

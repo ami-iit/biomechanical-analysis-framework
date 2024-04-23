@@ -397,6 +397,13 @@ public:
     bool TPoseCalibrationNode(const int node, const manif::SO3d& I_R_IMU);
 
     /**
+     * set the calibration matrix between the IMU and the link for all the nodes
+     * @param nodeStruct unordered map containing the node number and the calibration matrix
+     * @return true if the calibration matrix is set correctly
+     */
+    bool TPoseCalibrationNodes(std::unordered_map<int, nodeData> nodeStruct);
+
+    /**
      * this function solves the inverse kinematics problem and integrate the joint velocity to
      * compute the joint positions and the base pose; it also updates the state of the
      * KinDynComputations object passed to the class
