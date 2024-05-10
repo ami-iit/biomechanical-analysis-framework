@@ -3,7 +3,7 @@
 
 using namespace BiomechanicalAnalysis::ID;
 
-bool HumanID::intizialize(std::shared_ptr<iDynTree::KinDynComputations> kinDyn)
+bool HumanID::initialize(std::shared_ptr<iDynTree::KinDynComputations> kinDyn)
 {
 
     constexpr auto logPrefix = "[HumanID::intizialize]";

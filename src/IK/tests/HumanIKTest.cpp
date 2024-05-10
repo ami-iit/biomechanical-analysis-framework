@@ -10,7 +10,7 @@
 #include <BipedalLocomotion/ParametersHandler/YarpImplementation.h>
 #include <ConfigFolderPath.h>
 
-TEST_CASE("InverseKinematic test")
+TEST_CASE("InverseKinematics test")
 {
     auto kinDyn = std::make_shared<iDynTree::KinDynComputations>();
 

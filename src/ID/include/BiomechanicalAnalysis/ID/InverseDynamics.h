@@ -24,7 +24,7 @@ private:
                                                                object */
 public:
     // some public members
-    bool intizialize(std::shared_ptr<iDynTree::KinDynComputations> kinDyn);
+    bool initialize(std::shared_ptr<iDynTree::KinDynComputations> kinDyn);
 };
 
 } // namespace ID
