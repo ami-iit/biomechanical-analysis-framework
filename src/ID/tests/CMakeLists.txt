@@ -2,4 +2,4 @@
 add_baf_test(
   NAME HumanIDTest
   SOURCES HumanIDTest.cpp
-  LINKS BiomechanicalAnalysis::ID)
+  LINKS BiomechanicalAnalysis::ID YARP::YARP_os)
