@@ -218,6 +218,16 @@ void setTPoseThread()
 
 int main()
 {
+    // Create a parameter handler
+    auto paramHandler = std::make_shared<BipedalLocomotion::ParametersHandler::YarpImplementation>();
+    // Set parameters from a configuration file
+    if (!paramHandler->setFromFile(getConfigPath() + "/exampleIK.ini")) // Check if setting parameters from file is
+                                                                        // successful
+    {
+        BiomechanicalAnalysis::log()->error("Cannot configure the parameter handler"); // Log error if configuration fails
+        return 1; // Return error code
+    }
+
     // Initialize ResourceFinder
     yarp::os::ResourceFinder rf;
 
@@ -304,8 +314,14 @@ int main()
     // Load kinematic data from Matlab file human_data
     //*************************************************************************************************************************************
 
-    matioCpp::File file2("/path/to/human_data1.mat"); // Create another file object to read data from
-                                                                                // MATLAB file "human_data.mat"
+    std::string pathToHumanData;
+    if (!paramHandler->getParameter("path_to_human_data", pathToHumanData))
+    {
+        BiomechanicalAnalysis::log()->error("Cannot find parameter 'path_to_human_data'");
+        return 0;
+    }
+    matioCpp::File file2(pathToHumanData); // Create another file object to read data from
+                                           // MATLAB file "human_data.mat"
     matioCpp::Struct human_data = file2.read("human_data").asStruct(); // Read "human_data" structure from the MATLAB
                                                                        // file and convert it to a structure
 
@@ -342,7 +358,13 @@ int main()
     //*************************************************************************************************************************************
 
     // Get the dimension of the data (total number of timestamps) from Matlab file
-    matioCpp::File file("/path/to/matlab1.mat"); // Create a file object to read data from MATLAB file
+    std::string pathToIFeelData;
+    if (!paramHandler->getParameter("path_to_ifeel_data", pathToIFeelData))
+    {
+        BiomechanicalAnalysis::log()->error("Cannot find the parameter 'path_to_ifeel_data'");
+        return 1;
+    }
+    matioCpp::File file(pathToIFeelData); // Create a file object to read data from MATLAB file
     matioCpp::Struct ifeel_data = file.read("ifeel_data").asStruct(); // Read "ifeel_data" struct from the MAT file and convert it
     matioCpp::Struct node12 = ifeel_data("iFeelSuit_vLink_Node_12").asStruct(); // access Matlab file where the n. of timestamp is present
     matioCpp::Vector<double> data = node12("timestamps").asVector<double>();
@@ -372,17 +394,6 @@ int main()
     // Define lists of nodes
     std::vector<int> orientationNodes = {3, 6, 7, 8, 5, 4, 11, 12, 9, 10};
     std::vector<int> floorContactNodes = {1, 2};
-
-    // Create a parameter handler
-
-    auto paramHandler = std::make_shared<BipedalLocomotion::ParametersHandler::YarpImplementation>();
-    // Set parameters from a configuration file
-    if (!paramHandler->setFromFile(getConfigPath() + "/exampleIK.ini")) // Check if setting parameters from file is
-                                                                        // successful
-    {
-        BiomechanicalAnalysis::log()->error("Cannot configure the parameter handler"); // Log error if configuration fails
-        return 1; // Return error code
-    }
 
     // Initialize the HUMANIK-class object ik: initialize Inverse Kinematics (IK) solver with related tasks, assigning the kinDyn object
 

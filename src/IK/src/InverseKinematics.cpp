@@ -166,8 +166,7 @@ bool HumanIK::updateOrientationTask(const int node, const manif::SO3d& I_R_IMU, 
     // Check if the node number is valid
     if (m_OrientationTasks.find(node) == m_OrientationTasks.end())
     {
-        BiomechanicalAnalysis::log()->error("[HumanIK::updateOrientationTask] Invalid node number {}.",
-                                            node);
+        BiomechanicalAnalysis::log()->error("[HumanIK::updateOrientationTask] Invalid node number {}.", node);
         return false;
     }
 
@@ -185,8 +184,7 @@ bool HumanIK::updateGravityTask(const int node, const manif::SO3d& I_R_IMU)
     // check if the node number is valid
     if (m_GravityTasks.find(node) == m_GravityTasks.end())
     {
-        BiomechanicalAnalysis::log()->error("[HumanIK::setNodeSetPoint] Invalid node number {}.",
-                                            node);
+        BiomechanicalAnalysis::log()->error("[HumanIK::setNodeSetPoint] Invalid node number {}.", node);
         return false;
     }
 
@@ -250,7 +248,7 @@ bool HumanIK::updateJointConstraintsTask()
 bool HumanIK::updateOrientationGravityTasks(std::unordered_map<int, nodeData> nodeStruct)
 {
     // Update the orientation and gravity tasks
-    for (const auto& [node, data] : nodeStruct)
+    for (const auto & [ node, data ] : nodeStruct)
     {
         if (m_OrientationTasks.find(node) != m_OrientationTasks.end())
         {
@@ -284,7 +282,7 @@ bool HumanIK::updateOrientationGravityTasks(std::unordered_map<int, nodeData> no
 
 bool HumanIK::TPoseCalibrationNode(const int node, const manif::SO3d& I_R_IMU)
 {
-    tPose = true;
+    m_tPose = true;
     // check if the node number is valid
     if ((m_OrientationTasks.find(node) == m_OrientationTasks.end()) && (m_GravityTasks.find(node) == m_GravityTasks.end()))
     {
@@ -309,7 +307,7 @@ bool HumanIK::TPoseCalibrationNode(const int node, const manif::SO3d& I_R_IMU)
 bool HumanIK::TPoseCalibrationNodes(std::unordered_map<int, nodeData> nodeStruct)
 {
     // Update the orientation and gravity tasks
-    for (const auto& [node, data] : nodeStruct)
+    for (const auto & [ node, data ] : nodeStruct)
     {
         if (!TPoseCalibrationNode(node, data.I_R_IMU))
         {
@@ -355,7 +353,7 @@ bool HumanIK::advance()
         return false;
     }
 
-    if (tPose)
+    if (m_tPose)
     {
         Eigen::Matrix4d basePose; // Pose of the base
         Eigen::VectorXd initialJointPositions; // Initial positions of the joints
@@ -363,7 +361,7 @@ bool HumanIK::advance()
         initialJointPositions.resize(this->getDoFsNumber());
         initialJointPositions.setZero();
         m_system.dynamics->setState({basePose.topRightCorner<3, 1>(), toManifRot(basePose.topLeftCorner<3, 3>()), initialJointPositions});
-        tPose = false;
+        m_tPose = false;
     }
 
     // Get the solution (base position, base rotation, joint positions) from the integrator
