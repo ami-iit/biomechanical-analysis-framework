@@ -28,6 +28,12 @@ namespace BiomechanicalAnalysis
 namespace IK
 {
 
+struct nodeData
+{
+    manif::SO3d I_R_IMU;
+    manif::SO3Tangentd I_omega_IMU = manif::SO3d::Tangent::Zero();
+};
+
 // clang-format off
 /**
  * @brief HumanIK class is a class in which the inverse kinematics problem is solved.
@@ -371,6 +377,8 @@ public:
      */
     bool updateJointConstraintsTask();
 
+    bool updateOrientationGravityTasks(std::unordered_map<int, nodeData> nodeStruct);
+
     /**
      * set the calibration matrix between the IMU and the link
      * @param node node number
@@ -378,6 +386,13 @@ public:
      * @return true if the calibration matrix is set correctly
      */
     bool TPoseCalibrationNode(const int node, const manif::SO3d& I_R_IMU);
+
+    /**
+     * set the calibration matrix between the IMU and the link for all the nodes
+     * @param nodeStruct unordered map containing the node number and the calibration matrix
+     * @return true if the calibration matrix is set correctly
+     */
+    bool TPoseCalibrationNodes(std::unordered_map<int, nodeData> nodeStruct);
 
     /**
      * this function solves the inverse kinematics problem and integrate the joint velocity to
