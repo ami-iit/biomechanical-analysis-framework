@@ -1,5 +1,5 @@
 /**
- * @file InverseKinematic.h
+ * @file InverseDynamics.h
  * @authors Davide Gorbani <davide.gorbani@iit.it>
  */
 
@@ -10,7 +10,11 @@
 
 #include <iDynTree/BerdyHelper.h>
 #include <iDynTree/BerdySparseMAPSolver.h>
+#include <iDynTree/Core/SparseMatrix.h>
 #include <iDynTree/KinDynComputations.h>
+
+#include <BipedalLocomotion/ParametersHandler/IParametersHandler.h>
+#include <BipedalLocomotion/ParametersHandler/StdImplementation.h>
 
 namespace BiomechanicalAnalysis
 {
@@ -25,21 +29,61 @@ struct KinematicState
     iDynTree::JointDOFsDoubleArray jointsVelocity;
 };
 
+struct MAPHelper
+{
+    iDynTree::BerdyHelper berdyHelper; /** BerdyHelper object */
+    std::unique_ptr<iDynTree::BerdySparseMAPSolver> berdySolver = nullptr; /** BerdySparseMAPSolver
+                                                                              object */
+    iDynTree::VectorDynSize estimatedDynamicVariables;
+    iDynTree::VectorDynSize estimatedJointTorques;
+    iDynTree::VectorDynSize measurement;
+};
+
+struct MAPEstParams
+{
+    double priorDynamicsRegularizationExpected; // mu_d
+    double priorDynamicsRegularizationCovarianceValue; // Sigma_d
+    // measurements params
+    double measurementDefaultCovariance;
+    std::unordered_map<std::string, std::vector<double>> specificMeasurementsCovariance;
+};
+
+enum class WrenchSourceType
+{
+    Fixed,
+    Dummy,
+};
+
+struct WrenchSourceData
+{
+    WrenchSourceType type;
+    std::string outputFrame;
+    iDynTree::Transform outputFrameTransform;
+    iDynTree::Wrench wrench;
+};
+
 class HumanID
 {
 private:
     std::shared_ptr<iDynTree::KinDynComputations> m_kinDyn; /** pointer to the KinDynComputations
                                                                object */
-    iDynTree::BerdyHelper m_berdyHelper; /** BerdyHelper object */
-    std::unique_ptr<iDynTree::BerdySparseMAPSolver> m_berdySolver
-        = nullptr; /** BerdySparseMAPSolver object */
-    iDynTree::VectorDynSize m_estimatedDynamicVariables;
-    iDynTree::VectorDynSize m_estimatedJointTorques;
-    iDynTree::VectorDynSize m_measurement;
+    MAPHelper m_extWrenchesHelper;
+    MAPHelper m_jointTorquesHelper;
+    std::vector<WrenchSourceData> m_wrenchSources;
     KinematicState m_kinState;
+    MAPEstParams m_mapEstParams;
+    std::vector<iDynTree::Wrench> m_estimatedExtWrenches;
+
+    bool initializeJointTorquesHelper();
+    bool initializeExtWrenchesHelper(
+        const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
 
 public:
-    bool initialize(std::shared_ptr<iDynTree::KinDynComputations> kinDyn);
+    bool
+    initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandler::IParametersHandler> handler,
+               std::shared_ptr<iDynTree::KinDynComputations> kinDyn);
+    bool
+    updateExtWrenchesMeasurements(const std::unordered_map<std::string, iDynTree::Wrench>& wrenches);
     bool solve();
     iDynTree::VectorDynSize getJointTorques();
 };
