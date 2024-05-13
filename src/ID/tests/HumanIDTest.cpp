@@ -5,6 +5,11 @@
 #include <iDynTree/ModelTestUtils.h>
 #include <yarp/os/ResourceFinder.h>
 
+#include <BipedalLocomotion/ParametersHandler/IParametersHandler.h>
+#include <BipedalLocomotion/ParametersHandler/StdImplementation.h>
+#include <BipedalLocomotion/ParametersHandler/YarpImplementation.h>
+#include <ConfigFolderPath.h>
+
 const std::vector<std::string> getJointsList()
 {
     // Create a vector to store joint names
@@ -54,6 +59,10 @@ TEST_CASE("Inverse Dynamics test")
     int nrDoFs = 20;
     yarp::os::ResourceFinder rf;
 
+    auto paramHandler
+        = std::make_shared<BipedalLocomotion::ParametersHandler::YarpImplementation>();
+    paramHandler->setFromFile(getConfigPath() + "/configTestID.ini");
+
     iDynTree::ModelLoader mdlLoader; // Create a ModelLoader object
     std::string urdfPath = rf.findFileByName("humanSubject03_48dof.urdf"); // Find the URDF file
                                                                            // path
@@ -61,6 +70,11 @@ TEST_CASE("Inverse Dynamics test")
                                                                    // a reduced model
     kinDyn->loadRobotModel(mdlLoader.model()); // Load the model into the KinDynComputations object
     kinDyn->setFloatingBase("Pelvis"); // Set the floating base of the model
+    std::unordered_map<std::string, iDynTree::Wrench> wrenches;
+    wrenches["RightFoot"] = iDynTree::Wrench();
+    wrenches["LeftFoot"] = iDynTree::Wrench();
     BiomechanicalAnalysis::ID::HumanID id;
-    REQUIRE(id.initialize(kinDyn));
+    REQUIRE(id.initialize(paramHandler, kinDyn));
+    REQUIRE(id.updateExtWrenchesMeasurements(wrenches));
+    REQUIRE(id.solve());
 }
