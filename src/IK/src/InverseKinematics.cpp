@@ -32,7 +32,11 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
     m_jointVelocities.resize(m_kinDyn->getNrOfDegreesOfFreedom());
 
     // Retrieve the state of the system
-    kinDyn->getRobotState(m_basePose, m_jointPositions, m_baseVelocity, m_jointVelocities, m_gravity);
+    if (!kinDyn->getRobotState(m_basePose, m_jointPositions, m_baseVelocity, m_jointVelocities, m_gravity))
+    {
+        BiomechanicalAnalysis::log()->error("{} Failed to get the human state.", logPrefix);
+        return false;
+    }
 
     m_system.dynamics = std::make_shared<FloatingBaseSystemKinematics>();
     m_system.dynamics->setState({m_basePose.topRightCorner<3, 1>(), toManifRot(m_basePose.topLeftCorner<3, 3>()), m_jointPositions});
@@ -284,7 +288,7 @@ bool HumanIK::TPoseCalibrationNode(const int node, const manif::SO3d& I_R_IMU)
     // check if the node number is valid
     if ((m_OrientationTasks.find(node) == m_OrientationTasks.end()) && (m_GravityTasks.find(node) == m_GravityTasks.end()))
     {
-        BiomechanicalAnalysis::log()->error("[HumanIK::setNodeSetPoint] Invalid node number.");
+        BiomechanicalAnalysis::log()->error("[HumanIK::TPoseCalibrationNode] Invalid node number.");
         return false;
     }
 
@@ -847,8 +851,6 @@ bool HumanIK::initializeJointConstraintsTask(const std::string& taskName,
         {
             lowerLimits[i] = m_kinDyn->model().getJoint(i)->getMinPosLimit(i);
             upperLimits[i] = m_kinDyn->model().getJoint(i)->getMaxPosLimit(i);
-            std::cout << "joint " << m_kinDyn->model().getJointName(i) << " upper lim " << upperLimits[i] << " lower limit "
-                      << lowerLimits[i] << " joint pos: " << m_jointPositions[i] << std::endl;
         }
 
         // Update the lower and upper limits with custom values for specified joints

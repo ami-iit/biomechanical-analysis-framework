@@ -69,9 +69,21 @@ private:
     bool initializeFloorContactTask(const std::string& taskName,
                                     const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
 
+    /**
+     * Initialize the joint regularization task.
+     * @param taskName Name of the task.
+     * @param taskHandler Pointer to the parameters handler.
+     * @return True if the joint regularization task is initialized correctly, false otherwise.
+     */
     bool initializeJointRegularizationTask(const std::string& taskName,
                                            const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
 
+    /**
+     * Initialize the joint constraints task.
+     * @param taskName Name of the task.
+     * @param taskHandler Pointer to the parameters handler.
+     * @return True if the joint constraints task is initialized correctly, false otherwise.
+     */
     bool initializeJointConstraintsTask(const std::string& taskName,
                                         const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
 
