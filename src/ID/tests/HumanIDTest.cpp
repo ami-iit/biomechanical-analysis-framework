@@ -63,16 +63,11 @@ TEST_CASE("Inverse Dynamics test")
         = std::make_shared<BipedalLocomotion::ParametersHandler::YarpImplementation>();
     paramHandler->setFromFile(getConfigPath() + "/configTestID.ini");
 
-    iDynTree::ModelLoader mdlLoader; // Create a ModelLoader object
-    std::string urdfPath = rf.findFileByName("humanSubject03_48dof.urdf"); // Find the URDF file
-                                                                           // path
-    mdlLoader.loadReducedModelFromFile(urdfPath, getJointsList()); // Load the URDF model and create
-                                                                   // a reduced model
-    kinDyn->loadRobotModel(mdlLoader.model()); // Load the model into the KinDynComputations object
-    kinDyn->setFloatingBase("Pelvis"); // Set the floating base of the model
+    const iDynTree::Model model = iDynTree::getRandomModel(nrDoFs);
+    kinDyn->loadRobotModel(model);
     std::unordered_map<std::string, iDynTree::Wrench> wrenches;
-    wrenches["RightFoot"] = iDynTree::Wrench();
-    wrenches["LeftFoot"] = iDynTree::Wrench();
+    wrenches["link0"] = iDynTree::Wrench();
+    wrenches["link1"] = iDynTree::Wrench();
     BiomechanicalAnalysis::ID::HumanID id;
     REQUIRE(id.initialize(paramHandler, kinDyn));
     REQUIRE(id.updateExtWrenchesMeasurements(wrenches));
