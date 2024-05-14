@@ -73,10 +73,30 @@ private:
     KinematicState m_kinState;
     MAPEstParams m_mapEstParams;
     std::vector<iDynTree::Wrench> m_estimatedExtWrenches;
+    double m_humanMass;
 
-    bool initializeJointTorquesHelper();
+    bool initializeJointTorquesHelper(
+        const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler>
+            groupHandler);
     bool initializeExtWrenchesHelper(
-        const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
+        const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler>
+            groupHandler);
+
+    iDynTree::SpatialForceVector computeRCMInBaseFrame();
+
+    const std::unordered_map<iDynTree::BerdySensorTypes, std::string> mapBerdySensorType
+        = {{iDynTree::BerdySensorTypes::SIX_AXIS_FORCE_TORQUE_SENSOR,
+            "SIX_AXIS_FORCE_TORQUE_SENSOR"},
+           {iDynTree::BerdySensorTypes::ACCELEROMETER_SENSOR, "ACCELEROMETER_SENSOR"},
+           {iDynTree::BerdySensorTypes::GYROSCOPE_SENSOR, "GYROSCOPE_SENSOR"},
+           {iDynTree::BerdySensorTypes::THREE_AXIS_ANGULAR_ACCELEROMETER_SENSOR,
+            "THREE_AXIS_ANGULAR_ACCELEROMETER_SENSOR"},
+           {iDynTree::BerdySensorTypes::THREE_AXIS_FORCE_TORQUE_CONTACT_SENSOR,
+            "THREE_AXIS_FORCE_TORQUE_CONTACT_SENSOR"},
+           {iDynTree::BerdySensorTypes::DOF_ACCELERATION_SENSOR, "DOF_ACCELERATION_SENSOR"},
+           {iDynTree::BerdySensorTypes::DOF_TORQUE_SENSOR, "DOF_TORQUE_SENSOR"},
+           {iDynTree::BerdySensorTypes::NET_EXT_WRENCH_SENSOR, "NET_EXT_WRENCH_SENSOR"},
+           {iDynTree::BerdySensorTypes::JOINT_WRENCH_SENSOR, "JOINT_WRENCH_SENSOR"}};
 
 public:
     bool
