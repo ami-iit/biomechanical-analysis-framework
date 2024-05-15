@@ -65,7 +65,6 @@ struct WrenchSourceData
 struct WrenchEstimationStruct
 {
     MAPHelper helper;
-    std::shared_ptr<iDynTree::KinDynComputations> kinDyn;
     iDynTree::VectorDynSize jointPositions;
     iDynTree::VectorDynSize jointVelocities;
     iDynTree::JointPosDoubleArray jointsPositionArray;
@@ -78,7 +77,9 @@ class HumanID
 private:
     std::shared_ptr<iDynTree::KinDynComputations> m_kinDyn; /** pointer to the KinDynComputations
                                                                object */
-    WrenchEstimationStruct m_extWrenchesEstimator;
+    std::shared_ptr<iDynTree::KinDynComputations> m_kinDynFullModel;
+    bool m_useFullModel;
+    MAPHelper m_extWrenchesEstimator;
     MAPHelper m_jointTorquesHelper;
     std::vector<WrenchSourceData> m_wrenchSources;
     KinematicState m_kinState;

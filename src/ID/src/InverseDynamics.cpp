@@ -28,11 +28,45 @@ bool HumanID::initialize(
 
     m_kinDyn = kinDyn;
 
+    iDynTree::ModelLoader loader;
+    std::string modelPath;
+    if (ptr->getParameter("modelPath", modelPath))
+    {
+        if (!loader.loadModelFromFile(modelPath))
+        {
+            BiomechanicalAnalysis::log()->error("{} Error loading the model from file {}.",
+                                                logPrefix,
+                                                modelPath);
+            return false;
+        }
+        m_kinDynFullModel = std::make_shared<iDynTree::KinDynComputations>();
+        if (!m_kinDynFullModel->loadRobotModel(loader.model()))
+        {
+            BiomechanicalAnalysis::log()->error("{} Error loading the model from file {}.",
+                                                logPrefix,
+                                                modelPath);
+            return false;
+        }
+        m_kinState.jointsPosition.resize(m_kinDynFullModel->getNrOfDegreesOfFreedom());
+        m_kinState.jointsPosition.zero();
+        m_kinState.jointsVelocity.resize(m_kinDynFullModel->getNrOfDegreesOfFreedom());
+        m_kinState.jointsVelocity.zero();
+        m_kinDynFullModel->setFloatingBase(m_kinDyn->getFloatingBase());
+        m_useFullModel = true;
+    } else
+    {
+        BiomechanicalAnalysis::log()->warn("{} Error getting the modelPath parameter, using the "
+                                           "default model.",
+                                           logPrefix);
+        m_useFullModel = false;
+        m_kinDynFullModel = m_kinDyn;
+    }
+
     // Resize and initialize the KinematicState object
     m_kinState.floatingBaseFrameIndex = m_kinDyn->getFrameIndex(m_kinDyn->getFloatingBase());
-    m_kinState.jointsPosition.resize(m_kinDyn->getNrOfDegreesOfFreedom());
+    m_kinState.jointsPosition.resize(m_kinDynFullModel->getNrOfDegreesOfFreedom());
     m_kinState.jointsPosition.zero();
-    m_kinState.jointsVelocity.resize(m_kinDyn->getNrOfDegreesOfFreedom());
+    m_kinState.jointsVelocity.resize(m_kinDynFullModel->getNrOfDegreesOfFreedom());
     m_kinState.jointsVelocity.zero();
     m_kinState.baseAngularVelocity.zero();
     m_jointTorquesHelper.estimatedJointTorques.resize(m_kinDyn->getNrOfDegreesOfFreedom());
@@ -65,11 +99,11 @@ bool HumanID::initialize(
         return false;
     }
 
-    m_extWrenchesEstimator.helper.estimatedDynamicVariables.resize(
-        m_extWrenchesEstimator.helper.berdyHelper.getNrOfDynamicVariables());
-    m_extWrenchesEstimator.helper.measurement.resize(
-        m_extWrenchesEstimator.helper.berdyHelper.getNrOfSensorsMeasurements());
-    m_extWrenchesEstimator.helper.measurement.zero();
+    m_extWrenchesEstimator.estimatedDynamicVariables.resize(
+        m_extWrenchesEstimator.berdyHelper.getNrOfDynamicVariables());
+    m_extWrenchesEstimator.measurement.resize(
+        m_extWrenchesEstimator.berdyHelper.getNrOfSensorsMeasurements());
+    m_extWrenchesEstimator.measurement.zero();
     m_jointTorquesHelper.estimatedDynamicVariables.resize(
         m_jointTorquesHelper.berdyHelper.getNrOfDynamicVariables());
     m_jointTorquesHelper.measurement.resize(
@@ -84,7 +118,7 @@ bool HumanID::updateExtWrenchesMeasurements(
     const std::unordered_map<std::string, iDynTree::Wrench>& wrenches)
 {
     constexpr auto logPrefix = "[HumanID::updateExtWrenchesMeasurements]";
-    if (m_extWrenchesEstimator.useFullModel)
+    if (m_useFullModel)
     {
         iDynTree::Transform w_H_b;
         iDynTree::VectorDynSize s;
@@ -94,34 +128,33 @@ bool HumanID::updateExtWrenchesMeasurements(
         s_dot.resize(m_kinDyn->getNrOfDegreesOfFreedom());
         iDynTree::Vector3 world_gravity;
         m_kinDyn->getRobotState(w_H_b, s, base_velocity, s_dot, world_gravity);
-        for (int i = 0; i < m_extWrenchesEstimator.kinDyn->getNrOfDegreesOfFreedom(); i++)
+        for (int i = 0; i < m_kinDynFullModel->getNrOfDegreesOfFreedom(); i++)
         {
             for (int j = 0; j < m_kinDyn->getNrOfDegreesOfFreedom(); j++)
             {
-                if (m_extWrenchesEstimator.kinDyn->getRobotModel().getJointName(i)
+                if (m_kinDynFullModel->getRobotModel().getJointName(i)
                     == m_kinDyn->getRobotModel().getJointName(j))
                 {
-                    m_extWrenchesEstimator.jointPositions(i) = s(j);
-                    m_extWrenchesEstimator.jointVelocities(i) = s_dot(j);
+                    m_kinState.jointsPosition(i) = s(j);
+                    m_kinState.jointsVelocity(i) = s_dot(j);
                     break;
                 }
             }
         }
-        m_extWrenchesEstimator.kinDyn->setRobotState(w_H_b,
-                                                     m_extWrenchesEstimator.jointPositions,
-                                                     base_velocity,
-                                                     m_extWrenchesEstimator.jointVelocities,
-                                                     world_gravity);
+        m_kinDynFullModel->setRobotState(w_H_b,
+                                         m_kinState.jointsPosition,
+                                         base_velocity,
+                                         m_kinState.jointsVelocity,
+                                         world_gravity);
     }
 
-    m_extWrenchesEstimator.helper.measurement.zero();
+    m_extWrenchesEstimator.measurement.zero();
     for (int i = 0; i < m_wrenchSources.size(); i++)
     {
         if (m_wrenchSources[i].type == WrenchSourceType::Dummy)
         {
             m_wrenchSources[i].outputFrameTransform.setRotation(
-                m_extWrenchesEstimator.kinDyn->getWorldTransform(m_wrenchSources[i].outputFrame)
-                    .getRotation());
+                m_kinDynFullModel->getWorldTransform(m_wrenchSources[i].outputFrame).getRotation());
         } else if (m_wrenchSources[i].type == WrenchSourceType::Fixed)
         {
             if (wrenches.find(m_wrenchSources[i].outputFrame) == wrenches.end())
@@ -135,24 +168,24 @@ bool HumanID::updateExtWrenchesMeasurements(
                                         * wrenches.at(m_wrenchSources[i].outputFrame);
 
             iDynTree::IndexRange sensorRange
-                = m_extWrenchesEstimator.helper.berdyHelper
+                = m_extWrenchesEstimator.berdyHelper
                       .getRangeLinkSensorVariable(iDynTree::BerdySensorTypes::NET_EXT_WRENCH_SENSOR,
-                                                  m_extWrenchesEstimator.kinDyn->getFrameIndex(
+                                                  m_kinDynFullModel->getFrameIndex(
                                                       m_wrenchSources[i].outputFrame));
             for (int j = 0; j < 6; j++)
             {
-                m_extWrenchesEstimator.helper.measurement(sensorRange.offset + j)
+                m_extWrenchesEstimator.measurement(sensorRange.offset + j)
                     = m_wrenchSources[i].wrench(j);
             }
         }
     }
     iDynTree::SpatialForceVector rcmWrench = computeRCMInBaseFrame();
     iDynTree::IndexRange rcmSensorRange
-        = m_extWrenchesEstimator.helper.berdyHelper.getRangeRCMSensorVariable(
+        = m_extWrenchesEstimator.berdyHelper.getRangeRCMSensorVariable(
             iDynTree::BerdySensorTypes::RCM_SENSOR);
     for (int i = 0; i < 6; i++)
     {
-        m_extWrenchesEstimator.helper.measurement(rcmSensorRange.offset + i) = rcmWrench(i);
+        m_extWrenchesEstimator.measurement(rcmSensorRange.offset + i) = rcmWrench(i);
     }
 
     return true;
@@ -163,39 +196,36 @@ bool HumanID::solve()
     constexpr auto logPrefix = "[HumanID::solve]";
 
     // Update the kinematic state
-    m_kinDyn->getJointPos(m_kinState.jointsPosition);
-    m_kinDyn->getJointVel(m_kinState.jointsVelocity);
-    m_extWrenchesEstimator.kinDyn->getJointPos(m_extWrenchesEstimator.jointsPositionArray);
-    m_extWrenchesEstimator.kinDyn->getJointVel(m_extWrenchesEstimator.jointsVelocityArray);
+    m_kinDynFullModel->getJointPos(m_kinState.jointsPosition);
+    m_kinDynFullModel->getJointVel(m_kinState.jointsVelocity);
     m_kinState.baseAngularVelocity = m_kinDyn->getBaseTwist().getAngularVec3();
 
-    m_extWrenchesEstimator.helper.berdySolver
-        ->updateEstimateInformationFloatingBase(m_extWrenchesEstimator.jointsPositionArray,
-                                                m_extWrenchesEstimator.jointsVelocityArray,
+    m_extWrenchesEstimator.berdySolver
+        ->updateEstimateInformationFloatingBase(m_kinState.jointsPosition,
+                                                m_kinState.jointsVelocity,
                                                 m_kinState.floatingBaseFrameIndex,
                                                 m_kinState.baseAngularVelocity,
-                                                m_extWrenchesEstimator.helper.measurement);
-    if (!m_extWrenchesEstimator.helper.berdySolver->doEstimate())
+                                                m_extWrenchesEstimator.measurement);
+    if (!m_extWrenchesEstimator.berdySolver->doEstimate())
     {
         BiomechanicalAnalysis::log()->error("{} Error in the estimation of the dynamics.",
                                             logPrefix);
         return false;
     }
 
-    m_extWrenchesEstimator.helper.berdySolver->getLastEstimate(
-        m_extWrenchesEstimator.helper.estimatedDynamicVariables);
+    m_extWrenchesEstimator.berdySolver->getLastEstimate(
+        m_extWrenchesEstimator.estimatedDynamicVariables);
 
-    iDynTree::LinkNetExternalWrenches linkExtWrenches(
-        m_extWrenchesEstimator.kinDyn->getRobotModel());
-    m_extWrenchesEstimator.helper.berdyHelper
-        .extractLinkNetExternalWrenchesFromDynamicVariables(m_extWrenchesEstimator.helper
+    iDynTree::LinkNetExternalWrenches linkExtWrenches(m_kinDynFullModel->getRobotModel());
+    m_extWrenchesEstimator.berdyHelper
+        .extractLinkNetExternalWrenchesFromDynamicVariables(m_extWrenchesEstimator
                                                                 .estimatedDynamicVariables,
                                                             linkExtWrenches);
 
     for (std::size_t i = 0; i < m_wrenchSources.size(); i++)
     {
-        iDynTree::LinkIndex linkIndex = m_extWrenchesEstimator.kinDyn->getRobotModel().getLinkIndex(
-            m_wrenchSources[i].outputFrame);
+        iDynTree::LinkIndex linkIndex
+            = m_kinDynFullModel->getRobotModel().getLinkIndex(m_wrenchSources[i].outputFrame);
         for (int j = 0; j < 6; j++)
         {
             m_estimatedExtWrenches[i](j) = linkExtWrenches(linkIndex)(j);
@@ -432,48 +462,6 @@ bool HumanID::initializeExtWrenchesHelper(
     }
     m_estimatedExtWrenches.resize(m_wrenchSources.size());
 
-    iDynTree::ModelLoader loader;
-    std::string modelPath;
-    if (groupHandler->getParameter("modelPath", modelPath))
-    {
-        if (!loader.loadModelFromFile(modelPath))
-        {
-            BiomechanicalAnalysis::log()->error("{} Error loading the model from file {}.",
-                                                logPrefix,
-                                                modelPath);
-            return false;
-        }
-        m_extWrenchesEstimator.kinDyn = std::make_shared<iDynTree::KinDynComputations>();
-        if (!m_extWrenchesEstimator.kinDyn->loadRobotModel(loader.model()))
-        {
-            BiomechanicalAnalysis::log()->error("{} Error loading the model from file {}.",
-                                                logPrefix,
-                                                modelPath);
-            return false;
-        }
-        m_extWrenchesEstimator.jointPositions.resize(
-            m_extWrenchesEstimator.kinDyn->getNrOfDegreesOfFreedom());
-        m_extWrenchesEstimator.jointPositions.zero();
-        m_extWrenchesEstimator.jointVelocities.resize(
-            m_extWrenchesEstimator.kinDyn->getNrOfDegreesOfFreedom());
-        m_extWrenchesEstimator.jointVelocities.zero();
-        m_extWrenchesEstimator.kinDyn->setFloatingBase(m_kinDyn->getFloatingBase());
-        m_extWrenchesEstimator.useFullModel = true;
-    } else
-    {
-        BiomechanicalAnalysis::log()->warn("{} Error getting the modelPath parameter, using the "
-                                           "default model.",
-                                           logPrefix);
-        m_extWrenchesEstimator.useFullModel = false;
-        m_extWrenchesEstimator.kinDyn = m_kinDyn;
-    }
-    m_extWrenchesEstimator.jointsPositionArray.resize(
-        m_extWrenchesEstimator.kinDyn->getNrOfDegreesOfFreedom());
-    m_extWrenchesEstimator.jointsPositionArray.zero();
-    m_extWrenchesEstimator.jointsVelocityArray.resize(
-        m_extWrenchesEstimator.kinDyn->getNrOfDegreesOfFreedom());
-    m_extWrenchesEstimator.jointsVelocityArray.zero();
-
     if (!groupHandler->getParameter("mu_dyn_variables",
                                     m_mapEstParams.priorDynamicsRegularizationExpected))
     {
@@ -546,18 +534,18 @@ bool HumanID::initializeExtWrenchesHelper(
         return false;
     }
 
-    if (!m_extWrenchesEstimator.helper.berdyHelper
-             .init(m_extWrenchesEstimator.kinDyn->getRobotModel(), berdyOptionsExtWrenches))
+    if (!m_extWrenchesEstimator.berdyHelper.init(m_kinDynFullModel->getRobotModel(),
+                                                 berdyOptionsExtWrenches))
     {
         BiomechanicalAnalysis::log()->error("{} Error initializing the BerdyHelper object.",
                                             logPrefix);
         return false;
     }
 
-    m_extWrenchesEstimator.helper.berdySolver = std::make_unique<iDynTree::BerdySparseMAPSolver>(
-        m_extWrenchesEstimator.helper.berdyHelper);
+    m_extWrenchesEstimator.berdySolver
+        = std::make_unique<iDynTree::BerdySparseMAPSolver>(m_extWrenchesEstimator.berdyHelper);
 
-    if (!m_extWrenchesEstimator.helper.berdySolver->initialize())
+    if (!m_extWrenchesEstimator.berdySolver->initialize())
     {
         BiomechanicalAnalysis::log()->error("{} Error initializing the BerdySparseMAPSolver "
                                             "object.",
@@ -567,7 +555,7 @@ bool HumanID::initializeExtWrenchesHelper(
 
     iDynTree::Triplets measurementsCovarianceMatrixTriplets;
     for (const iDynTree::BerdySensor& berdySensor :
-         m_extWrenchesEstimator.helper.berdyHelper.getSensorsOrdering())
+         m_extWrenchesEstimator.berdyHelper.getSensorsOrdering())
     {
         switch (berdySensor.type)
         {
@@ -610,26 +598,26 @@ bool HumanID::initializeExtWrenchesHelper(
         }
     }
     iDynTree::SparseMatrix<iDynTree::ColumnMajor> measurementsPriorCovarianceMatrix;
-    std::size_t sigmaYSize = m_extWrenchesEstimator.helper.berdyHelper.getNrOfSensorsMeasurements();
+    std::size_t sigmaYSize = m_extWrenchesEstimator.berdyHelper.getNrOfSensorsMeasurements();
     measurementsPriorCovarianceMatrix.resize(sigmaYSize, sigmaYSize);
     measurementsPriorCovarianceMatrix.zero();
     measurementsPriorCovarianceMatrix.setFromTriplets(measurementsCovarianceMatrixTriplets);
-    m_extWrenchesEstimator.helper.berdySolver->setMeasurementsPriorCovariance(
+    m_extWrenchesEstimator.berdySolver->setMeasurementsPriorCovariance(
         measurementsPriorCovarianceMatrix);
 
     // Set mu_d
     iDynTree::VectorDynSize dynamicsRegularizationExpectedValueVector;
     dynamicsRegularizationExpectedValueVector.resize(
-        m_extWrenchesEstimator.helper.berdyHelper.getNrOfDynamicVariables());
+        m_extWrenchesEstimator.berdyHelper.getNrOfDynamicVariables());
     for (std::size_t i = 0; i < dynamicsRegularizationExpectedValueVector.size(); i++)
         dynamicsRegularizationExpectedValueVector
             .setVal(i, m_mapEstParams.priorDynamicsRegularizationExpected);
-    m_extWrenchesEstimator.helper.berdySolver->setDynamicsRegularizationPriorExpectedValue(
+    m_extWrenchesEstimator.berdySolver->setDynamicsRegularizationPriorExpectedValue(
         dynamicsRegularizationExpectedValueVector);
 
     // set Sigma_d
     iDynTree::Triplets priorDynamicsRegularizationCovarianceMatrixTriplets;
-    std::size_t sigmaDSize = m_extWrenchesEstimator.helper.berdyHelper.getNrOfDynamicVariables();
+    std::size_t sigmaDSize = m_extWrenchesEstimator.berdyHelper.getNrOfDynamicVariables();
     for (std::size_t i = 0; i < sigmaDSize; i++)
     {
         priorDynamicsRegularizationCovarianceMatrixTriplets.setTriplet(
@@ -639,10 +627,10 @@ bool HumanID::initializeExtWrenchesHelper(
     priorDynamicsRegularizationCovarianceMatrix.resize(sigmaDSize, sigmaDSize);
     priorDynamicsRegularizationCovarianceMatrix.setFromTriplets(
         priorDynamicsRegularizationCovarianceMatrixTriplets);
-    m_extWrenchesEstimator.helper.berdySolver->setDynamicsRegularizationPriorCovariance(
+    m_extWrenchesEstimator.berdySolver->setDynamicsRegularizationPriorCovariance(
         priorDynamicsRegularizationCovarianceMatrix);
 
-    if (!m_extWrenchesEstimator.helper.berdySolver->isValid())
+    if (!m_extWrenchesEstimator.berdySolver->isValid())
     {
         BiomechanicalAnalysis::log()->error("{} Error in the initialization of the BerdySolver.",
                                             logPrefix);
