@@ -466,7 +466,6 @@ bool HumanID::initializeExtWrenchesHelper(
                                            logPrefix);
         m_extWrenchesEstimator.useFullModel = false;
         m_extWrenchesEstimator.kinDyn = m_kinDyn;
-        return false;
     }
     m_extWrenchesEstimator.jointsPositionArray.resize(
         m_extWrenchesEstimator.kinDyn->getNrOfDegreesOfFreedom());
