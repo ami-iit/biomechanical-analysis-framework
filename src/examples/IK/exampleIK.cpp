@@ -1,5 +1,5 @@
 /**
- * @file ExampleIK.h
+ * @file ExampleIK.cpp
  * @authors Davide Gorbani <davide.gorbani@iit.it>
  */
 
