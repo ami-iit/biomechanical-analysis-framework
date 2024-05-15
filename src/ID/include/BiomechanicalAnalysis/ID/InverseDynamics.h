@@ -62,12 +62,23 @@ struct WrenchSourceData
     iDynTree::Wrench wrench;
 };
 
+struct WrenchEstimationStruct
+{
+    MAPHelper helper;
+    std::shared_ptr<iDynTree::KinDynComputations> kinDyn;
+    iDynTree::VectorDynSize jointPositions;
+    iDynTree::VectorDynSize jointVelocities;
+    iDynTree::JointPosDoubleArray jointsPositionArray;
+    iDynTree::JointDOFsDoubleArray jointsVelocityArray;
+    bool useFullModel;
+};
+
 class HumanID
 {
 private:
     std::shared_ptr<iDynTree::KinDynComputations> m_kinDyn; /** pointer to the KinDynComputations
                                                                object */
-    MAPHelper m_extWrenchesHelper;
+    WrenchEstimationStruct m_extWrenchesEstimator;
     MAPHelper m_jointTorquesHelper;
     std::vector<WrenchSourceData> m_wrenchSources;
     KinematicState m_kinState;
@@ -106,6 +117,7 @@ public:
     updateExtWrenchesMeasurements(const std::unordered_map<std::string, iDynTree::Wrench>& wrenches);
     bool solve();
     iDynTree::VectorDynSize getJointTorques();
+    std::vector<iDynTree::Wrench> getEstimatedExtWrenches();
 };
 
 } // namespace ID
