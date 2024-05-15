@@ -166,6 +166,8 @@ int main()
             std::cout << "Estimated external wrenches: "
                       << id.getEstimatedExtWrenches()[i].toString() << std::endl;
         }
+        iDynTree::VectorDynSize jointTorques = id.getJointTorques();
+        std::cout << "Joint torques: " << jointTorques.toString() << std::endl;
     }
 
     return 0;

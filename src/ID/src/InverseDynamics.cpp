@@ -29,14 +29,13 @@ bool HumanID::initialize(
     m_kinDyn = kinDyn;
 
     iDynTree::ModelLoader loader;
-    std::string modelPath;
-    if (ptr->getParameter("modelPath", modelPath))
+    if (ptr->getParameter("modelPath", m_modelPath))
     {
-        if (!loader.loadModelFromFile(modelPath))
+        if (!loader.loadModelFromFile(m_modelPath))
         {
             BiomechanicalAnalysis::log()->error("{} Error loading the model from file {}.",
                                                 logPrefix,
-                                                modelPath);
+                                                m_modelPath);
             return false;
         }
         m_kinDynFullModel = std::make_shared<iDynTree::KinDynComputations>();
@@ -44,7 +43,7 @@ bool HumanID::initialize(
         {
             BiomechanicalAnalysis::log()->error("{} Error loading the model from file {}.",
                                                 logPrefix,
-                                                modelPath);
+                                                m_modelPath);
             return false;
         }
         m_kinState.jointsPosition.resize(m_kinDynFullModel->getNrOfDegreesOfFreedom());
@@ -232,6 +231,20 @@ bool HumanID::solve()
         }
     }
 
+    m_jointTorquesHelper.measurement.zero();
+    for (std::size_t i = 0; i < m_wrenchSources.size(); i++)
+    {
+        iDynTree::IndexRange sensorRange
+            = m_jointTorquesHelper.berdyHelper
+                  .getRangeLinkSensorVariable(iDynTree::BerdySensorTypes::NET_EXT_WRENCH_SENSOR,
+                                              m_kinDynFullModel->getFrameIndex(
+                                                  m_wrenchSources[i].outputFrame));
+        for (int j = 0; j < 6; j++)
+        {
+            m_jointTorquesHelper.measurement(sensorRange.offset + j) = m_wrenchSources[i].wrench(j);
+        }
+    }
+
     // Update the berdyHelper object with the current kinematic state
     if (!m_jointTorquesHelper.berdyHelper
              .updateKinematicsFromFloatingBase(m_kinState.jointsPosition,
@@ -310,7 +323,7 @@ bool HumanID::initializeJointTorquesHelper(
         return false;
     }
 
-    auto sensorList = m_kinDyn->getRobotModel().sensors();
+    auto sensorList = m_kinDynFullModel->getRobotModel().sensors();
     for (auto& sensor : mapBerdySensorType)
     {
         std::string sensorName;
@@ -340,7 +353,7 @@ bool HumanID::initializeJointTorquesHelper(
     }
 
     // Initialize the BerdyHelper object
-    if (!m_jointTorquesHelper.berdyHelper.init(m_kinDyn->getRobotModel(), berdyOptions))
+    if (!m_jointTorquesHelper.berdyHelper.init(m_kinDynFullModel->getRobotModel(), berdyOptions))
     {
         BiomechanicalAnalysis::log()->error("{} Error initializing the BerdyHelper object.",
                                             logPrefix);
@@ -348,9 +361,6 @@ bool HumanID::initializeJointTorquesHelper(
     }
     m_jointTorquesHelper.estimatedDynamicVariables.resize(
         m_jointTorquesHelper.berdyHelper.getNrOfDynamicVariables());
-
-    std::vector<iDynTree::BerdySensor> berdySensors
-        = m_jointTorquesHelper.berdyHelper.getSensorsOrdering();
 
     // Initialize the BerdySparseMAPSolver object
     m_jointTorquesHelper.berdySolver
@@ -362,6 +372,134 @@ bool HumanID::initializeJointTorquesHelper(
                                             logPrefix);
         return false;
     }
+
+    // Get dynamic and measurement variable size
+    size_t numberOfDynVariables = m_jointTorquesHelper.berdyHelper.getNrOfDynamicVariables();
+    size_t numberOfDynEquations = m_jointTorquesHelper.berdyHelper.getNrOfDynamicEquations();
+    size_t numberOfMeasurements = m_jointTorquesHelper.berdyHelper.getNrOfSensorsMeasurements();
+    // Regularization priors
+    iDynTree::VectorDynSize dynamicsRegularizationExpectedValueVector(numberOfDynVariables); // mu_d
+    iDynTree::SparseMatrix<iDynTree::ColumnMajor>
+        dynamicsRegularizationCovarianceMatrix(numberOfDynVariables,
+                                               numberOfDynVariables); // sigma_d
+    // Dynamic constraint prior
+    iDynTree::SparseMatrix<iDynTree::ColumnMajor>
+        dynamicsConstraintsCovarianceMatrix(numberOfDynEquations, numberOfDynEquations); // sigma_D
+
+    // Measurements prior
+    iDynTree::SparseMatrix<iDynTree::ColumnMajor>
+        measurementsCovarianceMatrix(numberOfMeasurements, numberOfMeasurements); // sigma_y
+
+    double dynamicsRegularizationCovarianceValue;
+    if (!groupHandler->getParameter("mu_dyn_variables", dynamicsRegularizationCovarianceValue))
+    {
+        BiomechanicalAnalysis::log()->error("{} Error getting the 'mu_dyn_variables' parameter.",
+                                            logPrefix);
+        return false;
+    }
+    for (size_t i = 0; i < numberOfDynVariables; i++)
+    {
+        dynamicsRegularizationExpectedValueVector(i) = dynamicsRegularizationCovarianceValue;
+    }
+
+    double priorDynamicsRegularizationCovarianceValue;
+    if (!groupHandler->getParameter("cov_dyn_variables",
+                                    priorDynamicsRegularizationCovarianceValue))
+    {
+        BiomechanicalAnalysis::log()->error("{} Error getting the 'cov_dyn_variables' parameter.",
+                                            logPrefix);
+        return false;
+    }
+    for (size_t i = 0; i < numberOfDynVariables; i++)
+    {
+        dynamicsRegularizationCovarianceMatrix.setValue(i,
+                                                        i,
+                                                        priorDynamicsRegularizationCovarianceValue);
+    }
+
+    double priorDynamicsConstraintsCovarianceValue;
+    if (!groupHandler->getParameter("cov_dyn_constraints", priorDynamicsConstraintsCovarianceValue))
+    {
+        BiomechanicalAnalysis::log()->error("{} Error getting the 'cov_dyn_constraints' parameter.",
+                                            logPrefix);
+        return false;
+    }
+    for (size_t i = 0; i < numberOfDynEquations; i++)
+    {
+        dynamicsConstraintsCovarianceMatrix.setValue(i, i, priorDynamicsConstraintsCovarianceValue);
+    }
+
+    iDynTree::Triplets allSensorsTriplets;
+    std::string covMeasurementOptionPrefix = "cov_measurements_";
+    for (auto& berdySensor : m_jointTorquesHelper.berdyHelper.getSensorsOrdering())
+    {
+        // Check that the sensor is a valid berdy sensor
+        if (mapBerdySensorType.find(berdySensor.type) == mapBerdySensorType.end())
+        {
+            BiomechanicalAnalysis::log()->error("Failed to find berdy sensor type. Maybe is a new "
+                                                "sensor?");
+            return false;
+        }
+
+        std::string berdySensorTypeString = mapBerdySensorType.at(berdySensor.type);
+        std::vector<double> sensorCovarianceVector;
+        double sensorCovarianceValue;
+        if (groupHandler->getParameter(covMeasurementOptionPrefix + berdySensorTypeString,
+                                       sensorCovarianceVector))
+        {
+            if (sensorCovarianceVector.size() != berdySensor.range.size)
+            {
+                BiomechanicalAnalysis::log()->error("{} Error in the size of the sensor range.",
+                                                    logPrefix);
+                return false;
+            }
+            for (size_t i = 0; i < sensorCovarianceVector.size(); i++)
+            {
+                iDynTree::Triplet sensorTriplet(berdySensor.range.offset + i,
+                                                berdySensor.range.offset + i,
+                                                sensorCovarianceVector[i]);
+                allSensorsTriplets.setTriplet(sensorTriplet);
+            }
+        } else if (groupHandler->getParameter(covMeasurementOptionPrefix + berdySensorTypeString,
+                                              sensorCovarianceValue))
+        {
+            if (berdySensor.range.size != 1)
+            {
+                BiomechanicalAnalysis::log()->error("{} Error in the size of the sensor range.",
+                                                    logPrefix);
+                return false;
+            }
+            iDynTree::Triplet sensorTriplet(berdySensor.range.offset,
+                                            berdySensor.range.offset,
+                                            sensorCovarianceValue);
+            allSensorsTriplets.setTriplet(sensorTriplet);
+        } else
+        {
+            BiomechanicalAnalysis::log()->error("{} Error getting the 'cov_measurements_{}' "
+                                                "parameter.",
+                                                logPrefix,
+                                                berdySensorTypeString);
+            return false;
+        }
+    }
+    measurementsCovarianceMatrix.setFromTriplets(allSensorsTriplets);
+    // for (std::size_t i = 0; i < numberOfMeasurements; i++)
+    // {
+    //     for (std::size_t j = 0; j < numberOfMeasurements; j++)
+    //     {
+    //         std::cout << measurementsCovarianceMatrix(i, j) << " ";
+    //     }
+    // }
+    std::cout << "all sensor triplet size " << allSensorsTriplets.size() << std::endl;
+
+    m_jointTorquesHelper.berdySolver->setDynamicsRegularizationPriorExpectedValue(
+        dynamicsRegularizationExpectedValueVector);
+    m_jointTorquesHelper.berdySolver->setDynamicsRegularizationPriorCovariance(
+        dynamicsRegularizationCovarianceMatrix);
+    m_jointTorquesHelper.berdySolver->setDynamicsConstraintsPriorCovariance(
+        dynamicsConstraintsCovarianceMatrix);
+    m_jointTorquesHelper.berdySolver->setMeasurementsPriorCovariance(measurementsCovarianceMatrix);
+
     return true;
 }
 
@@ -462,8 +600,9 @@ bool HumanID::initializeExtWrenchesHelper(
     }
     m_estimatedExtWrenches.resize(m_wrenchSources.size());
 
-    if (!groupHandler->getParameter("mu_dyn_variables",
-                                    m_mapEstParams.priorDynamicsRegularizationExpected))
+    if (!groupHandler
+             ->getParameter("mu_dyn_variables",
+                            m_extWrenchesEstimator.params.priorDynamicsRegularizationExpected))
     {
         BiomechanicalAnalysis::log()->error("{} Error getting the 'mu_dyn_variables' parameter.",
                                             logPrefix);
@@ -471,7 +610,8 @@ bool HumanID::initializeExtWrenchesHelper(
     }
 
     if (!groupHandler->getParameter("cov_dyn_variables",
-                                    m_mapEstParams.priorDynamicsRegularizationCovarianceValue))
+                                    m_extWrenchesEstimator.params
+                                        .priorDynamicsRegularizationCovarianceValue))
     {
         BiomechanicalAnalysis::log()->error("{} Error getting the 'cov_dyn_variables' parameter.",
                                             logPrefix);
@@ -496,11 +636,13 @@ bool HumanID::initializeExtWrenchesHelper(
                                                 element);
             return false;
         }
-        m_mapEstParams.specificMeasurementsCovariance[element] = covariance;
+        m_extWrenchesEstimator.params.specificMeasurementsCovariance[element] = covariance;
     }
 
-    if (!groupHandler->getParameter("cov_measurements_RCM_SENSOR",
-                                    m_mapEstParams.specificMeasurementsCovariance["RCM_SENSOR"]))
+    if (!groupHandler
+             ->getParameter("cov_measurements_RCM_SENSOR",
+                            m_extWrenchesEstimator.params.specificMeasurementsCovariance["RCM_"
+                                                                                         "SENSOR"]))
     {
         BiomechanicalAnalysis::log()->error("{} Error getting the 'cov_measurements_RCM_SENSOR' "
                                             "parameter.",
@@ -509,7 +651,7 @@ bool HumanID::initializeExtWrenchesHelper(
     }
 
     if (!groupHandler->getParameter("default_cov_measurements",
-                                    m_mapEstParams.measurementDefaultCovariance))
+                                    m_extWrenchesEstimator.params.measurementDefaultCovariance))
     {
         BiomechanicalAnalysis::log()->error("{} Error getting the 'default_cov_measurements' "
                                             "parameter.",
@@ -563,12 +705,14 @@ bool HumanID::initializeExtWrenchesHelper(
             // initialize with default covariance
             iDynTree::Vector6 wrenchCovariance;
             for (int i = 0; i < 6; i++)
-                wrenchCovariance.setVal(i, m_mapEstParams.measurementDefaultCovariance);
+                wrenchCovariance.setVal(i,
+                                        m_extWrenchesEstimator.params.measurementDefaultCovariance);
 
             // set specific covariance if configured
             auto specificMeasurementsPtr
-                = m_mapEstParams.specificMeasurementsCovariance.find(berdySensor.id);
-            if (specificMeasurementsPtr != m_mapEstParams.specificMeasurementsCovariance.end())
+                = m_extWrenchesEstimator.params.specificMeasurementsCovariance.find(berdySensor.id);
+            if (specificMeasurementsPtr
+                != m_extWrenchesEstimator.params.specificMeasurementsCovariance.end())
             {
                 for (int i = 0; i < 6; i++)
                     wrenchCovariance.setVal(i, specificMeasurementsPtr->second[i]);
@@ -581,9 +725,10 @@ bool HumanID::initializeExtWrenchesHelper(
         }
         break;
         case iDynTree::BerdySensorTypes::RCM_SENSOR: {
-            auto specificMeasurementsPtr = m_mapEstParams.specificMeasurementsCovariance.find("RCM_"
-                                                                                              "SENS"
-                                                                                              "OR");
+            auto specificMeasurementsPtr
+                = m_extWrenchesEstimator.params.specificMeasurementsCovariance.find("RCM_"
+                                                                                    "SENS"
+                                                                                    "OR");
             for (std::size_t i = 0; i < 6; i++)
             {
                 measurementsCovarianceMatrixTriplets.setTriplet(
@@ -611,7 +756,7 @@ bool HumanID::initializeExtWrenchesHelper(
         m_extWrenchesEstimator.berdyHelper.getNrOfDynamicVariables());
     for (std::size_t i = 0; i < dynamicsRegularizationExpectedValueVector.size(); i++)
         dynamicsRegularizationExpectedValueVector
-            .setVal(i, m_mapEstParams.priorDynamicsRegularizationExpected);
+            .setVal(i, m_extWrenchesEstimator.params.priorDynamicsRegularizationExpected);
     m_extWrenchesEstimator.berdySolver->setDynamicsRegularizationPriorExpectedValue(
         dynamicsRegularizationExpectedValueVector);
 
@@ -621,7 +766,7 @@ bool HumanID::initializeExtWrenchesHelper(
     for (std::size_t i = 0; i < sigmaDSize; i++)
     {
         priorDynamicsRegularizationCovarianceMatrixTriplets.setTriplet(
-            {i, i, m_mapEstParams.priorDynamicsRegularizationCovarianceValue});
+            {i, i, m_extWrenchesEstimator.params.priorDynamicsRegularizationCovarianceValue});
     }
     iDynTree::SparseMatrix<iDynTree::ColumnMajor> priorDynamicsRegularizationCovarianceMatrix;
     priorDynamicsRegularizationCovarianceMatrix.resize(sigmaDSize, sigmaDSize);

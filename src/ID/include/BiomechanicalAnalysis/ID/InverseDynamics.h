@@ -29,6 +29,15 @@ struct KinematicState
     iDynTree::JointDOFsDoubleArray jointsVelocity;
 };
 
+struct MAPEstParams
+{
+    double priorDynamicsRegularizationExpected; // mu_d
+    double priorDynamicsRegularizationCovarianceValue; // Sigma_d
+    // measurements params
+    double measurementDefaultCovariance;
+    std::unordered_map<std::string, std::vector<double>> specificMeasurementsCovariance;
+};
+
 struct MAPHelper
 {
     iDynTree::BerdyHelper berdyHelper; /** BerdyHelper object */
@@ -37,15 +46,7 @@ struct MAPHelper
     iDynTree::VectorDynSize estimatedDynamicVariables;
     iDynTree::VectorDynSize estimatedJointTorques;
     iDynTree::VectorDynSize measurement;
-};
-
-struct MAPEstParams
-{
-    double priorDynamicsRegularizationExpected; // mu_d
-    double priorDynamicsRegularizationCovarianceValue; // Sigma_d
-    // measurements params
-    double measurementDefaultCovariance;
-    std::unordered_map<std::string, std::vector<double>> specificMeasurementsCovariance;
+    MAPEstParams params;
 };
 
 enum class WrenchSourceType
@@ -62,16 +63,6 @@ struct WrenchSourceData
     iDynTree::Wrench wrench;
 };
 
-struct WrenchEstimationStruct
-{
-    MAPHelper helper;
-    iDynTree::VectorDynSize jointPositions;
-    iDynTree::VectorDynSize jointVelocities;
-    iDynTree::JointPosDoubleArray jointsPositionArray;
-    iDynTree::JointDOFsDoubleArray jointsVelocityArray;
-    bool useFullModel;
-};
-
 class HumanID
 {
 private:
@@ -83,9 +74,9 @@ private:
     MAPHelper m_jointTorquesHelper;
     std::vector<WrenchSourceData> m_wrenchSources;
     KinematicState m_kinState;
-    MAPEstParams m_mapEstParams;
     std::vector<iDynTree::Wrench> m_estimatedExtWrenches;
     double m_humanMass;
+    std::string m_modelPath;
 
     bool initializeJointTorquesHelper(
         const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler>
