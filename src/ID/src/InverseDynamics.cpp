@@ -28,6 +28,7 @@ bool HumanID::initialize(
 
     m_kinDyn = kinDyn;
 
+    // check if the model path is provided and load the model otherwise use the kinDyn object passed
     iDynTree::ModelLoader loader;
     if (ptr->getParameter("modelPath", m_modelPath))
     {
@@ -70,13 +71,15 @@ bool HumanID::initialize(
     m_kinState.baseAngularVelocity.zero();
     m_jointTorquesHelper.estimatedJointTorques.resize(m_kinDyn->getNrOfDegreesOfFreedom());
 
+    // Get the group handlers for initializing the MAPHelper m_jointTorquesHelper object
     auto jointTorquesHandler = ptr->getGroup("JOINT_TORQUES").lock();
     if (jointTorquesHandler == nullptr)
     {
         BiomechanicalAnalysis::log()->error("{} Error getting the JOINT_TORQUES group.", logPrefix);
         return false;
     }
-    // Initialize the BerdyHelper and BerdySparseMAPSolver objects
+
+    // Initialize the MAPHelper m_jointTorquesHelper object
     if (!initializeJointTorquesHelper(jointTorquesHandler))
     {
         BiomechanicalAnalysis::log()->error("{} Error initializing the joint torques helper.",
@@ -84,6 +87,7 @@ bool HumanID::initialize(
         return false;
     }
 
+    // Get the group handlers for initializing the MAPHelper m_extWrenchesEstimator object
     auto extWrenchesHandler = ptr->getGroup("EXTERNAL_WRENCHES").lock();
     if (extWrenchesHandler == nullptr)
     {
@@ -91,6 +95,8 @@ bool HumanID::initialize(
                                             logPrefix);
         return false;
     }
+
+    // Initialize the MAPHelper m_extWrenchesEstimator object
     if (!initializeExtWrenchesHelper(extWrenchesHandler))
     {
         BiomechanicalAnalysis::log()->error("{} Error initializing the external wrenches helper.",
@@ -98,6 +104,7 @@ bool HumanID::initialize(
         return false;
     }
 
+    // Resize the estimated Dynamic Variables and the measurement vectors of the MAPHelper objects
     m_extWrenchesEstimator.estimatedDynamicVariables.resize(
         m_extWrenchesEstimator.berdyHelper.getNrOfDynamicVariables());
     m_extWrenchesEstimator.measurement.resize(
@@ -119,6 +126,7 @@ bool HumanID::updateExtWrenchesMeasurements(
     constexpr auto logPrefix = "[HumanID::updateExtWrenchesMeasurements]";
     if (m_useFullModel)
     {
+        // if the full model is used, update the kinematic state of the full model
         iDynTree::Transform w_H_b;
         iDynTree::VectorDynSize s;
         s.resize(m_kinDyn->getNrOfDegreesOfFreedom());
@@ -147,6 +155,7 @@ bool HumanID::updateExtWrenchesMeasurements(
                                          world_gravity);
     }
 
+    // Update the measurement vector with the measurements of the wrenches
     m_extWrenchesEstimator.measurement.zero();
     for (int i = 0; i < m_wrenchSources.size(); i++)
     {
@@ -199,12 +208,14 @@ bool HumanID::solve()
     m_kinDynFullModel->getJointVel(m_kinState.jointsVelocity);
     m_kinState.baseAngularVelocity = m_kinDyn->getBaseTwist().getAngularVec3();
 
+    // Update the berdySolver object with the current kinematic state
     m_extWrenchesEstimator.berdySolver
         ->updateEstimateInformationFloatingBase(m_kinState.jointsPosition,
                                                 m_kinState.jointsVelocity,
                                                 m_kinState.floatingBaseFrameIndex,
                                                 m_kinState.baseAngularVelocity,
                                                 m_extWrenchesEstimator.measurement);
+    // Estimate the external wrenches
     if (!m_extWrenchesEstimator.berdySolver->doEstimate())
     {
         BiomechanicalAnalysis::log()->error("{} Error in the estimation of the dynamics.",
@@ -221,6 +232,7 @@ bool HumanID::solve()
                                                                 .estimatedDynamicVariables,
                                                             linkExtWrenches);
 
+    // Extract the estimated external wrenches
     for (std::size_t i = 0; i < m_wrenchSources.size(); i++)
     {
         iDynTree::LinkIndex linkIndex
@@ -231,6 +243,7 @@ bool HumanID::solve()
         }
     }
 
+    // Update the measurement vector of the m_jointTorquesHelper object
     m_jointTorquesHelper.measurement.zero();
     for (std::size_t i = 0; i < m_wrenchSources.size(); i++)
     {
@@ -258,13 +271,14 @@ bool HumanID::solve()
         return false;
     }
 
+    // Update the berdySolver object with the current kinematic state
     m_jointTorquesHelper.berdySolver
         ->updateEstimateInformationFloatingBase(m_kinState.jointsPosition,
                                                 m_kinState.jointsVelocity,
                                                 m_kinState.floatingBaseFrameIndex,
                                                 m_kinState.baseAngularVelocity,
                                                 m_jointTorquesHelper.measurement);
-
+    // Estimate the joint torques
     if (!m_jointTorquesHelper.berdySolver->doEstimate())
     {
         BiomechanicalAnalysis::log()->error("{} Error in the estimation of the dynamics.",
@@ -276,6 +290,7 @@ bool HumanID::solve()
     m_jointTorquesHelper.berdySolver->getLastEstimate(
         m_jointTorquesHelper.estimatedDynamicVariables);
 
+    // Extract the estimated joint torques
     if (!m_jointTorquesHelper.berdyHelper
              .extractJointTorquesFromDynamicVariables(m_jointTorquesHelper.estimatedDynamicVariables,
                                                       m_kinState.jointsPosition,
@@ -483,14 +498,6 @@ bool HumanID::initializeJointTorquesHelper(
         }
     }
     measurementsCovarianceMatrix.setFromTriplets(allSensorsTriplets);
-    // for (std::size_t i = 0; i < numberOfMeasurements; i++)
-    // {
-    //     for (std::size_t j = 0; j < numberOfMeasurements; j++)
-    //     {
-    //         std::cout << measurementsCovarianceMatrix(i, j) << " ";
-    //     }
-    // }
-    std::cout << "all sensor triplet size " << allSensorsTriplets.size() << std::endl;
 
     m_jointTorquesHelper.berdySolver->setDynamicsRegularizationPriorExpectedValue(
         dynamicsRegularizationExpectedValueVector);

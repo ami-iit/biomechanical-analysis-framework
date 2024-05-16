@@ -8,11 +8,13 @@
 
 #include <memory>
 
+// iDynTree headers
 #include <iDynTree/BerdyHelper.h>
 #include <iDynTree/BerdySparseMAPSolver.h>
 #include <iDynTree/Core/SparseMatrix.h>
 #include <iDynTree/KinDynComputations.h>
 
+// BipedalLocomotion headers
 #include <BipedalLocomotion/ParametersHandler/IParametersHandler.h>
 #include <BipedalLocomotion/ParametersHandler/StdImplementation.h>
 
@@ -63,30 +65,57 @@ struct WrenchSourceData
     iDynTree::Wrench wrench;
 };
 
+/**
+ * @brief Class to compute the inverse dynamics of a human model
+ */
 class HumanID
 {
 private:
     std::shared_ptr<iDynTree::KinDynComputations> m_kinDyn; /** pointer to the KinDynComputations
-                                                               object */
-    std::shared_ptr<iDynTree::KinDynComputations> m_kinDynFullModel;
-    bool m_useFullModel;
-    MAPHelper m_extWrenchesEstimator;
-    MAPHelper m_jointTorquesHelper;
-    std::vector<WrenchSourceData> m_wrenchSources;
-    KinematicState m_kinState;
-    std::vector<iDynTree::Wrench> m_estimatedExtWrenches;
-    double m_humanMass;
-    std::string m_modelPath;
+                                                               object passed in the initialize
+                                                               function*/
+    std::shared_ptr<iDynTree::KinDynComputations> m_kinDynFullModel; /** pointer to the
+                                                                        KinDynComputations object
+                                                                        with the full list of joints
+                                                                      */
+    bool m_useFullModel; /** flag to use the full model for the inverse dynamics */
+    MAPHelper m_extWrenchesEstimator; /** MAPHelper object for the estimation of the external
+                                         wrenches */
+    MAPHelper m_jointTorquesHelper; /** MAPHelper object for the estimation of the joint torques */
+    std::vector<WrenchSourceData> m_wrenchSources; /** vector of WrenchSourceData objects */
+    KinematicState m_kinState; /** KinematicState object */
+    std::vector<iDynTree::Wrench> m_estimatedExtWrenches; /** vector of estimated external wrenches
+                                                           */
+    double m_humanMass; /** mass of the human */
+    std::string m_modelPath; /** path to the urdf model file */
 
+    /**
+     * @brief Function to initialize the MAPHelper m_jointTorquesHelper object
+     * @param groupHandler pointer to the ParametersHandler object
+     * @return true if the initialization is successful, false otherwise
+     */
     bool initializeJointTorquesHelper(
         const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler>
             groupHandler);
+
+    /**
+     * @brief Function to initialize the MAPHelper m_extWrenchesEstimator object
+     * @param groupHandler pointer to the ParametersHandler object
+     * @return true if the initialization is successful, false otherwise
+     */
     bool initializeExtWrenchesHelper(
         const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler>
             groupHandler);
 
+    /**
+     * @brief Function to compute the rate of change of the momentum calculated in the base frame
+     * @return true if the initialization is successful, false otherwise
+     */
     iDynTree::SpatialForceVector computeRCMInBaseFrame();
 
+    /**
+     * Unordered map that maps the BerdySensorTypes to the corresponding string
+     */
     const std::unordered_map<iDynTree::BerdySensorTypes, std::string> mapBerdySensorType
         = {{iDynTree::BerdySensorTypes::SIX_AXIS_FORCE_TORQUE_SENSOR,
             "SIX_AXIS_FORCE_TORQUE_SENSOR"},
@@ -102,13 +131,51 @@ private:
            {iDynTree::BerdySensorTypes::JOINT_WRENCH_SENSOR, "JOINT_WRENCH_SENSOR"}};
 
 public:
+    /**
+     * @brief Constructor
+     */
+    HumanID(){};
+
+    /**
+     * @brief Destructor
+     */
+    ~HumanID(){};
+
+    /**
+     * @brief Function to initialize the HumanID object
+     * @param handler pointer to the ParametersHandler object
+     * @param kinDyn pointer to the KinDynComputations object
+     * @return true if the initialization is successful, false otherwise
+     * @note an example of the required parameters can be found in
+     * https://github.com/ami-iit/biomechanical-analysis-framework/tree/main/src/examples/ID
+     */
     bool
     initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandler::IParametersHandler> handler,
                std::shared_ptr<iDynTree::KinDynComputations> kinDyn);
+
+    /**
+     * @brief Function to update the measurements of the external wrenches
+     * @param wrenches unordered map mapping the name of the wrench source to the wrench
+     */
     bool
     updateExtWrenchesMeasurements(const std::unordered_map<std::string, iDynTree::Wrench>& wrenches);
+
+    /**
+     * @brief Function to solve the inverse dynamics problem
+     * @return true if the solution is successful, false otherwise
+     */
     bool solve();
+
+    /**
+     * @brief Function to get the estimated joint torques
+     * @return vector of joint torques
+     */
     iDynTree::VectorDynSize getJointTorques();
+
+    /**
+     * @brief Function to get the estimated external wrenches
+     * @return vector of external wrenches
+     */
     std::vector<iDynTree::Wrench> getEstimatedExtWrenches();
 };
 
