@@ -1,5 +1,5 @@
 /**
- * @file ExampleIK.h
+ * @file exampleIK.cpp
  * @authors Davide Gorbani <davide.gorbani@iit.it>
  */
 
@@ -37,31 +37,24 @@ std::atomic<bool> stopThread{false}; // Flag used to terminate a thread
  * @param I_omeg_IMU Reference to store the angular velocity of the node
  * @return True if the data retrieval is successful, false otherwise
  */
-bool getNodeOrientation(matioCpp::Struct& ifeel_struct,
-                        int nodeNum,
-                        size_t index_i,
-                        iDynTree::Rotation& I_R_IMU,
-                        iDynTree::AngVelocity& I_omeg_IMU)
+bool getNodeOrientation(
+    matioCpp::Struct& ifeel_struct, int nodeNum, size_t index_i, iDynTree::Rotation& I_R_IMU, iDynTree::AngVelocity& I_omeg_IMU)
 {
     // Retrieve the node data structure from matlab file
-    matioCpp::Struct vLink_node
-        = ifeel_struct("iFeelSuit_vLink_Node_" + std::to_string(nodeNum)).asStruct();
+    matioCpp::Struct vLink_node = ifeel_struct("iFeelSuit_vLink_Node_" + std::to_string(nodeNum)).asStruct();
     if (!vLink_node.isValid())
     {
         // Log an error if the node data structure is not valid
-        BiomechanicalAnalysis::log()->error("Cannot read the iFeelSuit_vLink_Node_{} struct",
-                                            std::to_string(nodeNum));
+        BiomechanicalAnalysis::log()->error("Cannot read the iFeelSuit_vLink_Node_{} struct", std::to_string(nodeNum));
         return false;
     }
 
     // Retrieve the array containing node data (contained in vLink struct) and store in data1
-    matioCpp::MultiDimensionalArray<double> data1
-        = vLink_node("data").asMultiDimensionalArray<double>();
+    matioCpp::MultiDimensionalArray<double> data1 = vLink_node("data").asMultiDimensionalArray<double>();
     if (!data1.isValid())
     {
         // Log an error if the node data array is not valid
-        BiomechanicalAnalysis::log()->error("Cannot read the data field of the node number {}",
-                                            std::to_string(nodeNum));
+        BiomechanicalAnalysis::log()->error("Cannot read the data field of the node number {}", std::to_string(nodeNum));
         return false;
     }
 
@@ -115,24 +108,20 @@ bool getNodeVerticalForce(matioCpp::Struct& ifeel_struct, int nodeNum, size_t in
 {
     // Retrieve the node data structure
     // Store the ifeel_struct (input coming from matlab) in vLink_node
-    matioCpp::Struct vLink_node
-        = ifeel_struct("iFeelSuit_ft6D_Node_" + std::to_string(nodeNum)).asStruct();
+    matioCpp::Struct vLink_node = ifeel_struct("iFeelSuit_ft6D_Node_" + std::to_string(nodeNum)).asStruct();
     if (!vLink_node.isValid())
     {
         // Log an error if the node data structure is not valid
-        BiomechanicalAnalysis::log()->error("Cannot read the iFeelSuit_vLink_Node_{} struct",
-                                            std::to_string(nodeNum));
+        BiomechanicalAnalysis::log()->error("Cannot read the iFeelSuit_vLink_Node_{} struct", std::to_string(nodeNum));
         return false;
     }
 
     // Retrieve the multi-dimensional array containing node data
-    matioCpp::MultiDimensionalArray<double> data1
-        = vLink_node("data").asMultiDimensionalArray<double>();
+    matioCpp::MultiDimensionalArray<double> data1 = vLink_node("data").asMultiDimensionalArray<double>();
     if (!data1.isValid())
     {
         // Log an error if the node data array is not valid
-        BiomechanicalAnalysis::log()->error("Cannot read the data field of the node number {}",
-                                            std::to_string(nodeNum));
+        BiomechanicalAnalysis::log()->error("Cannot read the data field of the node number {}", std::to_string(nodeNum));
         return false;
     }
 
@@ -149,11 +138,11 @@ bool getNodeVerticalForce(matioCpp::Struct& ifeel_struct, int nodeNum, size_t in
 /**
  * Creates a list of joint names.
  *
- * @return A vector of strings containing the names of the joints.
+ * @return A vector of strings containing the names of the joints. Note that they are all rotational joints
  */
 const std::vector<std::string> getJointsList()
 {
-    // Create a vector to store joint names
+    // Create a vector to store joint names.
     std::vector<std::string> nodesName;
 
     // Add joint names to the vector
@@ -229,6 +218,16 @@ void setTPoseThread()
 
 int main()
 {
+    // Create a parameter handler
+    auto paramHandler = std::make_shared<BipedalLocomotion::ParametersHandler::YarpImplementation>();
+    // Set parameters from a configuration file
+    if (!paramHandler->setFromFile(getConfigPath() + "/exampleIK.ini")) // Check if setting parameters from file is
+                                                                        // successful
+    {
+        BiomechanicalAnalysis::log()->error("Cannot configure the parameter handler"); // Log error if configuration fails
+        return 1; // Return error code
+    }
+
     // Initialize ResourceFinder
     yarp::os::ResourceFinder rf;
 
@@ -273,177 +272,138 @@ int main()
 
     viz.draw(); // Draw the visualizer
 
-    /**
-    Initialize variables for joint positions, velocities, base pose, etc.
-     */
+    //*************************************************************************************************************************************
+    // Initialize variables for joint positions, velocities, base pose, etc.
+    //*************************************************************************************************************************************
 
     iDynTree::Rotation I_R_IMU; // Rotation of the IMU in the inertial frame
     iDynTree::AngVelocity I_omega_IMU; // Angular velocity of the IMU
+
+    // Variables for robotstate initialization
+    Eigen::Matrix4d basePose; // Pose of the base
     Eigen::VectorXd initialJointPositions; // Initial positions of the joints
     Eigen::VectorXd initialJointVelocities; // Initial velocities of the joints
+    Eigen::Vector3d gravity; // Gravity vector
+    Eigen::Matrix<double, 6, 1> baseVelocity; // Linear and angular velocity of the base
+
+    // Variables updated by IK for visualization
+    iDynTree::VectorDynSize jointPos, jointPos2; // Dynamic-size vectors for joint positions
     Eigen::VectorXd jointPositions; // Current positions of the joints
     Eigen::VectorXd jointVelocities; // Current velocities of the joints
-    Eigen::Vector3d gravity; // Gravity vector
-    Eigen::Matrix4d basePose; // Pose of the base
-    Eigen::Matrix<double, 6, 1> baseVelocity; // Linear and angular velocity of the base
     Eigen::Matrix3d baseOrientation; // Orientation of the base
     Eigen::Vector3d basePosition; // Position of the base
-    iDynTree::VectorDynSize jointPos, jointPos2; // Dynamic-size vectors for joint positions
-    iDynTree::Transform w_H_b = iDynTree::Transform::Identity(); // Transformation from the world
-                                                                 // frame to the base frame
-    iDynTree::Transform w_H_b2 = iDynTree::Transform::Identity(); // Another transformation from the
-                                                                  // world frame to the base frame
+    iDynTree::Transform w_H_b = iDynTree::Transform::Identity(); // Transformation from the world frame to the base frame
+    iDynTree::Transform w_H_b2 = iDynTree::Transform::Identity(); // Another transformation from the world frame to the base frame
+
+    // Variables for camera setting and visualization
     iDynTree::Position basePositionOld; // Previous position of the base
     iDynTree::Position cameraDeltaPosition; // Delta position of the camera
-    jointPos.resize(kinDyn->getNrOfDegreesOfFreedom()); // Resize the joint position vector based on
-                                                        // the number of degrees of freedom
-    jointPos2.resize(kinDyn->getNrOfDegreesOfFreedom()); // Resize another joint position vector
-                                                         // based on the number of degrees of
-                                                         // freedom
-    jointVelocities.resize(kinDyn->getNrOfDegreesOfFreedom()); // Resize the joint velocity vector
-                                                               // based on the number of degrees of
-                                                               // freedom
-    jointPositions.resize(kinDyn->getNrOfDegreesOfFreedom()); // Resize the joint position vector
-                                                              // based on the number of degrees of
-                                                              // freedom
-    initialJointPositions.resize(kinDyn->getNrOfDegreesOfFreedom()); // Resize the initial joint
-                                                                     // position vector based on the
-                                                                     // number of degrees of freedom
-    initialJointVelocities.resize(kinDyn->getNrOfDegreesOfFreedom()); // Resize the initial joint
-                                                                      // velocity vector based on
-                                                                      // the number of degrees of
-                                                                      // freedom
-    initialJointPositions.setZero(); // Set initial joint positions to zero
-    gravity << 0.0, 0.0, -9.81; // Assign values to the gravity vector
-    basePose.setIdentity(); // Set the base pose to the identity matrix
-    baseVelocity.setZero(); // Set base velocity to zero
 
-    auto paramHandler
-        = std::make_shared<BipedalLocomotion::ParametersHandler::YarpImplementation>(); // Create a
-                                                                                        // parameter
-                                                                                        // handler
+    // Resize the joint variables based on the number of degrees of freedom
 
-    // Set parameters from a configuration file
-    if (!paramHandler->setFromFile(getConfigPath() + "/exampleIK.ini")) // Check if setting
-                                                                        // parameters from file is
-                                                                        // successful
+    jointPos.resize(kinDyn->getNrOfDegreesOfFreedom()); // Resize the joint position vector based on the number of degrees of freedom
+    jointPos2.resize(kinDyn->getNrOfDegreesOfFreedom()); // Resize another joint position vector based on the number of degrees of freedom
+    jointVelocities.resize(kinDyn->getNrOfDegreesOfFreedom()); // Resize the joint velocity vector based on the number of deg of freedom
+    jointPositions.resize(kinDyn->getNrOfDegreesOfFreedom()); // Resize the joint position vector based on the number of deg of freedom
+    initialJointPositions.resize(kinDyn->getNrOfDegreesOfFreedom()); // Resize the initial joint pos vec based on the n. of deg of freedom
+    initialJointVelocities.resize(kinDyn->getNrOfDegreesOfFreedom()); // Resize the initial joint vel vec based on the n. of deg of freedom
+
+    //*************************************************************************************************************************************
+
+    //*************************************************************************************************************************************
+    // Load kinematic data from Matlab file human_data
+    //*************************************************************************************************************************************
+
+    std::string pathToHumanData;
+    if (!paramHandler->getParameter("path_to_human_data", pathToHumanData))
     {
-        BiomechanicalAnalysis::log()->error(
-            "Cannot configure the parameter handler"); // Log error
-                                                       // if
-                                                       // configuration
-                                                       // fails
-        return 1; // Return error code
+        BiomechanicalAnalysis::log()->error("Cannot find parameter 'path_to_human_data'");
+        return 0;
     }
+    matioCpp::File file2(pathToHumanData); // Create another file object to read data from
+                                           // MATLAB file "human_data.mat"
+    matioCpp::Struct human_data = file2.read("human_data").asStruct(); // Read "human_data" structure from the MATLAB
+                                                                       // file and convert it to a structure
 
-    // Load data from Matlab files
-    matioCpp::File file("/path/to/matlab1.mat"); // Create a file object
-                                                 // to read data from
-                                                 // MATLAB file
-                                                 // "matlab1.mat"
-    matioCpp::Struct ifeel_data = file.read("ifeel_data").asStruct(); // Read "ifeel_data" structure
-                                                                      // from the MATLAB file and
-                                                                      // convert it to a structure
-    matioCpp::Struct node12
-        = ifeel_data("iFeelSuit_vLink_Node_12").asStruct(); // Access structure
-                                                            // "iFeelSuit_vLink_Node_12"
-                                                            // within
-                                                            // "ifeel_data"
-                                                            // structure and
-                                                            // convert it to a
-                                                            // structure
-    matioCpp::File file2("/path/to/human_data1.mat"); // Create another
-                                                      // file object to
-                                                      // read data from
-                                                      // MATLAB file
-                                                      // "human_data.mat"
-    matioCpp::Struct human_data = file2.read("human_data").asStruct(); // Read "human_data"
-                                                                       // structure from the MATLAB
-                                                                       // file and convert it to a
-                                                                       // structure
-    matioCpp::Struct human_state = human_data("human_state").asStruct(); // Access structure
-                                                                         // "human_state" within
-                                                                         // "human_data" structure
-                                                                         // and convert it to a
-                                                                         // structure
-    matioCpp::Struct joint_state = human_data("joints_state").asStruct(); // Access structure
-                                                                          // "human_state" within
-                                                                          // "human_data" structure
-                                                                          // and convert it to a
-                                                                          // structure
-    matioCpp::Struct joint_positions = joint_state("positions").asStruct(); // Access structure
-                                                                            // "joint_positions"
-                                                                            // within "human_state"
-                                                                            // structure and convert
-                                                                            // it to a structure
+    // human_data divide in:
+    // - joints_state ---> jointPos_data        [31 rotational joint values, all timestamps]
+    // - human_state  ---> basePos_data         [3D space coordinates, all timestamps]
+    //                ---> baseOrientation_data [quaternion, all timestamps ]
+
+    // Retrieve jointPos_data --> [31 rotational joint values, all timestamps]
+
+    matioCpp::Struct joint_state = human_data("joints_state").asStruct(); // Access structure "human_state" and convert it to a structure
+    matioCpp::Struct joint_positions = joint_state("positions").asStruct(); // Access structure "joint_positions" within "human_state"
+                                                                            // structure and convert it to a structure
     matioCpp::MultiDimensionalArray<double> jointPos_data
-        = joint_positions("data").asMultiDimensionalArray<double>(); // Access multidimensional
-                                                                     // array "data" within
-                                                                     // "joint_positions" structure
-                                                                     // and convert it to a
-                                                                     // multidimensional array of
-                                                                     // type double
-    matioCpp::Struct base_position = human_state("base_position").asStruct(); // Access structure
-                                                                              // "base_position"
-                                                                              // within
-                                                                              // "human_state"
-                                                                              // structure and
-                                                                              // convert it to a
-                                                                              // structure
+        = joint_positions("data").asMultiDimensionalArray<double>(); // Access multidimensional array "data" within "joint_positions"
+                                                                     // structure and convert it to a multidimensional array of type double
+
+    // Retrieve basePos_data -->[3D space coordinates, all timestamps]
+
+    matioCpp::Struct human_state = human_data("human_state").asStruct(); // Access structure "human_state"  and convert it to a structure
+    matioCpp::Struct base_position = human_state("base_position").asStruct(); // Access struct "base_position" and convert it to a struct
     matioCpp::MultiDimensionalArray<double> basePos_data
-        = base_position("data").asMultiDimensionalArray<double>(); // Access multidimensional array
-                                                                   // "data" within "base_position"
-                                                                   // structure and convert it to a
-                                                                   // multidimensional array of type
-                                                                   // double
-    matioCpp::Struct base_orientation
-        = human_state("base_orientation").asStruct(); // Access structure "base_orientation" within
-                                                      // "human_state" structure and convert it to a
-                                                      // structure
+        = base_position("data").asMultiDimensionalArray<double>(); // Access multidimensional array "data" within "base_position"
+                                                                   // structure and convert it to a multidimensional array of type double
+
+    // Retrieve baseOrientation_data -->[quaternion, all timestamps]
+
+    matioCpp::Struct base_orientation = human_state("base_orientation").asStruct(); // Access structure "base_orientation" within
+                                                                                    // "human_state" structure and convert it to a structure
     matioCpp::MultiDimensionalArray<double> baseOrientation_data
-        = base_orientation("data").asMultiDimensionalArray<double>(); // Access multidimensional
-                                                                      // array "data" within
-                                                                      // "base_orientation"
-                                                                      // structure and convert it to
-                                                                      // a multidimensional array of
-                                                                      // type double
+        = base_orientation("data").asMultiDimensionalArray<double>(); // Access multidimensional array "data" within "base_orientation"
+                                                                      // structure and convert it to a multidimensional array of type double
+
+    //*************************************************************************************************************************************
+
+    // Get the dimension of the data (total number of timestamps) from Matlab file
+    std::string pathToIFeelData;
+    if (!paramHandler->getParameter("path_to_ifeel_data", pathToIFeelData))
+    {
+        BiomechanicalAnalysis::log()->error("Cannot find the parameter 'path_to_ifeel_data'");
+        return 1;
+    }
+    matioCpp::File file(pathToIFeelData); // Create a file object to read data from MATLAB file
+    matioCpp::Struct ifeel_data = file.read("ifeel_data").asStruct(); // Read "ifeel_data" struct from the MAT file and convert it
+    matioCpp::Struct node12 = ifeel_data("iFeelSuit_vLink_Node_12").asStruct(); // access Matlab file where the n. of timestamp is present
+    matioCpp::Vector<double> data = node12("timestamps").asVector<double>();
+    size_t dataLength = data.size();
 
     // Set initial base position from data
     iDynTree::Position w_p_b2_init;
-    w_p_b2_init[0] = basePos_data({0, 0, 0});
-    w_p_b2_init[1] = basePos_data({1, 0, 0});
-    w_p_b2_init[2] = 0;
+    w_p_b2_init[0] = basePos_data({0, 0, 0}); // x
+    w_p_b2_init[1] = basePos_data({1, 0, 0}); // y
+    w_p_b2_init[2] = 0; // z
 
     // Set initial joint positions from data
+    initialJointPositions.setZero();
     for (size_t ii = 0; ii < 31; ii++)
     {
         initialJointPositions[ii] = jointPos_data({ii, 0, 0});
     }
 
-    // Get the dimension of the data
-    matioCpp::Vector<double> data = node12("timestamps").asVector<double>();
-    size_t dataLength = data.size();
+    // Set robot state for IK to zero BUT with initialJointPositions taken from matlab data
+
+    gravity << 0.0, 0.0, -9.81; // Assign values to the gravity vector
+    basePose.setIdentity(); // Set the base pose to the identity matrix
+    baseVelocity.setZero(); // Set base velocity to zero
+    initialJointVelocities.setZero(); // added by G.M.
+    kinDyn->setRobotState(basePose, initialJointPositions, baseVelocity, initialJointVelocities, gravity);
 
     // Define lists of nodes
     std::vector<int> orientationNodes = {3, 6, 7, 8, 5, 4, 11, 12, 9, 10};
     std::vector<int> floorContactNodes = {1, 2};
 
-    // Initialize the HUMANIK-class object ik: initialize Inverse Kinematics (IK) solver with
-    // related tasks, assigning the kinDyn object
+    // Initialize the HUMANIK-class object ik: initialize Inverse Kinematics (IK) solver with related tasks, assigning the kinDyn object
+
     BiomechanicalAnalysis::IK::HumanIK ik;
     if (!ik.initialize(paramHandler, kinDyn)) // Check if IK initialization is successful
     {
-        BiomechanicalAnalysis::log()->error(
-            "Cannot initialize the inverse kinematics solver"); // Log error if initialization fails
+        BiomechanicalAnalysis::log()->error("Cannot initialize the inverse kinematics solver"); // Log error if initialization fails
         return 1; // Return error code
     }
 
-    // Set robot state for IK to zero
-    kinDyn->setRobotState(basePose,
-                          initialJointPositions,
-                          baseVelocity,
-                          initialJointVelocities,
-                          gravity);
     ik.setDt(0.01); // Set time step for IK
 
     // Start T-pose calibration thread
@@ -454,7 +414,7 @@ int main()
     // Cycle over the time instants
     for (size_t ii = 0; ii < dataLength; ii++)
     {
-        // Perform the T-pose calibration if the user inputs 'calib'
+        // Perform the T-pose calibration if the user inputs 'calib'. In that case, calibration matrices used by the tasks are updated
         if (tPoseFlag)
         {
             // Span nodes belonging to orientationNodes list
@@ -464,8 +424,7 @@ int main()
                 getNodeOrientation(ifeel_data, node, ii, I_R_IMU, I_omega_IMU);
 
                 // Perform T-Pose calibration for each node
-                ik.TPoseCalibrationNode(node,
-                                        manif::SO3d(fromiDynTreeToEigenQuatConversion(I_R_IMU)));
+                ik.TPoseCalibrationNode(node, manif::SO3d(fromiDynTreeToEigenQuatConversion(I_R_IMU)));
             }
 
             // Span nodes belonging to floorContactNodes list - shoes nodes
@@ -475,8 +434,7 @@ int main()
                 getNodeOrientation(ifeel_data, node, ii, I_R_IMU, I_omega_IMU);
 
                 // Perform T-Pose calibration for each node
-                ik.TPoseCalibrationNode(node,
-                                        manif::SO3d(fromiDynTreeToEigenQuatConversion(I_R_IMU)));
+                ik.TPoseCalibrationNode(node, manif::SO3d(fromiDynTreeToEigenQuatConversion(I_R_IMU)));
             }
 
             BiomechanicalAnalysis::log()->info("T-pose calibration done");
@@ -487,16 +445,18 @@ int main()
 
         for (auto& node : orientationNodes) // Cycle over the IMU nodes
         {
-            // Retrieve orientation and angular velocity for each node
+            // Retrieve orientation and angular velocity for each node. Input variables I_R_IMU and I_omega_IMU being updated
+
             getNodeOrientation(ifeel_data, node, ii, I_R_IMU, I_omega_IMU);
 
             // Convert orientation and angular velocity to manif objects
             manif::SO3d I_R_IMU_manif = manif::SO3d(fromiDynTreeToEigenQuatConversion(I_R_IMU));
-            manif::SO3Tangentd I_omega_IMU_manif
-                = manif::SO3Tangentd(iDynTree::toEigen(I_omega_IMU));
+            manif::SO3Tangentd I_omega_IMU_manif = manif::SO3Tangentd(iDynTree::toEigen(I_omega_IMU));
 
             // IK solver: Update orientation task for the current node
+
             if (!ik.updateOrientationTask(node, I_R_IMU_manif, I_omega_IMU_manif))
+
             {
                 BiomechanicalAnalysis::log()->error("[error] Cannot set the node number {} set "
                                                     "point",
