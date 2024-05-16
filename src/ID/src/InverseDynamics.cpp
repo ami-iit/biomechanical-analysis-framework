@@ -47,10 +47,6 @@ bool HumanID::initialize(
                                                 m_modelPath);
             return false;
         }
-        m_kinState.jointsPosition.resize(m_kinDynFullModel->getNrOfDegreesOfFreedom());
-        m_kinState.jointsPosition.zero();
-        m_kinState.jointsVelocity.resize(m_kinDynFullModel->getNrOfDegreesOfFreedom());
-        m_kinState.jointsVelocity.zero();
         m_kinDynFullModel->setFloatingBase(m_kinDyn->getFloatingBase());
         m_useFullModel = true;
     } else
@@ -64,12 +60,12 @@ bool HumanID::initialize(
 
     // Resize and initialize the KinematicState object
     m_kinState.floatingBaseFrameIndex = m_kinDyn->getFrameIndex(m_kinDyn->getFloatingBase());
-    m_kinState.jointsPosition.resize(m_kinDynFullModel->getNrOfDegreesOfFreedom());
+    m_kinState.jointsPosition.resize(m_kinDynFullModel->model().getNrOfDOFs());
     m_kinState.jointsPosition.zero();
-    m_kinState.jointsVelocity.resize(m_kinDynFullModel->getNrOfDegreesOfFreedom());
+    m_kinState.jointsVelocity.resize(m_kinDynFullModel->model().getNrOfDOFs());
     m_kinState.jointsVelocity.zero();
     m_kinState.baseAngularVelocity.zero();
-    m_jointTorquesHelper.estimatedJointTorques.resize(m_kinDyn->getNrOfDegreesOfFreedom());
+    m_jointTorquesHelper.estimatedJointTorques.resize(m_kinDynFullModel->model().getNrOfDOFs());
 
     // Get the group handlers for initializing the MAPHelper m_jointTorquesHelper object
     auto jointTorquesHandler = ptr->getGroup("JOINT_TORQUES").lock();
@@ -338,7 +334,10 @@ bool HumanID::initializeJointTorquesHelper(
         return false;
     }
 
-    auto sensorList = m_kinDynFullModel->getRobotModel().sensors();
+    iDynTree::ModelLoader loader;
+    loader.loadModelFromFile(m_modelPath);
+
+    auto sensorList = loader.model().sensors();
     for (auto& sensor : mapBerdySensorType)
     {
         std::string sensorName;
@@ -368,7 +367,7 @@ bool HumanID::initializeJointTorquesHelper(
     }
 
     // Initialize the BerdyHelper object
-    if (!m_jointTorquesHelper.berdyHelper.init(m_kinDynFullModel->getRobotModel(), berdyOptions))
+    if (!m_jointTorquesHelper.berdyHelper.init(loader.model(), berdyOptions))
     {
         BiomechanicalAnalysis::log()->error("{} Error initializing the BerdyHelper object.",
                                             logPrefix);
