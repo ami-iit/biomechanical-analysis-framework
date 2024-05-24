@@ -250,7 +250,7 @@ bool HumanID::solve()
                                                   m_wrenchSources[i].outputFrame));
         for (int j = 0; j < 6; j++)
         {
-            m_jointTorquesHelper.measurement(sensorRange.offset + j) = m_wrenchSources[i].wrench(j);
+            m_jointTorquesHelper.measurement(sensorRange.offset + j) = m_estimatedExtWrenches[i](j);
         }
     }
 
@@ -334,10 +334,8 @@ bool HumanID::initializeJointTorquesHelper(
         return false;
     }
 
-    iDynTree::ModelLoader loader;
-    loader.loadModelFromFile(m_modelPath);
+    iDynTree::SensorsList sensorList = m_kinDynFullModel->getRobotModel().sensors();
 
-    auto sensorList = loader.model().sensors();
     for (auto& sensor : mapBerdySensorType)
     {
         std::string sensorName;
@@ -367,7 +365,7 @@ bool HumanID::initializeJointTorquesHelper(
     }
 
     // Initialize the BerdyHelper object
-    if (!m_jointTorquesHelper.berdyHelper.init(loader.model(), berdyOptions))
+    if (!m_jointTorquesHelper.berdyHelper.init(m_kinDynFullModel->model(), berdyOptions))
     {
         BiomechanicalAnalysis::log()->error("{} Error initializing the BerdyHelper object.",
                                             logPrefix);
@@ -796,6 +794,9 @@ iDynTree::SpatialForceVector HumanID::computeRCMInBaseFrame()
     iDynTree::SpatialForceVector rcmWrench;
     rcmWrench.zero();
     iDynTree::Vector3 world_gravity;
+    world_gravity(0) = 0.0;
+    world_gravity(1) = 0.0;
+    world_gravity(2) = -9.81;
     iDynTree::SpatialForceVector subjectWeightInCentroidal(world_gravity,
                                                            iDynTree::AngularForceVector3(0.0,
                                                                                          0.0,
