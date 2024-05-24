@@ -32,13 +32,31 @@ bool HumanID::initialize(
     iDynTree::ModelLoader loader;
     if (ptr->getParameter("modelPath", m_modelPath))
     {
-        if (!loader.loadModelFromFile(m_modelPath))
+        std::vector<std::string> jointsList;
+        if (ptr->getParameter("jointsList", jointsList))
         {
-            BiomechanicalAnalysis::log()->error("{} Error loading the model from file {}.",
-                                                logPrefix,
-                                                m_modelPath);
-            return false;
+            if (!loader.loadReducedModelFromFile(m_modelPath, jointsList))
+            {
+                BiomechanicalAnalysis::log()->error("{} Error loading the model from file {}.",
+                                                    logPrefix,
+                                                    m_modelPath);
+                return false;
+            }
+        } else
+        {
+            BiomechanicalAnalysis::log()->warn("{} Parameter 'jointsList' not found in the "
+                                               "configuration file, loading the model with all the "
+                                               "joints.",
+                                               logPrefix);
+            if (!loader.loadModelFromFile(m_modelPath))
+            {
+                BiomechanicalAnalysis::log()->error("{} Error loading the model from file {}.",
+                                                    logPrefix,
+                                                    m_modelPath);
+                return false;
+            }
         }
+
         m_kinDynFullModel = std::make_shared<iDynTree::KinDynComputations>();
         if (!m_kinDynFullModel->loadRobotModel(loader.model()))
         {
@@ -131,6 +149,8 @@ bool HumanID::updateExtWrenchesMeasurements(
         s_dot.resize(m_kinDyn->getNrOfDegreesOfFreedom());
         iDynTree::Vector3 world_gravity;
         m_kinDyn->getRobotState(w_H_b, s, base_velocity, s_dot, world_gravity);
+        m_kinState.jointsPosition.zero();
+        m_kinState.jointsVelocity.zero();
         for (int i = 0; i < m_kinDynFullModel->getNrOfDegreesOfFreedom(); i++)
         {
             for (int j = 0; j < m_kinDyn->getNrOfDegreesOfFreedom(); j++)
