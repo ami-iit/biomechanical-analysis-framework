@@ -94,18 +94,14 @@ private:
      * @param groupHandler pointer to the ParametersHandler object
      * @return true if the initialization is successful, false otherwise
      */
-    bool initializeJointTorquesHelper(
-        const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler>
-            groupHandler);
+    bool initializeJointTorquesHelper(const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> groupHandler);
 
     /**
      * @brief Function to initialize the MAPHelper m_extWrenchesEstimator object
      * @param groupHandler pointer to the ParametersHandler object
      * @return true if the initialization is successful, false otherwise
      */
-    bool initializeExtWrenchesHelper(
-        const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler>
-            groupHandler);
+    bool initializeExtWrenchesHelper(const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> groupHandler);
 
     /**
      * @brief Function to compute the rate of change of the momentum calculated in the base frame
@@ -117,14 +113,11 @@ private:
      * Unordered map that maps the BerdySensorTypes to the corresponding string
      */
     const std::unordered_map<iDynTree::BerdySensorTypes, std::string> mapBerdySensorType
-        = {{iDynTree::BerdySensorTypes::SIX_AXIS_FORCE_TORQUE_SENSOR,
-            "SIX_AXIS_FORCE_TORQUE_SENSOR"},
+        = {{iDynTree::BerdySensorTypes::SIX_AXIS_FORCE_TORQUE_SENSOR, "SIX_AXIS_FORCE_TORQUE_SENSOR"},
            {iDynTree::BerdySensorTypes::ACCELEROMETER_SENSOR, "ACCELEROMETER_SENSOR"},
            {iDynTree::BerdySensorTypes::GYROSCOPE_SENSOR, "GYROSCOPE_SENSOR"},
-           {iDynTree::BerdySensorTypes::THREE_AXIS_ANGULAR_ACCELEROMETER_SENSOR,
-            "THREE_AXIS_ANGULAR_ACCELEROMETER_SENSOR"},
-           {iDynTree::BerdySensorTypes::THREE_AXIS_FORCE_TORQUE_CONTACT_SENSOR,
-            "THREE_AXIS_FORCE_TORQUE_CONTACT_SENSOR"},
+           {iDynTree::BerdySensorTypes::THREE_AXIS_ANGULAR_ACCELEROMETER_SENSOR, "THREE_AXIS_ANGULAR_ACCELEROMETER_SENSOR"},
+           {iDynTree::BerdySensorTypes::THREE_AXIS_FORCE_TORQUE_CONTACT_SENSOR, "THREE_AXIS_FORCE_TORQUE_CONTACT_SENSOR"},
            {iDynTree::BerdySensorTypes::DOF_ACCELERATION_SENSOR, "DOF_ACCELERATION_SENSOR"},
            {iDynTree::BerdySensorTypes::DOF_TORQUE_SENSOR, "DOF_TORQUE_SENSOR"},
            {iDynTree::BerdySensorTypes::NET_EXT_WRENCH_SENSOR, "NET_EXT_WRENCH_SENSOR"},
@@ -149,16 +142,14 @@ public:
      * @note an example of the required parameters can be found in
      * https://github.com/ami-iit/biomechanical-analysis-framework/tree/main/src/examples/ID
      */
-    bool
-    initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandler::IParametersHandler> handler,
-               std::shared_ptr<iDynTree::KinDynComputations> kinDyn);
+    bool initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandler::IParametersHandler> handler,
+                    std::shared_ptr<iDynTree::KinDynComputations> kinDyn);
 
     /**
      * @brief Function to update the measurements of the external wrenches
      * @param wrenches unordered map mapping the name of the wrench source to the wrench
      */
-    bool
-    updateExtWrenchesMeasurements(const std::unordered_map<std::string, iDynTree::Wrench>& wrenches);
+    bool updateExtWrenchesMeasurements(const std::unordered_map<std::string, iDynTree::Wrench>& wrenches);
 
     /**
      * @brief Function to solve the inverse dynamics problem
@@ -183,6 +174,12 @@ public:
      * @return vector of external wrenches
      */
     std::vector<iDynTree::Wrench> getEstimatedExtWrenches();
+
+    /**
+     * @brief Function to get the frame name of the estimated external wrenches
+     * @return vector containing the frame names of the estimated external wrenches
+     */
+    std::vector<std::string> getExtimatedWrenchesList();
 };
 
 } // namespace ID
