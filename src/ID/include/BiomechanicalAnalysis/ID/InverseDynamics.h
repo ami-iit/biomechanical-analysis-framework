@@ -173,6 +173,12 @@ public:
     iDynTree::VectorDynSize getJointTorques();
 
     /**
+     * @brief Function to get the list of the joints
+     * @return vector of joint names
+     */
+    std::vector<std::string> getJointsList();
+
+    /**
      * @brief Function to get the estimated external wrenches
      * @return vector of external wrenches
      */

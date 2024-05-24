@@ -129,8 +129,6 @@ bool HumanID::initialize(
     m_jointTorquesHelper.measurement.resize(
         m_jointTorquesHelper.berdyHelper.getNrOfSensorsMeasurements());
 
-    iDynTree::SensorsList sensorsList = m_kinDyn->getRobotModel().sensors();
-
     return true;
 }
 
@@ -324,6 +322,16 @@ bool HumanID::solve()
 iDynTree::VectorDynSize HumanID::getJointTorques()
 {
     return m_jointTorquesHelper.estimatedJointTorques;
+}
+
+std::vector<std::string> HumanID::getJointsList()
+{
+    std::vector<std::string> jointNames;
+    for (int i = 0; i < m_kinDynFullModel->model().getNrOfJoints(); i++)
+    {
+        jointNames.push_back(m_kinDynFullModel->model().getJointName(i));
+    }
+    return jointNames;
 }
 
 std::vector<iDynTree::Wrench> HumanID::getEstimatedExtWrenches()
