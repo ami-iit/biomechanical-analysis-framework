@@ -299,7 +299,7 @@ std::vector<iDynTree::Wrench> HumanID::getEstimatedExtWrenches()
     return m_estimatedExtWrenches;
 }
 
-std::vector<std::string> HumanID::getExtimatedWrenchesList()
+std::vector<std::string> HumanID::getEstimatedExtWrenchesList()
 {
     std::vector<std::string> wrenchSources;
     for (auto& wrench : m_wrenchSources)

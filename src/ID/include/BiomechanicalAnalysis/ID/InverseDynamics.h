@@ -179,7 +179,7 @@ public:
      * @brief Function to get the frame name of the estimated external wrenches
      * @return vector containing the frame names of the estimated external wrenches
      */
-    std::vector<std::string> getExtimatedWrenchesList();
+    std::vector<std::string> getEstimatedExtWrenchesList();
 };
 
 } // namespace ID
