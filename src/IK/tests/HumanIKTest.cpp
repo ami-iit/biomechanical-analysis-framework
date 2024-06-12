@@ -19,12 +19,9 @@ TEST_CASE("InverseKinematics test")
 
     const iDynTree::Model model = iDynTree::getRandomModel(nrDoFs);
     kinDyn->loadRobotModel(model);
-    auto paramHandler
-        = std::make_shared<BipedalLocomotion::ParametersHandler::YarpImplementation>();
-    auto gravityTaskParamHandler
-        = std::make_shared<BipedalLocomotion::ParametersHandler::YarpImplementation>();
-    auto FloorContactTaskParamHandler
-        = std::make_shared<BipedalLocomotion::ParametersHandler::YarpImplementation>();
+    auto paramHandler = std::make_shared<BipedalLocomotion::ParametersHandler::YarpImplementation>();
+    auto gravityTaskParamHandler = std::make_shared<BipedalLocomotion::ParametersHandler::YarpImplementation>();
+    auto FloorContactTaskParamHandler = std::make_shared<BipedalLocomotion::ParametersHandler::YarpImplementation>();
 
     REQUIRE(paramHandler->setFromFile(getConfigPath() + "/configTestIK.ini"));
 
@@ -57,7 +54,7 @@ TEST_CASE("InverseKinematics test")
     REQUIRE(ik.updateOrientationTask(3, I_R_IMU, I_omega_IMU));
     REQUIRE(ik.updateFloorContactTask(10, 11.0));
     REQUIRE(ik.updateGravityTask(10, I_R_IMU));
-    REQUIRE(ik.updateOrientationGravityTasks(mapNodeData));
+    REQUIRE(ik.updateOrientationAndGravityTasks(mapNodeData));
     REQUIRE(ik.updateJointConstraintsTask());
     REQUIRE(ik.updateJointRegularizationTask());
     REQUIRE(ik.advance());
