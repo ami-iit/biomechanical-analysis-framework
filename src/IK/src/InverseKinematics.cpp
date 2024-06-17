@@ -245,10 +245,10 @@ bool HumanIK::updateJointConstraintsTask()
     return m_jointConstraintsTask->update();
 }
 
-bool HumanIK::updateOrientationGravityTasks(std::unordered_map<int, nodeData> nodeStruct)
+bool HumanIK::updateOrientationAndGravityTasks(const std::unordered_map<int, nodeData>& nodeStruct)
 {
     // Update the orientation and gravity tasks
-    for (const auto & [ node, data ] : nodeStruct)
+    for (const auto& [node, data] : nodeStruct)
     {
         if (m_OrientationTasks.find(node) != m_OrientationTasks.end())
         {
@@ -273,6 +273,21 @@ bool HumanIK::updateOrientationGravityTasks(std::unordered_map<int, nodeData> no
         {
             BiomechanicalAnalysis::log()->error("[HumanIK::updateOrientationGravityTasks] "
                                                 "Invalid node number {}.",
+                                                node);
+            return false;
+        }
+    }
+    return true;
+}
+
+bool HumanIK::updateFloorContactTasks(const std::unordered_map<int, Eigen::Matrix<double, 6, 1>>& wrenchMap)
+{
+    for (const auto& [node, data] : wrenchMap)
+    {
+        if (!updateFloorContactTask(node, data(5)))
+        {
+            BiomechanicalAnalysis::log()->error("[HumanIK::updateFloorContactTasks] Error in updating "
+                                                "the floor contact task of node {}",
                                                 node);
             return false;
         }
@@ -307,7 +322,7 @@ bool HumanIK::TPoseCalibrationNode(const int node, const manif::SO3d& I_R_IMU)
 bool HumanIK::TPoseCalibrationNodes(std::unordered_map<int, nodeData> nodeStruct)
 {
     // Update the orientation and gravity tasks
-    for (const auto & [ node, data ] : nodeStruct)
+    for (const auto& [node, data] : nodeStruct)
     {
         if (!TPoseCalibrationNode(node, data.I_R_IMU))
         {
@@ -365,7 +380,7 @@ bool HumanIK::advance()
     }
 
     // Get the solution (base position, base rotation, joint positions) from the integrator
-    const auto & [ basePosition, baseRotation, jointPosition ] = m_system.integrator->getSolution();
+    const auto& [basePosition, baseRotation, jointPosition] = m_system.integrator->getSolution();
     // Update the base pose and joint positions
     m_basePose.topRightCorner<3, 1>() = basePosition;
     m_basePose.topLeftCorner<3, 3>() = baseRotation.rotation();

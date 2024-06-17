@@ -389,7 +389,19 @@ public:
      */
     bool updateJointConstraintsTask();
 
-    bool updateOrientationGravityTasks(std::unordered_map<int, nodeData> nodeStruct);
+    /**
+     * update the orientation for all the nodes of the SO3 and gravity tasks
+     * @param nodeStruct unordered map containing the node number and the calibration matrix
+     * @return true if the calibration matrix is set correctly
+     */
+    bool updateOrientationAndGravityTasks(const std::unordered_map<int, nodeData>& nodeStruct);
+
+    /**
+     * update the floor contact task for all the nodes
+     * @param footInContact unordered map containing the node number and the vertical force
+     * @return true if the calibration matrix is set correctly
+     */
+    bool updateFloorContactTasks(const std::unordered_map<int, Eigen::Matrix<double, 6, 1>>& wrenchMap);
 
     /**
      * set the calibration matrix between the IMU and the link
