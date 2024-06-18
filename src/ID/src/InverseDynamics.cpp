@@ -10,25 +10,30 @@ bool HumanID::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
                          std::shared_ptr<iDynTree::KinDynComputations> kinDyn)
 {
 
-    constexpr auto logPrefix = "[HumanID::intizialize]";
+    // Log prefix for this class
+    constexpr auto logPrefix = "[HumanID::initialize]";
+
+    // Get the parameters handler pointer
     auto ptr = handler.lock();
 
+    // Retrieve the 'humanMass' parameter and check if it's obtained successfully
     if (!ptr->getParameter("humanMass", m_humanMass))
     {
         BiomechanicalAnalysis::log()->error("{} Error getting the 'humanMass' parameter.", logPrefix);
         return false;
     }
 
-    // Check the validity of the kinDyn object
+    // Check the validity of the passed kinDyn object
     if ((kinDyn == nullptr) || (!kinDyn->isValid()))
     {
         BiomechanicalAnalysis::log()->error("{} Invalid kinDyn object.", logPrefix);
         return false;
     }
 
+    // Assign the passed kinDyn object
     m_kinDyn = kinDyn;
 
-    // check if the model path is provided and load the model otherwise use the kinDyn object passed
+    // Check if the model path is provided and load the model if present, otherwise use the kinDyn object
     iDynTree::ModelLoader loader;
     std::string urdfModel;
     if (ptr->getParameter("urdfModel", urdfModel))
@@ -41,8 +46,11 @@ bool HumanID::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
         }
         m_modelPath = urdfOpt.value();
         std::vector<std::string> jointsList;
+
+        // Retrieve the joints list if available
         if (ptr->getParameter("jointsList", jointsList))
         {
+            // Load the reduced model from file with the specified joints list
             if (!loader.loadReducedModelFromFile(m_modelPath, jointsList))
             {
                 BiomechanicalAnalysis::log()->error("{} Error loading the model from file {}.", logPrefix, m_modelPath);
@@ -50,10 +58,12 @@ bool HumanID::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
             }
         } else
         {
-            BiomechanicalAnalysis::log()->warn("{} Parameter 'jointsList' not found in the "
-                                               "configuration file, loading the model with all the "
-                                               "joints.",
+            // Warning if 'jointsList' parameter is not found in the configuration file, load the model with all joints
+            BiomechanicalAnalysis::log()->warn("{} Parameter 'jointsList' not found in the configuration file, loading the model with all "
+                                               "the joints.",
                                                logPrefix);
+
+            // Load the full model from file
             if (!loader.loadModelFromFile(m_modelPath))
             {
                 BiomechanicalAnalysis::log()->error("{} Error loading the model from file {}.", logPrefix, m_modelPath);
@@ -61,19 +71,23 @@ bool HumanID::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
             }
         }
 
+        // Initialize m_kinDynFullModel with the loaded model
         m_kinDynFullModel = std::make_shared<iDynTree::KinDynComputations>();
         if (!m_kinDynFullModel->loadRobotModel(loader.model()))
         {
             BiomechanicalAnalysis::log()->error("{} Error loading the model from file {}.", logPrefix, m_modelPath);
             return false;
         }
+
+        // Set the floating base for m_kinDynFullModel
         m_kinDynFullModel->setFloatingBase(m_kinDyn->getFloatingBase());
         m_useFullModel = true;
     } else
     {
-        BiomechanicalAnalysis::log()->warn("{} Error getting the 'urdfModel' parameter, using the "
-                                           "default model.",
-                                           logPrefix);
+        // Warning if 'modelPath' parameter couldn't be retrieved, use the default model
+        BiomechanicalAnalysis::log()->warn("{} Error getting the modelPath parameter, using the default model.", logPrefix);
+
+        // Set m_useFullModel to false and m_kinDynFullModel to m_kinDyn
         m_useFullModel = false;
         m_kinDynFullModel = m_kinDyn;
     }
@@ -87,7 +101,7 @@ bool HumanID::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
     m_kinState.baseAngularVelocity.zero();
     m_jointTorquesHelper.estimatedJointTorques.resize(m_kinDynFullModel->model().getNrOfDOFs());
 
-    // Get the group handlers for initializing the MAPHelper m_jointTorquesHelper object
+    // Get the group handler for 'JOINT_TORQUES' to initialize the MAPHelper m_jointTorquesHelper object
     auto jointTorquesHandler = ptr->getGroup("JOINT_TORQUES").lock();
     if (jointTorquesHandler == nullptr)
     {
@@ -159,20 +173,29 @@ bool HumanID::updateExtWrenchesMeasurements(const std::unordered_map<std::string
     }
 
     // Update the measurement vector with the measurements of the wrenches
-    m_extWrenchesEstimator.measurement.zero();
+    m_extWrenchesEstimator.measurement.zero(); // Reset the measurement vector to zero
+
+    // Iterate over each wrench source and update the measurement vector accordingly
     for (int i = 0; i < m_wrenchSources.size(); i++)
     {
+        // If the wrench source type is Dummy, update its output frame rotation in the source
         if (m_wrenchSources[i].type == WrenchSourceType::Dummy)
         {
+            // Update the rotation of the output frame using the current world transform
             m_wrenchSources[i].outputFrameTransform.setRotation(
                 m_kinDynFullModel->getWorldTransform(m_wrenchSources[i].outputFrame).getRotation());
-        } else if (m_wrenchSources[i].type == WrenchSourceType::Fixed)
+        }
+        // If the wrench source type is Fixed, compute the wrench and update the measurement vector
+        else if (m_wrenchSources[i].type == WrenchSourceType::Fixed)
         {
+            // Check if the wrench exists in the provided wrenches map
             if (wrenches.find(m_wrenchSources[i].outputFrame) == wrenches.end())
             {
                 BiomechanicalAnalysis::log()->error("{} Wrench {} not found.", logPrefix, m_wrenchSources[i].outputFrame);
                 return false;
             }
+
+            // Compute the wrench in the output frame's transformed coordinate system
             m_wrenchSources[i].wrench = m_wrenchSources[i].outputFrameTransform * wrenches.at(m_wrenchSources[i].outputFrame);
             iDynTree::Wrench wrenchMeas = m_wrenchSources[i].outputFrameTransform * wrenches.at(m_wrenchSources[i].outputFrame);
             iDynTree::LinkIndex linkIndex = m_extWrenchesEstimator.berdyHelper.model().getLinkIndex(m_wrenchSources[i].outputFrame);
@@ -182,25 +205,34 @@ bool HumanID::updateExtWrenchesMeasurements(const std::unordered_map<std::string
                 return false;
             }
 
+            // Determine the range of indices in the measurement vector for this sensor
             iDynTree::IndexRange sensorRange
                 = m_extWrenchesEstimator.berdyHelper.getRangeLinkSensorVariable(iDynTree::BerdySensorTypes::NET_EXT_WRENCH_SENSOR,
                                                                                 m_kinDynFullModel->getFrameIndex(
                                                                                     m_wrenchSources[i].outputFrame));
+
+            // Update the measurement vector with the computed wrench components
             for (int j = 0; j < 6; j++)
             {
                 m_extWrenchesEstimator.measurement(sensorRange.offset + j) = m_wrenchSources[i].wrench(j);
             }
         }
     }
+
+    // Compute the reaction wrench at the Centroidal Moment Pivot (RCM) in the base frame
     iDynTree::SpatialForceVector rcmWrench = computeRCMInBaseFrame();
+
+    // Determine the range of indices in the measurement vector for the RCM sensor
     iDynTree::IndexRange rcmSensorRange
         = m_extWrenchesEstimator.berdyHelper.getRangeRCMSensorVariable(iDynTree::BerdySensorTypes::RCM_SENSOR);
+
+    // Update the measurement vector with the computed RCM wrench components
     for (int i = 0; i < 6; i++)
     {
         m_extWrenchesEstimator.measurement(rcmSensorRange.offset + i) = rcmWrench(i);
     }
 
-    return true;
+    return true; // Return true indicating successful update of the measurement vector
 }
 
 bool HumanID::solve()
@@ -507,6 +539,7 @@ bool HumanID::initializeExtWrenchesHelper(const std::shared_ptr<BipedalLocomotio
 {
     constexpr auto logPrefix = "[HumanID::intizialize::initializeExtWrenchesHelper]";
 
+    // Retrieve wrench sources from parameter handler
     std::vector<std::string> wrenchSource;
     if (!groupHandler->getParameter("wrenchSources", wrenchSource))
     {
@@ -514,6 +547,7 @@ bool HumanID::initializeExtWrenchesHelper(const std::shared_ptr<BipedalLocomotio
         return false;
     }
 
+    // Iterate over each wrench source
     for (auto& wrench : wrenchSource)
     {
         WrenchSourceData data;
@@ -523,11 +557,15 @@ bool HumanID::initializeExtWrenchesHelper(const std::shared_ptr<BipedalLocomotio
             BiomechanicalAnalysis::log()->error("{} Error getting the wrench group {}.", logPrefix, wrench);
             return false;
         }
+
+        // Get output frame name
         if (!wrenchHandler->getParameter("outputFrame", data.outputFrame))
         {
             BiomechanicalAnalysis::log()->error("{} Error getting the name parameter.", logPrefix);
             return false;
         }
+
+        // Determine type of wrench source (fixed or dummy)
         std::string type;
         if (!wrenchHandler->getParameter("type", type))
         {
@@ -548,8 +586,10 @@ bool HumanID::initializeExtWrenchesHelper(const std::shared_ptr<BipedalLocomotio
             return false;
         }
 
+        // Process based on the type of wrench source
         if (data.type == WrenchSourceType::Fixed)
         {
+            // Get position and orientation parameters
             std::vector<double> position, orientation;
             if (!wrenchHandler->getParameter("position", position))
             {
@@ -578,6 +618,7 @@ bool HumanID::initializeExtWrenchesHelper(const std::shared_ptr<BipedalLocomotio
             data.outputFrameTransform = iDynTree::Transform(orientationIDynTree, positionIDynTree);
         } else if (data.type == WrenchSourceType::Dummy)
         {
+            // Get values for dummy wrench
             std::vector<double> values;
             if (!wrenchHandler->getParameter("values", values))
             {
@@ -589,10 +630,15 @@ bool HumanID::initializeExtWrenchesHelper(const std::shared_ptr<BipedalLocomotio
                 data.wrench(i) = values[i];
             }
         }
+
+        // Add the processed wrench source data to the list
         m_wrenchSources.push_back(data);
     }
+
+    // Resize estimated external wrenches based on the number of sources
     m_estimatedExtWrenches.resize(m_wrenchSources.size());
 
+    // Retrieve parameters related to external wrench estimation
     if (!groupHandler->getParameter("mu_dyn_variables", m_extWrenchesEstimator.params.priorDynamicsRegularizationExpected))
     {
         BiomechanicalAnalysis::log()->error("{} Error getting the 'mu_dyn_variables' parameter.", logPrefix);
@@ -605,6 +651,7 @@ bool HumanID::initializeExtWrenchesHelper(const std::shared_ptr<BipedalLocomotio
         return false;
     }
 
+    // Retrieve specific elements and their covariances
     std::vector<std::string> specificElements;
     if (!groupHandler->getParameter("specificElements", specificElements))
     {
@@ -612,6 +659,7 @@ bool HumanID::initializeExtWrenchesHelper(const std::shared_ptr<BipedalLocomotio
         return false;
     }
 
+    // Store covariances of specific measurements
     for (auto& element : specificElements)
     {
         std::vector<double> covariance;
@@ -623,6 +671,7 @@ bool HumanID::initializeExtWrenchesHelper(const std::shared_ptr<BipedalLocomotio
         m_extWrenchesEstimator.params.specificMeasurementsCovariance[element] = covariance;
     }
 
+    // Retrieve covariance for RCM_SENSOR measurements
     if (!groupHandler->getParameter("cov_measurements_RCM_SENSOR",
                                     m_extWrenchesEstimator.params.specificMeasurementsCovariance["RCM_"
                                                                                                  "SENSOR"]))
@@ -633,6 +682,7 @@ bool HumanID::initializeExtWrenchesHelper(const std::shared_ptr<BipedalLocomotio
         return false;
     }
 
+    // Retrieve default covariance for measurements
     if (!groupHandler->getParameter("default_cov_measurements", m_extWrenchesEstimator.params.measurementDefaultCovariance))
     {
         BiomechanicalAnalysis::log()->error("{} Error getting the 'default_cov_measurements' "
@@ -641,6 +691,7 @@ bool HumanID::initializeExtWrenchesHelper(const std::shared_ptr<BipedalLocomotio
         return false;
     }
 
+    // Initialize BerdyOptions for external wrenches
     iDynTree::BerdyOptions berdyOptionsExtWrenches;
     berdyOptionsExtWrenches.berdyVariant = iDynTree::BerdyVariants::BERDY_FLOATING_BASE_NON_COLLOCATED_EXT_WRENCHES;
     berdyOptionsExtWrenches.includeAllNetExternalWrenchesAsSensors = true;
@@ -649,6 +700,7 @@ bool HumanID::initializeExtWrenchesHelper(const std::shared_ptr<BipedalLocomotio
     berdyOptionsExtWrenches.includeAllNetExternalWrenchesAsSensors = true;
     berdyOptionsExtWrenches.includeAllNetExternalWrenchesAsDynamicVariables = true;
 
+    // Check consistency of BerdyOptions
     if (!berdyOptionsExtWrenches.checkConsistency())
     {
         BiomechanicalAnalysis::log()->error("{} Error in the consistency of the BerdyOptions "
@@ -657,14 +709,15 @@ bool HumanID::initializeExtWrenchesHelper(const std::shared_ptr<BipedalLocomotio
         return false;
     }
 
+    // Initialize BerdyHelper for external wrenches
     if (!m_extWrenchesEstimator.berdyHelper.init(m_kinDynFullModel->getRobotModel(), berdyOptionsExtWrenches))
     {
         BiomechanicalAnalysis::log()->error("{} Error initializing the BerdyHelper object.", logPrefix);
         return false;
     }
 
+    // Initialize BerdySparseMAPSolver for external wrenches
     m_extWrenchesEstimator.berdySolver = std::make_unique<iDynTree::BerdySparseMAPSolver>(m_extWrenchesEstimator.berdyHelper);
-
     if (!m_extWrenchesEstimator.berdySolver->initialize())
     {
         BiomechanicalAnalysis::log()->error("{} Error initializing the BerdySparseMAPSolver "
@@ -673,18 +726,19 @@ bool HumanID::initializeExtWrenchesHelper(const std::shared_ptr<BipedalLocomotio
         return false;
     }
 
+    // Set the prior covariance for the external wrench measurements
     iDynTree::Triplets measurementsCovarianceMatrixTriplets;
     for (const iDynTree::BerdySensor& berdySensor : m_extWrenchesEstimator.berdyHelper.getSensorsOrdering())
     {
         switch (berdySensor.type)
         {
         case iDynTree::BerdySensorTypes::NET_EXT_WRENCH_SENSOR: {
-            // initialize with default covariance
+            // Initialize with default covariance
             iDynTree::Vector6 wrenchCovariance;
             for (int i = 0; i < 6; i++)
                 wrenchCovariance.setVal(i, m_extWrenchesEstimator.params.measurementDefaultCovariance);
 
-            // set specific covariance if configured
+            // Set specific covariance if configured
             auto specificMeasurementsPtr = m_extWrenchesEstimator.params.specificMeasurementsCovariance.find(berdySensor.id);
             if (specificMeasurementsPtr != m_extWrenchesEstimator.params.specificMeasurementsCovariance.end())
             {
@@ -692,6 +746,7 @@ bool HumanID::initializeExtWrenchesHelper(const std::shared_ptr<BipedalLocomotio
                     wrenchCovariance.setVal(i, specificMeasurementsPtr->second[i]);
             }
 
+            // Store triplet for the measurements covariance matrix
             for (std::size_t i = 0; i < 6; i++)
                 measurementsCovarianceMatrixTriplets.setTriplet(
                     {berdySensor.range.offset + i, berdySensor.range.offset + i, wrenchCovariance[i]});
@@ -712,6 +767,8 @@ bool HumanID::initializeExtWrenchesHelper(const std::shared_ptr<BipedalLocomotio
             break;
         }
     }
+
+    // Set the prior covariance matrix for measurements
     iDynTree::SparseMatrix<iDynTree::ColumnMajor> measurementsPriorCovarianceMatrix;
     std::size_t sigmaYSize = m_extWrenchesEstimator.berdyHelper.getNrOfSensorsMeasurements();
     measurementsPriorCovarianceMatrix.resize(sigmaYSize, sigmaYSize);
@@ -719,14 +776,14 @@ bool HumanID::initializeExtWrenchesHelper(const std::shared_ptr<BipedalLocomotio
     measurementsPriorCovarianceMatrix.setFromTriplets(measurementsCovarianceMatrixTriplets);
     m_extWrenchesEstimator.berdySolver->setMeasurementsPriorCovariance(measurementsPriorCovarianceMatrix);
 
-    // Set mu_d
+    // Set mu_d (expected value for dynamics regularization)
     iDynTree::VectorDynSize dynamicsRegularizationExpectedValueVector;
     dynamicsRegularizationExpectedValueVector.resize(m_extWrenchesEstimator.berdyHelper.getNrOfDynamicVariables());
     for (std::size_t i = 0; i < dynamicsRegularizationExpectedValueVector.size(); i++)
         dynamicsRegularizationExpectedValueVector.setVal(i, m_extWrenchesEstimator.params.priorDynamicsRegularizationExpected);
     m_extWrenchesEstimator.berdySolver->setDynamicsRegularizationPriorExpectedValue(dynamicsRegularizationExpectedValueVector);
 
-    // set Sigma_d
+    // Set Sigma_d (covariance matrix for dynamics regularization)
     iDynTree::Triplets priorDynamicsRegularizationCovarianceMatrixTriplets;
     std::size_t sigmaDSize = m_extWrenchesEstimator.berdyHelper.getNrOfDynamicVariables();
     for (std::size_t i = 0; i < sigmaDSize; i++)
@@ -739,6 +796,7 @@ bool HumanID::initializeExtWrenchesHelper(const std::shared_ptr<BipedalLocomotio
     priorDynamicsRegularizationCovarianceMatrix.setFromTriplets(priorDynamicsRegularizationCovarianceMatrixTriplets);
     m_extWrenchesEstimator.berdySolver->setDynamicsRegularizationPriorCovariance(priorDynamicsRegularizationCovarianceMatrix);
 
+    // Check validity of BerdySolver initialization
     if (!m_extWrenchesEstimator.berdySolver->isValid())
     {
         BiomechanicalAnalysis::log()->error("{} Error in the initialization of the BerdySolver.", logPrefix);
@@ -750,6 +808,7 @@ bool HumanID::initializeExtWrenchesHelper(const std::shared_ptr<BipedalLocomotio
 
 iDynTree::SpatialForceVector HumanID::computeRCMInBaseFrame()
 {
+    // Initialize RCM wrench and world gravity vector
     iDynTree::SpatialForceVector rcmWrench;
     rcmWrench.zero();
     iDynTree::Vector3 world_gravity;
@@ -759,9 +818,12 @@ iDynTree::SpatialForceVector HumanID::computeRCMInBaseFrame()
     iDynTree::SpatialForceVector subjectWeightInCentroidal(world_gravity, iDynTree::AngularForceVector3(0.0, 0.0, 0.0));
     subjectWeightInCentroidal = subjectWeightInCentroidal * (-m_humanMass);
 
+    // Compute transformation from base frame to centroidal frame
     iDynTree::Transform base_H_centroidal;
     base_H_centroidal.setPosition(m_kinDyn->getCenterOfMassPosition() - m_kinDyn->getWorldBaseTransform().getPosition());
     base_H_centroidal.setRotation(m_kinDyn->getWorldBaseTransform().getRotation().inverse());
+
+    // Compute RCM wrench in base frame
     rcmWrench = rcmWrench + base_H_centroidal * subjectWeightInCentroidal;
 
     return rcmWrench;
