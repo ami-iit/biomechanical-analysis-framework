@@ -203,7 +203,7 @@ bool HumanIK::updateFloorContactTask(const int node, const double verticalForce)
     // check if the node number is valid
     if (m_FloorContactTasks.find(node) == m_FloorContactTasks.end())
     {
-        BiomechanicalAnalysis::log()->error("[HumanIK::setNodeSetPoint] Invalid node number.");
+        BiomechanicalAnalysis::log()->error("[HumanIK::updateFloorContactTask] Invalid node number.");
         return false;
     }
 
