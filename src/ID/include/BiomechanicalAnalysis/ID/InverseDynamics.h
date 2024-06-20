@@ -18,8 +18,6 @@
 #include <BipedalLocomotion/ParametersHandler/IParametersHandler.h>
 #include <BipedalLocomotion/ParametersHandler/StdImplementation.h>
 
-#include <ResolveRoboticsURICpp.h>
-
 namespace BiomechanicalAnalysis
 {
 namespace ID
