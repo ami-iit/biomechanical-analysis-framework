@@ -29,8 +29,16 @@ bool HumanID::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
 
     // check if the model path is provided and load the model otherwise use the kinDyn object passed
     iDynTree::ModelLoader loader;
-    if (ptr->getParameter("modelPath", m_modelPath))
+    std::string urdfModel;
+    if (ptr->getParameter("urdfModel", urdfModel))
     {
+        std::optional<std::string> urdfOpt = ResolveRoboticsURICpp::resolveRoboticsURI(urdfModel);
+        if (!urdfOpt.has_value())
+        {
+            BiomechanicalAnalysis::log()->error("Cannot resolve the URDF file");
+            return false;
+        }
+        m_modelPath = urdfOpt.value();
         std::vector<std::string> jointsList;
         if (ptr->getParameter("jointsList", jointsList))
         {
@@ -62,7 +70,7 @@ bool HumanID::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
         m_useFullModel = true;
     } else
     {
-        BiomechanicalAnalysis::log()->warn("{} Error getting the modelPath parameter, using the "
+        BiomechanicalAnalysis::log()->warn("{} Error getting the 'urdfModel' parameter, using the "
                                            "default model.",
                                            logPrefix);
         m_useFullModel = false;
