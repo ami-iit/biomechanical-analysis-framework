@@ -11,7 +11,12 @@ project(BiomechanicalAnalysisFramework
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
-option(BUILD_SHARED_LIBS "Build libraries as shared as opposed to static" ON)
+# Libraries type
+if(MSVC)
+    option(BUILD_SHARED_LIBS "Build libraries as shared as opposed to static" OFF)
+else()
+    option(BUILD_SHARED_LIBS "Build libraries as shared as opposed to static" ON)
+endif()
 
 option(BUILD_TESTING "Create tests using CMake" OFF)
 include(CTest)
