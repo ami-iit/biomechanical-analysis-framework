@@ -1,5 +1,6 @@
 #include <BiomechanicalAnalysis/ID/InverseDynamics.h>
 #include <BiomechanicalAnalysis/Logging/Logger.h>
+#include <ResolveRoboticsURICpp.h>
 #include <iDynTree/EigenHelpers.h>
 #include <iDynTree/ModelLoader.h>
 
