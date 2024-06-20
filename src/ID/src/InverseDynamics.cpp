@@ -1,5 +1,7 @@
 #include <BiomechanicalAnalysis/ID/InverseDynamics.h>
 #include <BiomechanicalAnalysis/Logging/Logger.h>
+#include <ResolveRoboticsURICpp.h>
+#include <iDynTree/EigenHelpers.h>
 #include <iDynTree/ModelLoader.h>
 
 using namespace BiomechanicalAnalysis::ID;
@@ -28,8 +30,16 @@ bool HumanID::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
 
     // check if the model path is provided and load the model otherwise use the kinDyn object passed
     iDynTree::ModelLoader loader;
-    if (ptr->getParameter("modelPath", m_modelPath))
+    std::string urdfModel;
+    if (ptr->getParameter("urdfModel", urdfModel))
     {
+        std::optional<std::string> urdfOpt = ResolveRoboticsURICpp::resolveRoboticsURI(urdfModel);
+        if (!urdfOpt.has_value())
+        {
+            BiomechanicalAnalysis::log()->error("Cannot resolve the URDF file");
+            return false;
+        }
+        m_modelPath = urdfOpt.value();
         std::vector<std::string> jointsList;
         if (ptr->getParameter("jointsList", jointsList))
         {
@@ -61,7 +71,7 @@ bool HumanID::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
         m_useFullModel = true;
     } else
     {
-        BiomechanicalAnalysis::log()->warn("{} Error getting the modelPath parameter, using the "
+        BiomechanicalAnalysis::log()->warn("{} Error getting the 'urdfModel' parameter, using the "
                                            "default model.",
                                            logPrefix);
         m_useFullModel = false;
@@ -164,6 +174,13 @@ bool HumanID::updateExtWrenchesMeasurements(const std::unordered_map<std::string
                 return false;
             }
             m_wrenchSources[i].wrench = m_wrenchSources[i].outputFrameTransform * wrenches.at(m_wrenchSources[i].outputFrame);
+            iDynTree::Wrench wrenchMeas = m_wrenchSources[i].outputFrameTransform * wrenches.at(m_wrenchSources[i].outputFrame);
+            iDynTree::LinkIndex linkIndex = m_extWrenchesEstimator.berdyHelper.model().getLinkIndex(m_wrenchSources[i].outputFrame);
+            if (linkIndex == iDynTree::LINK_INVALID_INDEX)
+            {
+                BiomechanicalAnalysis::log()->error("{} Link {} not found.", logPrefix, m_wrenchSources[i].outputFrame);
+                return false;
+            }
 
             iDynTree::IndexRange sensorRange
                 = m_extWrenchesEstimator.berdyHelper.getRangeLinkSensorVariable(iDynTree::BerdySensorTypes::NET_EXT_WRENCH_SENSOR,
@@ -282,6 +299,17 @@ bool HumanID::solve()
 iDynTree::VectorDynSize HumanID::getJointTorques()
 {
     return m_jointTorquesHelper.estimatedJointTorques;
+}
+
+void HumanID::getJointTorques(Eigen::Ref<Eigen::VectorXd> jointTorques)
+{
+    if (jointTorques.size() != m_kinDynFullModel->model().getNrOfDOFs())
+    {
+        BiomechanicalAnalysis::log()->error("[HumanID::getJointTorques] The size of the input vector "
+                                            "is different from the number of DOFs of the model.");
+        return;
+    }
+    jointTorques = iDynTree::toEigen(m_jointTorquesHelper.estimatedJointTorques);
 }
 
 std::vector<std::string> HumanID::getJointsList()

@@ -163,6 +163,8 @@ public:
      */
     iDynTree::VectorDynSize getJointTorques();
 
+    void getJointTorques(Eigen::Ref<Eigen::VectorXd> jointTorques);
+
     /**
      * @brief Function to get the list of the joints
      * @return vector of joint names
