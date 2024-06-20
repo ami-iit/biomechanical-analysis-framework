@@ -165,6 +165,13 @@ bool HumanID::updateExtWrenchesMeasurements(const std::unordered_map<std::string
                 return false;
             }
             m_wrenchSources[i].wrench = m_wrenchSources[i].outputFrameTransform * wrenches.at(m_wrenchSources[i].outputFrame);
+            iDynTree::Wrench wrenchMeas = m_wrenchSources[i].outputFrameTransform * wrenches.at(m_wrenchSources[i].outputFrame);
+            iDynTree::LinkIndex linkIndex = m_extWrenchesEstimator.berdyHelper.model().getLinkIndex(m_wrenchSources[i].outputFrame);
+            if (linkIndex == iDynTree::LINK_INVALID_INDEX)
+            {
+                BiomechanicalAnalysis::log()->error("{} Link {} not found.", logPrefix, m_wrenchSources[i].outputFrame);
+                return false;
+            }
 
             iDynTree::IndexRange sensorRange
                 = m_extWrenchesEstimator.berdyHelper.getRangeLinkSensorVariable(iDynTree::BerdySensorTypes::NET_EXT_WRENCH_SENSOR,
