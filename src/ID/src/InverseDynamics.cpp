@@ -1,5 +1,6 @@
 #include <BiomechanicalAnalysis/ID/InverseDynamics.h>
 #include <BiomechanicalAnalysis/Logging/Logger.h>
+#include <iDynTree/EigenHelpers.h>
 #include <iDynTree/ModelLoader.h>
 
 using namespace BiomechanicalAnalysis::ID;
@@ -282,6 +283,17 @@ bool HumanID::solve()
 iDynTree::VectorDynSize HumanID::getJointTorques()
 {
     return m_jointTorquesHelper.estimatedJointTorques;
+}
+
+void HumanID::getJointTorques(Eigen::Ref<Eigen::VectorXd> jointTorques)
+{
+    if (jointTorques.size() != m_kinDynFullModel->model().getNrOfDOFs())
+    {
+        BiomechanicalAnalysis::log()->error("[HumanID::getJointTorques] The size of the input vector "
+                                            "is different from the number of DOFs of the model.");
+        return;
+    }
+    jointTorques = iDynTree::toEigen(m_jointTorquesHelper.estimatedJointTorques);
 }
 
 std::vector<std::string> HumanID::getJointsList()
