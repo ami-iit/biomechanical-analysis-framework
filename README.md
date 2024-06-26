@@ -21,7 +21,7 @@ The second option is to install the dependencies via [robotology-superbuild](htt
    - `ROBOTOLOGY_ENABLE_DYNAMICS_FULL_DEPS`;
    - `ROBOTOLOGY_ENABLE_ICUB_HEAD`;
 
-## Instal
+## Install
 
 Clone the repo (if not already done to install the dependencies) and create a `build` directory
 
