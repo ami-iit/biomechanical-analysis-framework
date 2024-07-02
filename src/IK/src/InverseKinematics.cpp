@@ -9,6 +9,13 @@ using namespace BipedalLocomotion::ContinuousDynamicalSystem;
 using namespace BipedalLocomotion::Conversions;
 using namespace std::chrono_literals;
 
+constexpr size_t WRENCH_FORCE_X = 0;
+constexpr size_t WRENCH_FORCE_Y = 1;
+constexpr size_t WRENCH_FORCE_Z = 2;
+constexpr size_t WRENCH_TORQUE_X = 3;
+constexpr size_t WRENCH_TORQUE_Y = 4;
+constexpr size_t WRENCH_TORQUE_Z = 5;
+
 bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandler::IParametersHandler> handler,
                          std::shared_ptr<iDynTree::KinDynComputations> kinDyn)
 {
@@ -203,7 +210,7 @@ bool HumanIK::updateFloorContactTask(const int node, const double verticalForce)
     // check if the node number is valid
     if (m_FloorContactTasks.find(node) == m_FloorContactTasks.end())
     {
-        BiomechanicalAnalysis::log()->error("[HumanIK::setNodeSetPoint] Invalid node number.");
+        BiomechanicalAnalysis::log()->error("[HumanIK::updateFloorContactTask] Invalid node number.");
         return false;
     }
 
@@ -284,7 +291,7 @@ bool HumanIK::updateFloorContactTasks(const std::unordered_map<int, Eigen::Matri
 {
     for (const auto& [node, data] : wrenchMap)
     {
-        if (!updateFloorContactTask(node, data(5)))
+        if (!updateFloorContactTask(node, data(WRENCH_FORCE_Z)))
         {
             BiomechanicalAnalysis::log()->error("[HumanIK::updateFloorContactTasks] Error in updating "
                                                 "the floor contact task of node {}",
