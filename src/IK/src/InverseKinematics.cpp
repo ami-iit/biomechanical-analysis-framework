@@ -284,7 +284,7 @@ bool HumanIK::updateFloorContactTasks(const std::unordered_map<int, Eigen::Matri
 {
     for (const auto& [node, data] : wrenchMap)
     {
-        if (!updateFloorContactTask(node, data(5)))
+        if (!updateFloorContactTask(node, data(2)))
         {
             BiomechanicalAnalysis::log()->error("[HumanIK::updateFloorContactTasks] Error in updating "
                                                 "the floor contact task of node {}",
