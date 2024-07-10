@@ -501,7 +501,7 @@ bool HumanIK::initializeOrientationTask(const std::string& taskName,
     }
 
     // Map weight vector to Eigen::Vector3d and assign it to the corresponding task
-    m_FloorContactTasks[nodeNumber].weight = Eigen::Map<Eigen::Vector3d>(weight.data());
+    m_OrientationTasks[nodeNumber].weight = Eigen::Map<Eigen::Vector3d>(weight.data());
 
     // Set node number for the orientation task
     m_OrientationTasks[nodeNumber].nodeNumber = nodeNumber;
@@ -539,7 +539,7 @@ bool HumanIK::initializeOrientationTask(const std::string& taskName,
     ok = ok && m_OrientationTasks[nodeNumber].task->initialize(taskHandler);
 
     // Add the orientation task to the QP solver
-    ok = ok && m_qpIK.addTask(m_OrientationTasks[nodeNumber].task, taskName, 1, m_FloorContactTasks[nodeNumber].weight);
+    ok = ok && m_qpIK.addTask(m_OrientationTasks[nodeNumber].task, taskName, 1, m_OrientationTasks[nodeNumber].weight);
 
     // Check if initialization was successful
     if (!ok)
