@@ -201,7 +201,7 @@ bool HumanIK::updateGravityTask(const int node, const manif::SO3d& I_R_IMU)
 
     // set the set point of the gravity task choosing the z direction of the W_R_link rotation
     // matrix
-    return m_GravityTasks[node].task->setSetPoint(I_R_link.rotation().rightCols(1));
+    return m_GravityTasks[node].task->setSetPoint((I_R_link.rotation().transpose().rightCols(1)));
 }
 
 bool HumanIK::updateFloorContactTask(const int node, const double verticalForce)
