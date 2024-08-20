@@ -213,6 +213,19 @@ bool HumanIK::updateFloorContactTask(const int node, const double verticalForce)
         BiomechanicalAnalysis::log()->error("[HumanIK::updateFloorContactTask] Invalid node number.");
         return false;
     }
+    if (m_tPose == true)
+    {
+        m_FloorContactTasks[node].footInContact = false;
+        Eigen::VectorXd jointPositions;
+        jointPositions.resize(this->getDoFsNumber());
+        jointPositions.setZero();
+        Eigen::Matrix4d basePose;
+        basePose.setIdentity();
+        Eigen::VectorXd baseVelocity;
+        baseVelocity.resize(6);
+        baseVelocity.setZero();
+        m_kinDyn->setRobotState(basePose, jointPositions, baseVelocity, m_jointVelocities, m_gravity);
+    }
 
     // if the vertical force is greater than the threshold and if the foot is not yet in contact,
     // set the weight of the associated task to the weight of the task and set the set point of the
