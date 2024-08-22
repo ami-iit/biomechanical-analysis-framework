@@ -199,7 +199,7 @@ bool HumanIK::updateGravityTask(const int node, const manif::SO3d& I_R_IMU)
     // W_R_link = W_R_WIMU * WIMU_R_IMU * IMU_R_link
     I_R_link = m_GravityTasks[node].calibrationMatrix * I_R_IMU * m_GravityTasks[node].IMU_R_link;
 
-    // set the set point of the gravity task choosing the z direction of the W_R_link rotation
+    // set the set point of the gravity task choosing the z direction of the link_R_W rotation
     // matrix
     return m_GravityTasks[node].task->setSetPoint((I_R_link.rotation().transpose().rightCols(1)));
 }
