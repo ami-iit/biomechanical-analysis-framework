@@ -135,6 +135,13 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
                 BiomechanicalAnalysis::log()->error("{} Error in the initialization of the {} task", logPrefix, task);
                 return false;
             }
+        } else if (taskType == "JointVelocityLimitsTask")
+        {
+            if (!initializeJointVelocityLimitsTask(task, taskHandler))
+            {
+                BiomechanicalAnalysis::log()->error("{} Error in the initialization of the {} task", logPrefix, task);
+                return false;
+            }
         } else
         {
             BiomechanicalAnalysis::log()->error("{} Invalid task type {}", logPrefix, taskType);
@@ -359,6 +366,7 @@ bool HumanIK::advance()
 {
     // Initialize ok flag to true
     bool ok{true};
+    // m_jointVelocityLimitsTask->update();
 
     // Advance the QP solver
     ok = ok && m_qpIK.advance();
@@ -903,6 +911,48 @@ bool HumanIK::initializeJointConstraintsTask(const std::string& taskName,
 
     // Add the joint constraints task to the QP solver
     ok = ok && m_qpIK.addTask(m_jointConstraintsTask, taskName, 0);
+
+    // Return true if initialization was successful, otherwise return false
+    return ok;
+}
+
+bool HumanIK::initializeJointVelocityLimitsTask(const std::string& taskName,
+                                                const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler)
+{
+    // Flag to indicate successful initialization
+    bool ok{true};
+
+    // Create a JointVelocityLimitsTask object for joint velocity limits
+    m_jointVelocityLimitsTask = std::make_shared<BipedalLocomotion::IK::JointVelocityLimitsTask>();
+    double upperLimit;
+    double lowerLimit;
+    if (!taskHandler->getParameter("upper_limit", upperLimit) || !taskHandler->getParameter("lower_limit", lowerLimit))
+    {
+        BiomechanicalAnalysis::log()->error("[HumanIK::initializeJointVelocityLimitsTask] "
+                                            "Parameter 'upper_limit' and/or 'lower_limit' of the {} task is missing",
+                                            taskName);
+        return false;
+    }
+    if (upperLimit < lowerLimit)
+    {
+        BiomechanicalAnalysis::log()->error("[HumanIK::initializeJointVelocityLimitsTask] "
+                                            "The upper limit is less than the lower limit");
+        return false;
+    }
+    std::vector<double> upperLimitsVec(m_kinDyn->getNrOfDegreesOfFreedom(), upperLimit);
+    std::vector<double> lowerLimitsVec(m_kinDyn->getNrOfDegreesOfFreedom(), lowerLimit);
+
+    taskHandler->setParameter("upper_limits", upperLimitsVec);
+    taskHandler->setParameter("lower_limits", lowerLimitsVec);
+
+    // Set the KinDyn object for the JointVelocityLimitsTask
+    ok = ok && m_jointVelocityLimitsTask->setKinDyn(m_kinDyn);
+
+    // Initialize the JointVelocityLimitsTask object
+    ok = ok && m_jointVelocityLimitsTask->initialize(taskHandler);
+
+    // Add the joint velocity limits task to the QP solver
+    ok = ok && m_qpIK.addTask(m_jointVelocityLimitsTask, taskName, 0);
 
     // Return true if initialization was successful, otherwise return false
     return ok;

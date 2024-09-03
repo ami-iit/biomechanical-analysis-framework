@@ -15,6 +15,7 @@
 #include <BipedalLocomotion/IK/GravityTask.h>
 #include <BipedalLocomotion/IK/JointLimitsTask.h>
 #include <BipedalLocomotion/IK/JointTrackingTask.h>
+#include <BipedalLocomotion/IK/JointVelocityLimitsTask.h>
 #include <BipedalLocomotion/IK/QPInverseKinematics.h>
 #include <BipedalLocomotion/IK/R3Task.h>
 #include <BipedalLocomotion/IK/SO3Task.h>
@@ -86,6 +87,15 @@ private:
      */
     bool initializeJointConstraintsTask(const std::string& taskName,
                                         const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
+
+    /**
+     * Initialize the joints velocity limit task.
+     * @param taskName Name of the task.
+     * @param taskHandler Pointer to the parameters handler.
+     * @return True if the joint velocity limits task is initialized correctly, false otherwise.
+     */
+    bool initializeJointVelocityLimitsTask(const std::string& taskName,
+                                           const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
 
     std::chrono::nanoseconds m_dtIntegration; /** Integration time step in nanoseconds */
 
@@ -166,6 +176,8 @@ private:
 
     std::shared_ptr<BipedalLocomotion::IK::JointLimitsTask> m_jointConstraintsTask; /** Joint limits
                                                                                        task */
+
+    std::shared_ptr<BipedalLocomotion::IK::JointVelocityLimitsTask> m_jointVelocityLimitsTask; /** Joint velocity limits task */
 
     manif::SO3d calib_W_R_link = manif::SO3d::Identity(); /** calibration matrix between the world
                                                            and the link */
