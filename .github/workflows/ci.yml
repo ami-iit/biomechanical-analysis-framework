@@ -38,6 +38,12 @@ jobs:
           with:
             environment-file: ci_env.yml
             channel-priority: true
+
+        - name: Set QT_HOST_PATH_env var [macOS]
+          if: matrix.os == 'macOS-latest'
+          shell: bash -l {0}
+          run: |
+            echo "QT_HOST_PATH=${CONDA_PREFIX}" >> $GITHUB_ENV
         
         # Print the environment variables to simplify development and debugging
         - name: Environment Variables

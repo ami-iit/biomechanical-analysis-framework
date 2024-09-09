@@ -199,9 +199,9 @@ bool HumanIK::updateGravityTask(const int node, const manif::SO3d& I_R_IMU)
     // W_R_link = W_R_WIMU * WIMU_R_IMU * IMU_R_link
     I_R_link = m_GravityTasks[node].calibrationMatrix * I_R_IMU * m_GravityTasks[node].IMU_R_link;
 
-    // set the set point of the gravity task choosing the z direction of the W_R_link rotation
+    // set the set point of the gravity task choosing the z direction of the link_R_W rotation
     // matrix
-    return m_GravityTasks[node].task->setSetPoint(I_R_link.rotation().rightCols(1));
+    return m_GravityTasks[node].task->setSetPoint((I_R_link.rotation().transpose().rightCols(1)));
 }
 
 bool HumanIK::updateFloorContactTask(const int node, const double verticalForce)
@@ -212,6 +212,19 @@ bool HumanIK::updateFloorContactTask(const int node, const double verticalForce)
     {
         BiomechanicalAnalysis::log()->error("[HumanIK::updateFloorContactTask] Invalid node number.");
         return false;
+    }
+    if (m_tPose == true)
+    {
+        m_FloorContactTasks[node].footInContact = false;
+        Eigen::VectorXd jointPositions;
+        jointPositions.resize(this->getDoFsNumber());
+        jointPositions.setZero();
+        Eigen::Matrix4d basePose;
+        basePose.setIdentity();
+        Eigen::VectorXd baseVelocity;
+        baseVelocity.resize(6);
+        baseVelocity.setZero();
+        m_kinDyn->setRobotState(basePose, jointPositions, baseVelocity, m_jointVelocities, m_gravity);
     }
 
     // if the vertical force is greater than the threshold and if the foot is not yet in contact,
