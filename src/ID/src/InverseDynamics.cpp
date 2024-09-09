@@ -84,8 +84,9 @@ bool HumanID::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
         m_useFullModel = true;
     } else
     {
-        // Warning if 'modelPath' parameter couldn't be retrieved, use the default model
-        BiomechanicalAnalysis::log()->warn("{} Error getting the modelPath parameter, using the default model.", logPrefix);
+
+        // Warning if 'urdfModel' parameter couldn't be retrieved, use the default model
+        BiomechanicalAnalysis::log()->warn("{} Error getting the 'urdfModel' parameter, using the default model.", logPrefix);
 
         // Set m_useFullModel to false and m_kinDynFullModel to m_kinDyn
         m_useFullModel = false;
@@ -173,7 +174,9 @@ bool HumanID::updateExtWrenchesMeasurements(const std::unordered_map<std::string
     }
 
     // Update the measurement vector with the measurements of the wrenches
+
     m_extWrenchesEstimator.measurement.zero(); // Reset the measurement vector to zero
+
 
     // Iterate over each wrench source and update the measurement vector accordingly
     for (int i = 0; i < m_wrenchSources.size(); i++)
@@ -226,6 +229,7 @@ bool HumanID::updateExtWrenchesMeasurements(const std::unordered_map<std::string
     iDynTree::IndexRange rcmSensorRange
         = m_extWrenchesEstimator.berdyHelper.getRangeRCMSensorVariable(iDynTree::BerdySensorTypes::RCM_SENSOR);
 
+
     // Update the measurement vector with the computed RCM wrench components
     for (int i = 0; i < 6; i++)
     {
@@ -234,6 +238,7 @@ bool HumanID::updateExtWrenchesMeasurements(const std::unordered_map<std::string
 
     return true; // Return true indicating successful update of the measurement vector
 }
+
 
 bool HumanID::solve()
 {
@@ -576,7 +581,7 @@ bool HumanID::initializeExtWrenchesHelper(const std::shared_ptr<BipedalLocomotio
         if (type == "fixed")
         {
             data.type = WrenchSourceType::Fixed;
-
+        
         } else if (type == "dummy")
         {
             data.type = WrenchSourceType::Dummy;
@@ -732,39 +737,39 @@ bool HumanID::initializeExtWrenchesHelper(const std::shared_ptr<BipedalLocomotio
     {
         switch (berdySensor.type)
         {
-        case iDynTree::BerdySensorTypes::NET_EXT_WRENCH_SENSOR: {
-            // Initialize with default covariance
-            iDynTree::Vector6 wrenchCovariance;
-            for (int i = 0; i < 6; i++)
-                wrenchCovariance.setVal(i, m_extWrenchesEstimator.params.measurementDefaultCovariance);
 
-            // Set specific covariance if configured
-            auto specificMeasurementsPtr = m_extWrenchesEstimator.params.specificMeasurementsCovariance.find(berdySensor.id);
-            if (specificMeasurementsPtr != m_extWrenchesEstimator.params.specificMeasurementsCovariance.end())
-            {
+            case iDynTree::BerdySensorTypes::NET_EXT_WRENCH_SENSOR: {
+                // Initialize with default covariance
+                iDynTree::Vector6 wrenchCovariance;
                 for (int i = 0; i < 6; i++)
-                    wrenchCovariance.setVal(i, specificMeasurementsPtr->second[i]);
-            }
+                    wrenchCovariance.setVal(i, m_extWrenchesEstimator.params.measurementDefaultCovariance);
+                // Set specific covariance if configured
+                auto specificMeasurementsPtr = m_extWrenchesEstimator.params.specificMeasurementsCovariance.find(berdySensor.id);
+                if (specificMeasurementsPtr != m_extWrenchesEstimator.params.specificMeasurementsCovariance.end())
+                {
+                    for (int i = 0; i < 6; i++)
+                        wrenchCovariance.setVal(i, specificMeasurementsPtr->second[i]);
+                }
 
-            // Store triplet for the measurements covariance matrix
-            for (std::size_t i = 0; i < 6; i++)
-                measurementsCovarianceMatrixTriplets.setTriplet(
-                    {berdySensor.range.offset + i, berdySensor.range.offset + i, wrenchCovariance[i]});
-        }
+                // Store triplet for the measurements covariance matrix
+                for (std::size_t i = 0; i < 6; i++)
+                    measurementsCovarianceMatrixTriplets.setTriplet(
+                        {berdySensor.range.offset + i, berdySensor.range.offset + i, wrenchCovariance[i]});
+                }
         break;
-        case iDynTree::BerdySensorTypes::RCM_SENSOR: {
+            case iDynTree::BerdySensorTypes::RCM_SENSOR: {
             auto specificMeasurementsPtr = m_extWrenchesEstimator.params.specificMeasurementsCovariance.find("RCM_"
                                                                                                              "SENS"
                                                                                                              "OR");
-            for (std::size_t i = 0; i < 6; i++)
-            {
-                measurementsCovarianceMatrixTriplets.setTriplet(
-                    {berdySensor.range.offset + i, berdySensor.range.offset + i, specificMeasurementsPtr->second[i]});
-            }
-        }
-        break;
-        default:
+                for (std::size_t i = 0; i < 6; i++)
+                {
+                    measurementsCovarianceMatrixTriplets.setTriplet(
+                        {berdySensor.range.offset + i, berdySensor.range.offset + i, specificMeasurementsPtr->second[i]});
+                }
+                            }
             break;
+            default:
+                break;
         }
     }
 
