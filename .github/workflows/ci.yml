@@ -43,7 +43,7 @@ jobs:
           if: matrix.os == 'macOS-latest'
           shell: bash -l {0}
           run: |
-            export QT_HOST_PATH=$CONDA_PREFIX
+            echo "QT_HOST_PATH=${CONDA_PREFIX}" >> $GITHUB_ENV
         
         # Print the environment variables to simplify development and debugging
         - name: Environment Variables
