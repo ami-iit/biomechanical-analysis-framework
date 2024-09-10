@@ -366,7 +366,6 @@ bool HumanIK::advance()
 {
     // Initialize ok flag to true
     bool ok{true};
-    // m_jointVelocityLimitsTask->update();
 
     // Advance the QP solver
     ok = ok && m_qpIK.advance();
