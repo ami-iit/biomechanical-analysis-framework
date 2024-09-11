@@ -12,4 +12,4 @@ dependencies:
   - spdlog
   - catch2>=3.3.0
   - manif
-  - bipedal-locomotion-framework>=0.18.0
+  - bipedal-locomotion-framework>=0.19.0
