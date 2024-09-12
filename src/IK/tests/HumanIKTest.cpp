@@ -7,7 +7,7 @@
 
 #include <BipedalLocomotion/ParametersHandler/IParametersHandler.h>
 #include <BipedalLocomotion/ParametersHandler/StdImplementation.h>
-#include <BipedalLocomotion/ParametersHandler/YarpImplementation.h>
+#include <BipedalLocomotion/ParametersHandler/TomlImplementation.h>
 #include <ConfigFolderPath.h>
 
 TEST_CASE("InverseKinematics test")
@@ -19,11 +19,11 @@ TEST_CASE("InverseKinematics test")
 
     const iDynTree::Model model = iDynTree::getRandomModel(nrDoFs);
     kinDyn->loadRobotModel(model);
-    auto paramHandler = std::make_shared<BipedalLocomotion::ParametersHandler::YarpImplementation>();
-    auto gravityTaskParamHandler = std::make_shared<BipedalLocomotion::ParametersHandler::YarpImplementation>();
-    auto FloorContactTaskParamHandler = std::make_shared<BipedalLocomotion::ParametersHandler::YarpImplementation>();
+    auto paramHandler = std::make_shared<BipedalLocomotion::ParametersHandler::TomlImplementation>();
 
-    REQUIRE(paramHandler->setFromFile(getConfigPath() + "/configTestIK.ini"));
+    std::cout << "configPath = " << getConfigPath() + "/configTestIK.toml" << std::endl;
+
+    REQUIRE(paramHandler->setFromFile(getConfigPath() + "/configTestIK.toml"));
 
     // inintialize the joint positions and velocities
     Eigen::VectorXd JointPositions(kinDyn->getNrOfDegreesOfFreedom());

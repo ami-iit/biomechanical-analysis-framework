@@ -5,4 +5,4 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/ConfigFolderPath.h.in" "${CMAKE_CURR
 add_baf_test(
   NAME HumanIKTest
   SOURCES HumanIKTest.cpp
-  LINKS BiomechanicalAnalysis::IK BipedalLocomotion::ParametersHandlerYarpImplementation)
+  LINKS BiomechanicalAnalysis::IK BipedalLocomotion::ParametersHandlerTomlImplementation)

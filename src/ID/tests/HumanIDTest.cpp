@@ -7,7 +7,7 @@
 
 #include <BipedalLocomotion/ParametersHandler/IParametersHandler.h>
 #include <BipedalLocomotion/ParametersHandler/StdImplementation.h>
-#include <BipedalLocomotion/ParametersHandler/YarpImplementation.h>
+#include <BipedalLocomotion/ParametersHandler/TomlImplementation.h>
 #include <ConfigFolderPath.h>
 
 TEST_CASE("Inverse Dynamics test")
@@ -16,11 +16,21 @@ TEST_CASE("Inverse Dynamics test")
 
     // set the number of DoFs
     int nrDoFs = 20;
-    yarp::os::ResourceFinder rf;
 
-    auto paramHandler
-        = std::make_shared<BipedalLocomotion::ParametersHandler::YarpImplementation>();
-    paramHandler->setFromFile(getConfigPath() + "/configTestID.ini");
+    auto paramHandler = std::make_shared<BipedalLocomotion::ParametersHandler::TomlImplementation>();
+    paramHandler->setFromFile(getConfigPath() + "/configTestID.toml");
+
+    auto extWrenchGroup = paramHandler->getGroup("JOINT_TORQUES");
+    if (!extWrenchGroup.lock())
+    {
+        std::cerr << "Error while reading the JOINT_TORQUES group" << std::endl;
+    }
+    double var;
+    if (!extWrenchGroup.lock()->getParameter("cov_dyn_variables", var))
+    {
+        std::cerr << "Error while reading the cov_dyn_variables parameter" << std::endl;
+    }
+    std::cout << "var = " << var << std::endl;
 
     const iDynTree::Model model = iDynTree::getRandomModel(nrDoFs);
     kinDyn->loadRobotModel(model);

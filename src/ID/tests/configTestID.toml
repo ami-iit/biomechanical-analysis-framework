@@ -1,0 +1,63 @@
+humanMass = 70.0
+
+[EXTERNAL_WRENCHES]
+specificElements = ["LeftHand", "RightHand", "LeftFoot", "RightFoot"]
+
+LeftHand = [1e06, 1e06, 1e06, 1e-06, 1e-06, 1e-06]
+RightHand = [1e06, 1e06, 1e06, 1e-06, 1e-06, 1e-06]
+LeftFoot = [1e03, 1e03, 1e-06, 1e03, 1e03, 1e03]
+RightFoot = [1e03, 1e03, 1e-06, 1e03, 1e03, 1e03]
+
+default_cov_measurements = 1e-9
+
+cov_RightFoot = [1e03, 1e03, 1e-06, 1e03, 1e03, 1e03]
+cov_measurements_RCM_SENSOR = [1e-6, 1e-6, 1e-6, 1e03, 1e03, 1e03]
+
+mu_dyn_variables = 1e-9
+cov_dyn_variables = 1e01
+
+wrenchSources = ["rightFoot", "leftFoot", "leftHand", "rightHand"]
+
+[EXTERNAL_WRENCHES.rightFoot]
+outputFrame = "link0"
+type = "fixed"
+position = [0.0, 0.0, 0.0]
+orientation = [
+    1.0, 0.0, 0.0,
+    0.0, 1.0, 0.0,
+    0.0, 0.0, 1.0
+]
+
+[EXTERNAL_WRENCHES.leftFoot]
+outputFrame = "link1"
+type = "fixed"
+position = [0.0, 0.0, 0.0]
+orientation = [
+    1.0, 0.0, 0.0,
+    0.0, 1.0, 0.0,
+    0.0, 0.0, 1.0
+]
+
+[EXTERNAL_WRENCHES.leftHand]
+outputFrame = "link2"
+type = "dummy"
+values = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+[EXTERNAL_WRENCHES.rightHand]
+outputFrame = "link3"
+type = "dummy"
+values = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+[JOINT_TORQUES]
+mu_dyn_variables = 0.0
+cov_dyn_variables = 1.0
+cov_dyn_constraints = 0.0001
+
+cov_measurements_ACCELEROMETER_SENSOR = [0.0011, 0.0011, 0.0011]
+cov_measurements_GYROSCOPE_SENSOR = [0.00011, 0.00011, 0.00011]
+cov_measurements_DOF_ACCELERATION_SENSOR = 0.666e-5
+cov_measurements_NET_EXT_WRENCH_SENSOR = [1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6]
+
+[JOINT_TORQUES.SENSOR_REMOVAL]
+GYROSCOPE_SENSOR = "*"
+ACCELEROMETER_SENSOR = "*"
