@@ -138,6 +138,7 @@ private:
                                                                  // will be calibrated using Tpose
                                                                  // script
         Eigen::Vector3d weight;
+        std::string frameName;
     };
 
     /**
@@ -152,6 +153,7 @@ private:
         Eigen::Vector2d weight;
         int nodeNumber;
         std::string taskName;
+        std::string frameName;
     };
 
     /**
@@ -429,6 +431,10 @@ public:
      * @return true if the calibration matrix is set correctly
      */
     bool TPoseCalibrationNodes(std::unordered_map<int, nodeData> nodeStruct);
+
+    bool calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct);
+
+    bool calibrateAllWithWorld(std::unordered_map<int, nodeData> nodeStruct, std::string frameRef = "");
 
     /**
      * this function solves the inverse kinematics problem and integrate the joint velocity to

@@ -362,6 +362,96 @@ bool HumanIK::TPoseCalibrationNodes(std::unordered_map<int, nodeData> nodeStruct
     return true;
 }
 
+bool HumanIK::calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct)
+{
+    Eigen::VectorXd jointPositions;
+    Eigen::VectorXd jointVelocities;
+    jointPositions.resize(this->getDoFsNumber());
+    jointPositions.setZero();
+    jointVelocities.resize(this->getDoFsNumber());
+    jointVelocities.setZero();
+    Eigen::Matrix4d basePose;
+    basePose.setIdentity();
+    Eigen::VectorXd baseVelocity;
+    baseVelocity.resize(6);
+    baseVelocity.setZero();
+    m_kinDyn->setRobotState(basePose, jointPositions, baseVelocity, jointVelocities, m_gravity);
+    // Update the orientation and gravity tasks
+    for (const auto& [node, data] : nodeStruct)
+    {
+        // check if the node number is valid
+        if (m_OrientationTasks.find(node) == m_OrientationTasks.end() && m_GravityTasks.find(node) == m_GravityTasks.end())
+        {
+            BiomechanicalAnalysis::log()->error("[HumanIK::calibrateWorldYaw] Invalid node number.");
+            return false;
+        }
+
+        iDynTree::Rotation rpyOffset;
+        if (m_OrientationTasks.find(node) != m_OrientationTasks.end())
+        {
+            iDynTree::toEigen(rpyOffset) = iDynTree::toEigen(m_kinDyn->getWorldTransform(m_OrientationTasks[node].frameName).getRotation())
+                                           * ((data.I_R_IMU * m_OrientationTasks[node].IMU_R_link).inverse()).rotation();
+            m_OrientationTasks[node].calibrationMatrix = manif::SO3d(0, 0, rpyOffset.asRPY()(2));
+        } else
+        {
+            iDynTree::toEigen(rpyOffset) = iDynTree::toEigen(m_kinDyn->getWorldTransform(m_GravityTasks[node].frameName).getRotation())
+                                           * ((data.I_R_IMU * m_GravityTasks[node].IMU_R_link).inverse()).rotation();
+            m_GravityTasks[node].calibrationMatrix = manif::SO3d(0, 0, rpyOffset.asRPY()(2));
+        }
+    }
+    return true;
+}
+
+bool HumanIK::calibrateAllWithWorld(std::unordered_map<int, nodeData> nodeStruct, std::string refFrame)
+{
+    Eigen::VectorXd jointPositions;
+    Eigen::VectorXd jointVelocities;
+    jointPositions.resize(this->getDoFsNumber());
+    jointPositions.setZero();
+    jointVelocities.resize(this->getDoFsNumber());
+    jointVelocities.setZero();
+    Eigen::Matrix4d basePose;
+    basePose.setIdentity();
+    Eigen::VectorXd baseVelocity;
+    baseVelocity.resize(6);
+    baseVelocity.setZero();
+    m_kinDyn->setRobotState(basePose, jointPositions, baseVelocity, jointVelocities, m_gravity);
+    manif::SO3d secondaryCalib = manif::SO3d::Identity();
+    if (refFrame != "")
+    {
+        iDynTree::Rotation refFrameRot = m_kinDyn->getWorldTransform(refFrame).getRotation().inverse();
+        secondaryCalib = manif::SO3d(refFrameRot.asRPY()(0), refFrameRot.asRPY()(1), refFrameRot.asRPY()(2));
+    }
+
+    for (const auto& [node, data] : nodeStruct)
+    {
+        // check if the node number is valid
+        if (m_OrientationTasks.find(node) == m_OrientationTasks.end() && m_GravityTasks.find(node) == m_GravityTasks.end())
+        {
+            BiomechanicalAnalysis::log()->error("[HumanIK::calibrateWorldYaw] Invalid node number.");
+            return false;
+        }
+
+        if (m_OrientationTasks.find(node) != m_OrientationTasks.end())
+        {
+            Eigen::Matrix3d IMU_R_link = (m_OrientationTasks[node].calibrationMatrix * data.I_R_IMU).rotation().transpose()
+                                         * iDynTree::toEigen(m_kinDyn->getWorldTransform(m_OrientationTasks[node].frameName).getRotation());
+            m_OrientationTasks[node].IMU_R_link = BipedalLocomotion::Conversions::toManifRot(IMU_R_link);
+            m_OrientationTasks[node].calibrationMatrix = secondaryCalib * m_OrientationTasks[node].calibrationMatrix;
+            manif::SE3d transform;
+        } else
+        {
+            Eigen::Matrix3d IMU_R_link = (m_GravityTasks[node].calibrationMatrix * data.I_R_IMU).rotation().transpose()
+                                         * iDynTree::toEigen(m_kinDyn->getWorldTransform(m_GravityTasks[node].frameName).getRotation());
+            m_GravityTasks[node].IMU_R_link = BipedalLocomotion::Conversions::toManifRot(IMU_R_link);
+            m_GravityTasks[node].calibrationMatrix = secondaryCalib * m_GravityTasks[node].calibrationMatrix;
+        }
+    }
+    m_tPose = true;
+
+    return true;
+}
+
 bool HumanIK::advance()
 {
     // Initialize ok flag to true
@@ -501,6 +591,13 @@ bool HumanIK::initializeOrientationTask(const std::string& taskName,
         return false;
     }
 
+    // Retrieve frame name parameter from config file, using the task handler
+    if (!taskHandler->getParameter("frame_name", m_OrientationTasks[nodeNumber].frameName))
+    {
+        BiomechanicalAnalysis::log()->error("{} Parameter frame_name of the {} task is missing", logPrefix, taskName);
+        return false;
+    }
+
     // Retrieve weight parameter from config file, using the task handler
     std::vector<double> weight;
     if (!taskHandler->getParameter("weight", weight))
@@ -590,6 +687,13 @@ bool HumanIK::initializeGravityTask(const std::string& taskName,
     if (!taskHandler->getParameter("node_number", nodeNumber))
     {
         BiomechanicalAnalysis::log()->error("{} Parameter node_number of the {} task is missing", logPrefix, taskName);
+        return false;
+    }
+
+    // Retrieve frame name parameter from the config file, using the task handler
+    if (!taskHandler->getParameter("target_frame_name", m_GravityTasks[nodeNumber].frameName))
+    {
+        BiomechanicalAnalysis::log()->error("{} Parameter frame_name of the {} task is missing", logPrefix, taskName);
         return false;
     }
 
