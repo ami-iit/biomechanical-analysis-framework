@@ -322,46 +322,6 @@ bool HumanIK::updateFloorContactTasks(const std::unordered_map<int, Eigen::Matri
     return true;
 }
 
-bool HumanIK::TPoseCalibrationNode(const int node, const manif::SO3d& I_R_IMU)
-{
-    m_tPose = true;
-    // check if the node number is valid
-    if ((m_OrientationTasks.find(node) == m_OrientationTasks.end()) && (m_GravityTasks.find(node) == m_GravityTasks.end()))
-    {
-        BiomechanicalAnalysis::log()->error("[HumanIK::TPoseCalibrationNode] Invalid node number.");
-        return false;
-    }
-
-    // compute the rotation matrix from the world to the world of the IMU as:
-    // W_R_WIMU = R_calib * (WIMU_R_IMU * IMU_R_link)^{T}
-    // where R_calib is assumed to be the identity
-    // The if condition checks whether the task is m_OrientationTasks or m_GravityTasks
-    if (m_OrientationTasks.find(node) != m_OrientationTasks.end())
-    {
-        m_OrientationTasks[node].calibrationMatrix = calib_W_R_link * (I_R_IMU * m_OrientationTasks[node].IMU_R_link).inverse();
-    } else
-    {
-        m_GravityTasks[node].calibrationMatrix = calib_W_R_link * (I_R_IMU * m_GravityTasks[node].IMU_R_link).inverse();
-    }
-    return true;
-}
-
-bool HumanIK::TPoseCalibrationNodes(std::unordered_map<int, nodeData> nodeStruct)
-{
-    // Update the orientation and gravity tasks
-    for (const auto& [node, data] : nodeStruct)
-    {
-        if (!TPoseCalibrationNode(node, data.I_R_IMU))
-        {
-            BiomechanicalAnalysis::log()->error("[HumanIK::TPoseCalibrationNodes] Error in "
-                                                "calibrating the node {}",
-                                                node);
-            return false;
-        }
-    }
-    return true;
-}
-
 bool HumanIK::calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct)
 {
     // reset the robot state

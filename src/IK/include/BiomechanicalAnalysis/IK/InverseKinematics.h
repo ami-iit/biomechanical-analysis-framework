@@ -418,22 +418,18 @@ public:
     bool updateFloorContactTasks(const std::unordered_map<int, Eigen::Matrix<double, 6, 1>>& wrenchMap);
 
     /**
-     * set the calibration matrix between the IMU and the link
-     * @param node node number
-     * @param I_R_IMU calibration matrix
+     * remove the offset on the yaw of the IMUs world
+     * @param nodeStruct unordered map containing the node number and the IMUs measurements
      * @return true if the calibration matrix is set correctly
      */
-    bool TPoseCalibrationNode(const int node, const manif::SO3d& I_R_IMU);
-
-    /**
-     * set the calibration matrix between the IMU and the link for all the nodes
-     * @param nodeStruct unordered map containing the node number and the calibration matrix
-     * @return true if the calibration matrix is set correctly
-     */
-    bool TPoseCalibrationNodes(std::unordered_map<int, nodeData> nodeStruct);
-
     bool calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct);
 
+    /**
+     * compute the calibration matrix between the IMU frame and the associated link frame
+     * @param nodeStruct unordered map containing the node number and the IMUs measurements
+     * @param frameRef reference frame used as world
+     * @return true if the calibration matrix is set correctly
+     */
     bool calibrateAllWithWorld(std::unordered_map<int, nodeData> nodeStruct, std::string frameRef = "");
 
     /**
