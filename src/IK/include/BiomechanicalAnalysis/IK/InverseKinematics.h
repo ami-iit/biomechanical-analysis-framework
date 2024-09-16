@@ -137,8 +137,8 @@ private:
                                                                  // to the World of the IMU, which
                                                                  // will be calibrated using Tpose
                                                                  // script
-        Eigen::Vector3d weight;
-        std::string frameName;
+        Eigen::Vector3d weight; // Weight of the task
+        std::string frameName; // Name of the frame in which the task is expressed
     };
 
     /**

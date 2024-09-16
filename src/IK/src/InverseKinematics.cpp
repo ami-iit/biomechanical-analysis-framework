@@ -364,6 +364,7 @@ bool HumanIK::TPoseCalibrationNodes(std::unordered_map<int, nodeData> nodeStruct
 
 bool HumanIK::calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct)
 {
+    // reset the robot state
     Eigen::VectorXd jointPositions;
     Eigen::VectorXd jointVelocities;
     jointPositions.resize(this->getDoFsNumber());
@@ -389,13 +390,19 @@ bool HumanIK::calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct)
         iDynTree::Rotation rpyOffset;
         if (m_OrientationTasks.find(node) != m_OrientationTasks.end())
         {
+            // compute the offset between the world and the IMU world as:
+            // W_R_WIMU = W_R_link * (WIMU_R_IMU * IMU_R_link)^{T}
             iDynTree::toEigen(rpyOffset) = iDynTree::toEigen(m_kinDyn->getWorldTransform(m_OrientationTasks[node].frameName).getRotation())
                                            * ((data.I_R_IMU * m_OrientationTasks[node].IMU_R_link).inverse()).rotation();
+            // set the calibration matrix of the orientation task to the offset in yaw
             m_OrientationTasks[node].calibrationMatrix = manif::SO3d(0, 0, rpyOffset.asRPY()(2));
         } else
         {
+            // compute the offset between the world and the IMU world as:
+            // W_R_WIMU = W_R_link * (WIMU_R_IMU * IMU_R_link)^{T}
             iDynTree::toEigen(rpyOffset) = iDynTree::toEigen(m_kinDyn->getWorldTransform(m_GravityTasks[node].frameName).getRotation())
                                            * ((data.I_R_IMU * m_GravityTasks[node].IMU_R_link).inverse()).rotation();
+            // set the calibration matrix of the orientation task to the offset in yaw
             m_GravityTasks[node].calibrationMatrix = manif::SO3d(0, 0, rpyOffset.asRPY()(2));
         }
     }
@@ -404,6 +411,7 @@ bool HumanIK::calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct)
 
 bool HumanIK::calibrateAllWithWorld(std::unordered_map<int, nodeData> nodeStruct, std::string refFrame)
 {
+    // reset the robot state
     Eigen::VectorXd jointPositions;
     Eigen::VectorXd jointVelocities;
     jointPositions.resize(this->getDoFsNumber());
@@ -416,7 +424,9 @@ bool HumanIK::calibrateAllWithWorld(std::unordered_map<int, nodeData> nodeStruct
     baseVelocity.resize(6);
     baseVelocity.setZero();
     m_kinDyn->setRobotState(basePose, jointPositions, baseVelocity, jointVelocities, m_gravity);
+
     manif::SO3d secondaryCalib = manif::SO3d::Identity();
+    // if a reference frame is provided, compute the world rotation matrix of the reference frame
     if (refFrame != "")
     {
         iDynTree::Rotation refFrameRot = m_kinDyn->getWorldTransform(refFrame).getRotation().inverse();
@@ -434,19 +444,23 @@ bool HumanIK::calibrateAllWithWorld(std::unordered_map<int, nodeData> nodeStruct
 
         if (m_OrientationTasks.find(node) != m_OrientationTasks.end())
         {
+            // compute the rotation matrix from the IMU to the link frame as:
+            // IMU_R_link = (W_R_WIMU * WIMU_R_IMU)^{T} * W_R_link
             Eigen::Matrix3d IMU_R_link = (m_OrientationTasks[node].calibrationMatrix * data.I_R_IMU).rotation().transpose()
                                          * iDynTree::toEigen(m_kinDyn->getWorldTransform(m_OrientationTasks[node].frameName).getRotation());
             m_OrientationTasks[node].IMU_R_link = BipedalLocomotion::Conversions::toManifRot(IMU_R_link);
             m_OrientationTasks[node].calibrationMatrix = secondaryCalib * m_OrientationTasks[node].calibrationMatrix;
-            manif::SE3d transform;
         } else
         {
+            // compute the rotation matrix from the IMU to the link frame as:
+            // IMU_R_link = (W_R_WIMU * WIMU_R_IMU)^{T} * W_R_link
             Eigen::Matrix3d IMU_R_link = (m_GravityTasks[node].calibrationMatrix * data.I_R_IMU).rotation().transpose()
                                          * iDynTree::toEigen(m_kinDyn->getWorldTransform(m_GravityTasks[node].frameName).getRotation());
             m_GravityTasks[node].IMU_R_link = BipedalLocomotion::Conversions::toManifRot(IMU_R_link);
             m_GravityTasks[node].calibrationMatrix = secondaryCalib * m_GravityTasks[node].calibrationMatrix;
         }
     }
+    // set the flag to true to reset the integration
     m_tPose = true;
 
     return true;
