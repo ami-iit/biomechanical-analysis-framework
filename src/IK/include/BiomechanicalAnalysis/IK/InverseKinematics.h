@@ -416,6 +416,11 @@ public:
     bool updateFloorContactTasks(const std::unordered_map<int, Eigen::Matrix<double, 6, 1>>& wrenchMap);
 
     /**
+     * clear the calibration matrices W_R_WIMU and IMU_R_link of all the orientation and gravity tasks
+     */
+    bool clearCalibrationMatrices();
+
+    /**
      * set the calibration matrix between the IMU and the link
      * @param node node number
      * @param I_R_IMU calibration matrix
