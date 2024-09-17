@@ -29,6 +29,9 @@ namespace BiomechanicalAnalysis
 namespace IK
 {
 
+/**
+ * @brief Struct containing the orientation and the angular velocity of an IMU
+ */
 struct nodeData
 {
     manif::SO3d I_R_IMU;
@@ -405,7 +408,9 @@ public:
 
     /**
      * update the orientation for all the nodes of the SO3 and gravity tasks
-     * @param nodeStruct unordered map containing the node number and the calibration matrix
+     * @param nodeStruct unordered map containing the struct node data (see
+     * https://github.com/ami-iit/biomechanical-analysis-framework/blob/338129086dca24989552a20ecc1c9dec0492806a/src/IK/include/BiomechanicalAnalysis/IK/InverseKinematics.h#L32)
+     * containing the orientation and the angular velocity of an IMU, associated to the node number
      * @return true if the calibration matrix is set correctly
      */
     bool updateOrientationAndGravityTasks(const std::unordered_map<int, nodeData>& nodeStruct);
@@ -419,14 +424,19 @@ public:
 
     /**
      * remove the offset on the yaw of the IMUs world
-     * @param nodeStruct unordered map containing the node number and the IMUs measurements
+     * @param nodeStruct unordered map containing the struct node data (see
+     * https://github.com/ami-iit/biomechanical-analysis-framework/blob/338129086dca24989552a20ecc1c9dec0492806a/src/IK/include/BiomechanicalAnalysis/IK/InverseKinematics.h#L32)
+     * containing the orientation and the angular velocity of an IMU, associated to the node number
      * @return true if the calibration matrix is set correctly
+     * @note gravity is expected to be aligned with the z-axis of the IMU frame
      */
     bool calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct);
 
     /**
      * compute the calibration matrix between the IMU frame and the associated link frame
-     * @param nodeStruct unordered map containing the node number and the IMUs measurements
+     * @param nodeStruct unordered map containing the struct node data (see
+     * https://github.com/ami-iit/biomechanical-analysis-framework/blob/338129086dca24989552a20ecc1c9dec0492806a/src/IK/include/BiomechanicalAnalysis/IK/InverseKinematics.h#L32)
+     * containing the orientation and the angular velocity of an IMU, associated to the node number
      * @param frameRef reference frame used as world
      * @return true if the calibration matrix is set correctly
      */
