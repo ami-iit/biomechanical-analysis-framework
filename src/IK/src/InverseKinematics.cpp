@@ -322,6 +322,22 @@ bool HumanIK::updateFloorContactTasks(const std::unordered_map<int, Eigen::Matri
     return true;
 }
 
+bool HumanIK::clearCalibrationMatrices()
+{
+    for (auto& [node, data] : m_OrientationTasks)
+    {
+        data.calibrationMatrix = manif::SO3d::Identity();
+        data.IMU_R_link = manif::SO3d::Identity();
+    }
+    for (auto& [node, data] : m_GravityTasks)
+    {
+        data.calibrationMatrix = manif::SO3d::Identity();
+        data.IMU_R_link = manif::SO3d::Identity();
+    }
+    return true;
+}
+
+
 bool HumanIK::calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct)
 {
     // reset the robot state

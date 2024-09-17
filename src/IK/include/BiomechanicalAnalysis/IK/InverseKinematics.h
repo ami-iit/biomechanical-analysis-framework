@@ -423,6 +423,12 @@ public:
     bool updateFloorContactTasks(const std::unordered_map<int, Eigen::Matrix<double, 6, 1>>& wrenchMap);
 
     /**
+     * clear the calibration matrices W_R_WIMU and IMU_R_link of all the orientation and gravity tasks
+     * @return true if the calibration matrices are cleared correctly
+     */
+    bool clearCalibrationMatrices();
+
+    /**
      * remove the offset on the yaw of the IMUs world
      * @param nodeStruct unordered map containing the struct node data (see
      * https://github.com/ami-iit/biomechanical-analysis-framework/blob/338129086dca24989552a20ecc1c9dec0492806a/src/IK/include/BiomechanicalAnalysis/IK/InverseKinematics.h#L32)
