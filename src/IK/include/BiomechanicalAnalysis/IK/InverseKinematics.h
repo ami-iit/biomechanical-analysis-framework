@@ -29,6 +29,9 @@ namespace BiomechanicalAnalysis
 namespace IK
 {
 
+/**
+ * @brief Struct containing the orientation and the angular velocity of an IMU
+ */
 struct nodeData
 {
     manif::SO3d I_R_IMU;
@@ -137,7 +140,8 @@ private:
                                                                  // to the World of the IMU, which
                                                                  // will be calibrated using Tpose
                                                                  // script
-        Eigen::Vector3d weight;
+        Eigen::Vector3d weight; // Weight of the task
+        std::string frameName; // Name of the frame in which the task is expressed
     };
 
     /**
@@ -152,6 +156,7 @@ private:
         Eigen::Vector2d weight;
         int nodeNumber;
         std::string taskName;
+        std::string frameName;
     };
 
     /**
@@ -403,7 +408,9 @@ public:
 
     /**
      * update the orientation for all the nodes of the SO3 and gravity tasks
-     * @param nodeStruct unordered map containing the node number and the calibration matrix
+     * @param nodeStruct unordered map containing the struct node data (see
+     * https://github.com/ami-iit/biomechanical-analysis-framework/blob/338129086dca24989552a20ecc1c9dec0492806a/src/IK/include/BiomechanicalAnalysis/IK/InverseKinematics.h#L32)
+     * containing the orientation and the angular velocity of an IMU, associated to the node number
      * @return true if the calibration matrix is set correctly
      */
     bool updateOrientationAndGravityTasks(const std::unordered_map<int, nodeData>& nodeStruct);
@@ -417,23 +424,29 @@ public:
 
     /**
      * clear the calibration matrices W_R_WIMU and IMU_R_link of all the orientation and gravity tasks
+     * @return true if the calibration matrices are cleared correctly
      */
     bool clearCalibrationMatrices();
 
     /**
-     * set the calibration matrix between the IMU and the link
-     * @param node node number
-     * @param I_R_IMU calibration matrix
+     * remove the offset on the yaw of the IMUs world
+     * @param nodeStruct unordered map containing the struct node data (see
+     * https://github.com/ami-iit/biomechanical-analysis-framework/blob/338129086dca24989552a20ecc1c9dec0492806a/src/IK/include/BiomechanicalAnalysis/IK/InverseKinematics.h#L32)
+     * containing the orientation and the angular velocity of an IMU, associated to the node number
      * @return true if the calibration matrix is set correctly
+     * @note gravity is expected to be aligned with the z-axis of the IMU frame
      */
-    bool TPoseCalibrationNode(const int node, const manif::SO3d& I_R_IMU);
+    bool calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct);
 
     /**
-     * set the calibration matrix between the IMU and the link for all the nodes
-     * @param nodeStruct unordered map containing the node number and the calibration matrix
+     * compute the calibration matrix between the IMU frame and the associated link frame
+     * @param nodeStruct unordered map containing the struct node data (see
+     * https://github.com/ami-iit/biomechanical-analysis-framework/blob/338129086dca24989552a20ecc1c9dec0492806a/src/IK/include/BiomechanicalAnalysis/IK/InverseKinematics.h#L32)
+     * containing the orientation and the angular velocity of an IMU, associated to the node number
+     * @param frameRef reference frame used as world
      * @return true if the calibration matrix is set correctly
      */
-    bool TPoseCalibrationNodes(std::unordered_map<int, nodeData> nodeStruct);
+    bool calibrateAllWithWorld(std::unordered_map<int, nodeData> nodeStruct, std::string frameRef = "");
 
     /**
      * this function solves the inverse kinematics problem and integrate the joint velocity to

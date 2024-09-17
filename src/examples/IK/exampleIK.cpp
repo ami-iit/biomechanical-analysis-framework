@@ -16,6 +16,7 @@
 #include <BiomechanicalAnalysis/Conversions/CommonConversions.h> //conversion of rotation from iDyntree to Eigen
 #include <BiomechanicalAnalysis/IK/InverseKinematics.h> // declaration of classes for IK inherited from iDyntree
 #include <BiomechanicalAnalysis/Logging/Logger.h> //handle logging
+#include <BipedalLocomotion/Conversions/ManifConversions.h>
 #include <BipedalLocomotion/ParametersHandler/YarpImplementation.h> //handle parameters for Yarp
 
 #include <ConfigFolderPath.h>
@@ -417,6 +418,7 @@ int main()
         // Perform the T-pose calibration if the user inputs 'calib'. In that case, calibration matrices used by the tasks are updated
         if (tPoseFlag)
         {
+            std::unordered_map<int, BiomechanicalAnalysis::IK::nodeData> nodeStruct; // Create a map to store node data
             // Span nodes belonging to orientationNodes list
             for (auto& node : orientationNodes)
             {
@@ -424,7 +426,7 @@ int main()
                 getNodeOrientation(ifeel_data, node, ii, I_R_IMU, I_omega_IMU);
 
                 // Perform T-Pose calibration for each node
-                ik.TPoseCalibrationNode(node, manif::SO3d(fromiDynTreeToEigenQuatConversion(I_R_IMU)));
+                nodeStruct[node].I_R_IMU = BipedalLocomotion::Conversions::toManifRot(I_R_IMU);
             }
 
             // Span nodes belonging to floorContactNodes list - shoes nodes
@@ -434,8 +436,10 @@ int main()
                 getNodeOrientation(ifeel_data, node, ii, I_R_IMU, I_omega_IMU);
 
                 // Perform T-Pose calibration for each node
-                ik.TPoseCalibrationNode(node, manif::SO3d(fromiDynTreeToEigenQuatConversion(I_R_IMU)));
+                nodeStruct[node].I_R_IMU = BipedalLocomotion::Conversions::toManifRot(I_R_IMU);
             }
+            ik.calibrateWorldYaw(nodeStruct); // Calibrate the world yaw
+            ik.calibrateAllWithWorld(nodeStruct, "LeftFoot"); // Calibrate all with world
 
             BiomechanicalAnalysis::log()->info("T-pose calibration done");
             tPoseFlag = false;

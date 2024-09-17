@@ -57,6 +57,8 @@ TEST_CASE("InverseKinematics test")
     REQUIRE(ik.updateOrientationAndGravityTasks(mapNodeData));
     REQUIRE(ik.updateJointConstraintsTask());
     REQUIRE(ik.updateJointRegularizationTask());
+    REQUIRE(ik.calibrateWorldYaw(mapNodeData));
+    REQUIRE(ik.calibrateAllWithWorld(mapNodeData, "link1"));
     REQUIRE(ik.advance());
     REQUIRE(ik.getJointPositions(JointPositions));
     REQUIRE(ik.getJointVelocities(JointVelocities));
