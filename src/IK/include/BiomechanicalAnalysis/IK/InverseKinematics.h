@@ -133,8 +133,9 @@ private:
     {
         std::shared_ptr<BipedalLocomotion::IK::SO3Task> task;
         int nodeNumber;
-        manif::SO3d IMU_R_link; // Rotation matrix from the IMU to related link, set through config
-                                // file
+        manif::SO3d IMU_R_link; // Rotation matrix from the IMU to related link
+        manif::SO3d IMU_R_link_init; // Initial value of the rotation matrix from the IMU to related link, set through config
+                                     // file
         manif::SO3d calibrationMatrix = manif::SO3d::Identity(); // Initialization (to Identity) of
                                                                  // Rotation matrix from the World
                                                                  // to the World of the IMU, which
@@ -151,7 +152,9 @@ private:
     struct GravityTaskStruct
     {
         std::shared_ptr<BipedalLocomotion::IK::GravityTask> task;
-        manif::SO3d IMU_R_link;
+        manif::SO3d IMU_R_link; // Rotation matrix from the IMU to related link
+        manif::SO3d IMU_R_link_init; // Initial value of the rotation matrix from the IMU to related link, set through config
+                                     // file
         manif::SO3d calibrationMatrix = manif::SO3d::Identity();
         Eigen::Vector2d weight;
         int nodeNumber;
