@@ -327,16 +327,15 @@ bool HumanIK::clearCalibrationMatrices()
     for (auto& [node, data] : m_OrientationTasks)
     {
         data.calibrationMatrix = manif::SO3d::Identity();
-        data.IMU_R_link = manif::SO3d::Identity();
+        data.IMU_R_link = m_OrientationTasks[node].IMU_R_link_init;
     }
     for (auto& [node, data] : m_GravityTasks)
     {
         data.calibrationMatrix = manif::SO3d::Identity();
-        data.IMU_R_link = manif::SO3d::Identity();
+        data.IMU_R_link = m_GravityTasks[node].IMU_R_link_init;
     }
     return true;
 }
-
 
 bool HumanIK::calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct)
 {
@@ -624,7 +623,7 @@ bool HumanIK::initializeOrientationTask(const std::string& taskName,
     if (taskHandler->getParameter("rotation_matrix", rotation_matrix))
     {
         // Convert rotation matrix to ManifRot and assign it to IMU_R_link
-        m_OrientationTasks[nodeNumber].IMU_R_link
+        m_OrientationTasks[nodeNumber].IMU_R_link_init
             = BipedalLocomotion::Conversions::toManifRot(Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(rotation_matrix.data()));
     } else
     {
@@ -637,8 +636,9 @@ bool HumanIK::initializeOrientationTask(const std::string& taskName,
                                            logPrefix,
                                            taskName,
                                            frame_name);
-        m_OrientationTasks[nodeNumber].IMU_R_link.setIdentity();
+        m_OrientationTasks[nodeNumber].IMU_R_link_init.setIdentity();
     }
+    m_OrientationTasks[nodeNumber].IMU_R_link = m_OrientationTasks[nodeNumber].IMU_R_link_init;
     //*****************************************************************************************************
 
     // Initialize the SO3Task object
@@ -714,7 +714,7 @@ bool HumanIK::initializeGravityTask(const std::string& taskName,
     if (taskHandler->getParameter("rotation_matrix", rotation_matrix))
     {
         // Convert rotation matrix to ManifRot and assign it to IMU_R_link
-        m_GravityTasks[nodeNumber].IMU_R_link
+        m_GravityTasks[nodeNumber].IMU_R_link_init
             = BipedalLocomotion::Conversions::toManifRot(Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(rotation_matrix.data()));
     } else
     {
@@ -727,8 +727,9 @@ bool HumanIK::initializeGravityTask(const std::string& taskName,
                                            logPrefix,
                                            taskName,
                                            frame_name);
-        m_GravityTasks[nodeNumber].IMU_R_link.setIdentity();
+        m_GravityTasks[nodeNumber].IMU_R_link_init.setIdentity();
     }
+    m_GravityTasks[nodeNumber].IMU_R_link = m_GravityTasks[nodeNumber].IMU_R_link_init;
 
     //*****************************************************************************************************
 
