@@ -18,7 +18,7 @@ PYBIND11_MODULE(bindings, m)
     using namespace BiomechanicalAnalysis;
 
     py::module::import("bipedal_locomotion_framework");
-    py::module::import("manif");
+    py::module::import("manifpy");
 
     m.doc() = "BiomechanicalAnalysisFramework bindings";
 

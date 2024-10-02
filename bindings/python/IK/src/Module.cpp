@@ -6,12 +6,13 @@
 
 #include <pybind11/pybind11.h>
 
-namespace BiomchanicalAnalysis
+namespace BiomechanicalAnalysis
 {
 namespace bindings
 {
 namespace IK
 {
+
 void CreateModule(pybind11::module& module)
 {
     module.doc() = "IK module.";
