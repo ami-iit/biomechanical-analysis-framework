@@ -52,7 +52,7 @@ if(FRAMEWORK_COMPILE_PYTHON_BINDINGS)
     # Create the __init__.py file
     file(GENERATE
          OUTPUT "${BLF_PYTHON_PACKAGE}/__init__.py"
-         CONTENT "from .bindings import *${NEW_LINE}from . import utils${NEW_LINE}")
+         CONTENT "from .bindings import *${NEW_LINE}")
 
     # Install the __init__.py file
     install(FILES "${BLF_PYTHON_PACKAGE}/__init__.py"
