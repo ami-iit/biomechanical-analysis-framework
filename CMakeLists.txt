@@ -81,6 +81,10 @@ add_subdirectory(src)
 include(AddBiomechanicalAnalysisFrameworkTarget)
 
 
+#Function to automatize the process of creating python bindings
+include(AddBiomechanicalAnalysisPythonModule)
+
+
 include(InstallBasicPackageFiles)
 get_property(FRAMEWORK_PRIVATE_DEPENDENCIES GLOBAL PROPERTY BiomechanicalAnalysisFramework_PrivateDependencies)
 get_property(FRAMEWORK_PUBLIC_DEPENDENCIES GLOBAL PROPERTY BiomechanicalAnalysisFramework_PublicDependencies)
@@ -96,3 +100,5 @@ install_basic_package_files(${PROJECT_NAME}
 
 
 include(AddUninstallTarget)
+
+add_subdirectory(bindings)
