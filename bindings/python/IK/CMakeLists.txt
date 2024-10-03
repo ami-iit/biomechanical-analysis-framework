@@ -7,6 +7,6 @@ set(H_PREFIX include/BiomechanicalAnalysis/bindings/IK)
 
 add_baf_python_module(
     NAME IKBindings
-    SOURCES src/Module.cpp
-    HEADERS ${H_PREFIX}/Module.h
+    SOURCES src/Module.cpp src/InverseKinematics.cpp
+    HEADERS ${H_PREFIX}/Module.h ${H_PREFIX}/InverseKinematics.h
     LINK_LIBRARIES BiomechanicalAnalysis::IK)
