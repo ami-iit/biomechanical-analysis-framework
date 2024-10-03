@@ -54,11 +54,7 @@ void CreateInverseKinematics(pybind11::module& module)
         .def("setDt", &HumanIK::setDt, py::arg("dt"))
         .def("getDt", &HumanIK::getDt)
         .def("getDoFsNumber", &HumanIK::getDoFsNumber)
-        .def("updateOrientationTask",
-             &HumanIK::updateOrientationTask,
-             py::arg("node"),
-             py::arg("I_R_IMU"),
-             py::arg("I_omega_IMU") = manif::SO3d::Tangent::Zero())
+        .def("updateOrientationTask", &HumanIK::updateOrientationTask, py::arg("node"), py::arg("I_R_IMU"), py::arg("I_omega_IMU"))
         .def("updateGravityTask", &HumanIK::updateGravityTask, py::arg("node"), py::arg("I_R_IMU"))
         .def("updateFloorContactTask", &HumanIK::updateFloorContactTask, py::arg("node"), py::arg("verticalForce"))
         .def("clearCalibrationMatrices", &HumanIK::clearCalibrationMatrices)
@@ -78,10 +74,34 @@ void CreateInverseKinematics(pybind11::module& module)
                  bool ok = ik.getJointPositions(jointPositions);
                  return std::make_tuple(ok, jointPositions);
              })
-        .def("getJointVelocities", [](HumanIK& ik) {
-            Eigen::VectorXd jointVelocities(ik.getDoFsNumber());
-            bool ok = ik.getJointVelocities(jointVelocities);
-            return std::make_tuple(ok, jointVelocities);
+        .def("getJointVelocities",
+             [](HumanIK& ik) {
+                 Eigen::VectorXd jointVelocities(ik.getDoFsNumber());
+                 bool ok = ik.getJointVelocities(jointVelocities);
+                 return std::make_tuple(ok, jointVelocities);
+             })
+        .def("getBasePosition",
+             [](HumanIK& ik) {
+                 Eigen::Vector3d basePosition;
+                 bool ok = ik.getBasePosition(basePosition);
+                 return std::make_tuple(ok, basePosition);
+             })
+        .def("getBaseOrientation",
+             [](HumanIK& ik) {
+                 Eigen::Matrix3d baseOrientation;
+                 bool ok = ik.getBaseOrientation(baseOrientation);
+                 return std::make_tuple(ok, baseOrientation);
+             })
+        .def("getBaseLinearVelocity",
+             [](HumanIK& ik) {
+                 Eigen::Vector3d baseVelocity;
+                 bool ok = ik.getBaseLinearVelocity(baseVelocity);
+                 return std::make_tuple(ok, baseVelocity);
+             })
+        .def("getBaseAngularVelocity", [](HumanIK& ik) {
+            Eigen::Vector3d baseAngularVelocity;
+            bool ok = ik.getBaseAngularVelocity(baseAngularVelocity);
+            return std::make_tuple(ok, baseAngularVelocity);
         });
 }
 
