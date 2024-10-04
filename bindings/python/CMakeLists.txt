@@ -34,7 +34,7 @@ target_link_libraries(pybind11_baf PRIVATE
 # # The generated Python dynamic module must have the same name as the pybind11
 # # module, i.e. `bindings`.
 set_target_properties(pybind11_baf PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY "${baf_PYTHON_PACKAGE}"
+    LIBRARY_OUTPUT_DIRECTORY "${BAF_PYTHON_PACKAGE}"
     OUTPUT_NAME "bindings")
 
 if(FRAMEWORK_TEST_PYTHON_BINDINGS)
