@@ -262,12 +262,24 @@ bool HumanIK::updateFloorContactTask(const int node, const double verticalForce)
 
 bool HumanIK::updateJointRegularizationTask()
 {
+    // check if the joint regularization task is initialized
+    if (m_jointRegularizationTask == nullptr)
+    {
+        BiomechanicalAnalysis::log()->error("[HumanIK::updateJointRegularizationTask] Joint regularization task not initialized.");
+        return false;
+    }
     // Set the set point of the joint regularization task to a zero vector of size m_nrDoFs
     return m_jointRegularizationTask->setSetPoint(Eigen::VectorXd::Zero(m_nrDoFs));
 }
 
 bool HumanIK::updateJointConstraintsTask()
 {
+    // check if the joint constraints task is initialized
+    if (m_jointConstraintsTask == nullptr)
+    {
+        BiomechanicalAnalysis::log()->error("[HumanIK::updateJointConstraintsTask] Joint constraints task not initialized.");
+        return false;
+    }
     // Update the joint constraints task
     return m_jointConstraintsTask->update();
 }
