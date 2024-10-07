@@ -37,6 +37,7 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
     // resize kinematic variables based on DoF
     m_jointPositions.resize(m_kinDyn->getNrOfDegreesOfFreedom());
     m_jointVelocities.resize(m_kinDyn->getNrOfDegreesOfFreedom());
+    m_calibrationJointPositions.resize(m_kinDyn->getNrOfDegreesOfFreedom());
 
     // Retrieve the state of the system
     if (!kinDyn->getRobotState(m_basePose, m_jointPositions, m_baseVelocity, m_jointVelocities, m_gravity))
@@ -74,6 +75,26 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
     std::string variable;
     group->getParameter("robot_velocity_variable_name", variable);
     m_variableHandler.addVariable(variable, kinDyn->getNrOfDegreesOfFreedom() + 6);
+
+    // Retrieve calibration joint positions parameter from config file, using the param handler
+    Eigen::VectorXd calibrationJointPositions;
+    if (ptr->getParameter("calibration_joint_positions", calibrationJointPositions))
+    {
+        // Check that the length of the joint positions is correct
+        if (calibrationJointPositions.size() != m_kinDyn->getNrOfDegreesOfFreedom())
+        {
+            BiomechanicalAnalysis::log()->warn("{} Calibration joint positions vector has wrong size, setting all joints to zero", logPrefix);
+            m_calibrationJointPositions.setZero();
+        } else
+        {
+            m_calibrationJointPositions = calibrationJointPositions;
+        }
+    } else
+    {
+        // If calibration joint positions are missing, set to 0
+        BiomechanicalAnalysis::log()->warn("{} Parameter calibration_joint_positions is missing, setting all joints to zero", logPrefix);
+        m_calibrationJointPositions.setZero();
+    }
 
     // Cycle on the tasks to be initialized
     for (const auto& task : tasks)
@@ -337,7 +358,7 @@ bool HumanIK::clearCalibrationMatrices()
     return true;
 }
 
-bool HumanIK::calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct, Eigen::Ref<const Eigen::VectorXd> jointPositions)
+bool HumanIK::calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct)
 {
     // reset the robot state
     Eigen::VectorXd jointVelocities;
@@ -348,7 +369,7 @@ bool HumanIK::calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct, Ei
     Eigen::VectorXd baseVelocity;
     baseVelocity.resize(6);
     baseVelocity.setZero();
-    m_kinDyn->setRobotState(basePose, jointPositions, baseVelocity, jointVelocities, m_gravity);
+    m_kinDyn->setRobotState(basePose, m_calibrationJointPositions, baseVelocity, jointVelocities, m_gravity);
     // Update the orientation and gravity tasks
     for (const auto& [node, data] : nodeStruct)
     {
@@ -381,7 +402,7 @@ bool HumanIK::calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct, Ei
     return true;
 }
 
-bool HumanIK::calibrateAllWithWorld(std::unordered_map<int, nodeData> nodeStruct, Eigen::Ref<const Eigen::VectorXd> jointPositions, std::string refFrame)
+bool HumanIK::calibrateAllWithWorld(std::unordered_map<int, nodeData> nodeStruct, std::string refFrame)
 {
     // reset the robot state
     Eigen::VectorXd jointVelocities;
@@ -392,7 +413,7 @@ bool HumanIK::calibrateAllWithWorld(std::unordered_map<int, nodeData> nodeStruct
     Eigen::VectorXd baseVelocity;
     baseVelocity.resize(6);
     baseVelocity.setZero();
-    m_kinDyn->setRobotState(basePose, jointPositions, baseVelocity, jointVelocities, m_gravity);
+    m_kinDyn->setRobotState(basePose, m_calibrationJointPositions, baseVelocity, jointVelocities, m_gravity);
 
     manif::SO3d secondaryCalib = manif::SO3d::Identity();
     // if a reference frame is provided, compute the world rotation matrix of the reference frame
