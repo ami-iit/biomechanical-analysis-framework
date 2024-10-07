@@ -37,6 +37,7 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
     // resize kinematic variables based on DoF
     m_jointPositions.resize(m_kinDyn->getNrOfDegreesOfFreedom());
     m_jointVelocities.resize(m_kinDyn->getNrOfDegreesOfFreedom());
+    m_calibrationJointPositions.resize(m_kinDyn->getNrOfDegreesOfFreedom());
 
     // Retrieve the state of the system
     if (!kinDyn->getRobotState(m_basePose, m_jointPositions, m_baseVelocity, m_jointVelocities, m_gravity))
@@ -74,6 +75,26 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
     std::string variable;
     group->getParameter("robot_velocity_variable_name", variable);
     m_variableHandler.addVariable(variable, kinDyn->getNrOfDegreesOfFreedom() + 6);
+
+    // Retrieve calibration joint positions parameter from config file, using the param handler
+    Eigen::VectorXd calibrationJointPositions;
+    if (ptr->getParameter("calibration_joint_positions", calibrationJointPositions))
+    {
+        // Check that the length of the joint positions is correct
+        if (calibrationJointPositions.size() != m_kinDyn->getNrOfDegreesOfFreedom())
+        {
+            BiomechanicalAnalysis::log()->warn("{} Calibration joint positions vector has wrong size, setting all joints to zero", logPrefix);
+            m_calibrationJointPositions.setZero();
+        } else
+        {
+            m_calibrationJointPositions = calibrationJointPositions;
+        }
+    } else
+    {
+        // If calibration joint positions are missing, set to 0
+        BiomechanicalAnalysis::log()->warn("{} Parameter calibration_joint_positions is missing, setting all joints to zero", logPrefix);
+        m_calibrationJointPositions.setZero();
+    }
 
     // Cycle on the tasks to be initialized
     for (const auto& task : tasks)
@@ -211,7 +232,7 @@ bool HumanIK::updateGravityTask(const int node, const manif::SO3d& I_R_IMU)
     return m_GravityTasks[node].task->setSetPoint((I_R_link.rotation().transpose().rightCols(1)));
 }
 
-bool HumanIK::updateFloorContactTask(const int node, const double verticalForce)
+bool HumanIK::updateFloorContactTask(const int node, const double verticalForce, const double linkHeight)
 {
     bool ok{true};
     // check if the node number is valid
@@ -243,7 +264,7 @@ bool HumanIK::updateFloorContactTask(const int node, const double verticalForce)
         m_FloorContactTasks[node].footInContact = true;
         m_FloorContactTasks[node].setPointPosition
             = iDynTree::toEigen(m_kinDyn->getWorldTransform(m_FloorContactTasks[node].frameName).getPosition());
-        m_FloorContactTasks[node].setPointPosition(2) = 0.0;
+        m_FloorContactTasks[node].setPointPosition(2) = linkHeight;
     } else if (verticalForce < m_FloorContactTasks[node].verticalForceThreshold && m_FloorContactTasks[node].footInContact)
     {
         // if the foot is not more in contact, set the weight of the associated task to zero
@@ -307,11 +328,11 @@ bool HumanIK::updateOrientationAndGravityTasks(const std::unordered_map<int, nod
     return true;
 }
 
-bool HumanIK::updateFloorContactTasks(const std::unordered_map<int, Eigen::Matrix<double, 6, 1>>& wrenchMap)
+bool HumanIK::updateFloorContactTasks(const std::unordered_map<int, Eigen::Matrix<double, 6, 1>>& wrenchMap, const double linkHeight)
 {
     for (const auto& [node, data] : wrenchMap)
     {
-        if (!updateFloorContactTask(node, data(WRENCH_FORCE_Z)))
+        if (!updateFloorContactTask(node, data(WRENCH_FORCE_Z), linkHeight))
         {
             BiomechanicalAnalysis::log()->error("[HumanIK::updateFloorContactTasks] Error in updating "
                                                 "the floor contact task of node {}",
@@ -340,10 +361,7 @@ bool HumanIK::clearCalibrationMatrices()
 bool HumanIK::calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct)
 {
     // reset the robot state
-    Eigen::VectorXd jointPositions;
     Eigen::VectorXd jointVelocities;
-    jointPositions.resize(this->getDoFsNumber());
-    jointPositions.setZero();
     jointVelocities.resize(this->getDoFsNumber());
     jointVelocities.setZero();
     Eigen::Matrix4d basePose;
@@ -351,7 +369,7 @@ bool HumanIK::calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct)
     Eigen::VectorXd baseVelocity;
     baseVelocity.resize(6);
     baseVelocity.setZero();
-    m_kinDyn->setRobotState(basePose, jointPositions, baseVelocity, jointVelocities, m_gravity);
+    m_kinDyn->setRobotState(basePose, m_calibrationJointPositions, baseVelocity, jointVelocities, m_gravity);
     // Update the orientation and gravity tasks
     for (const auto& [node, data] : nodeStruct)
     {
@@ -387,10 +405,7 @@ bool HumanIK::calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct)
 bool HumanIK::calibrateAllWithWorld(std::unordered_map<int, nodeData> nodeStruct, std::string refFrame)
 {
     // reset the robot state
-    Eigen::VectorXd jointPositions;
     Eigen::VectorXd jointVelocities;
-    jointPositions.resize(this->getDoFsNumber());
-    jointPositions.setZero();
     jointVelocities.resize(this->getDoFsNumber());
     jointVelocities.setZero();
     Eigen::Matrix4d basePose;
@@ -398,7 +413,7 @@ bool HumanIK::calibrateAllWithWorld(std::unordered_map<int, nodeData> nodeStruct
     Eigen::VectorXd baseVelocity;
     baseVelocity.resize(6);
     baseVelocity.setZero();
-    m_kinDyn->setRobotState(basePose, jointPositions, baseVelocity, jointVelocities, m_gravity);
+    m_kinDyn->setRobotState(basePose, m_calibrationJointPositions, baseVelocity, jointVelocities, m_gravity);
 
     manif::SO3d secondaryCalib = manif::SO3d::Identity();
     // if a reference frame is provided, compute the world rotation matrix of the reference frame
