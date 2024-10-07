@@ -211,7 +211,7 @@ bool HumanIK::updateGravityTask(const int node, const manif::SO3d& I_R_IMU)
     return m_GravityTasks[node].task->setSetPoint((I_R_link.rotation().transpose().rightCols(1)));
 }
 
-bool HumanIK::updateFloorContactTask(const int node, const double verticalForce)
+bool HumanIK::updateFloorContactTask(const int node, const double verticalForce, const double linkHeight)
 {
     bool ok{true};
     // check if the node number is valid
@@ -243,7 +243,7 @@ bool HumanIK::updateFloorContactTask(const int node, const double verticalForce)
         m_FloorContactTasks[node].footInContact = true;
         m_FloorContactTasks[node].setPointPosition
             = iDynTree::toEigen(m_kinDyn->getWorldTransform(m_FloorContactTasks[node].frameName).getPosition());
-        m_FloorContactTasks[node].setPointPosition(2) = 0.0;
+        m_FloorContactTasks[node].setPointPosition(2) = linkHeight;
     } else if (verticalForce < m_FloorContactTasks[node].verticalForceThreshold && m_FloorContactTasks[node].footInContact)
     {
         // if the foot is not more in contact, set the weight of the associated task to zero
@@ -307,11 +307,11 @@ bool HumanIK::updateOrientationAndGravityTasks(const std::unordered_map<int, nod
     return true;
 }
 
-bool HumanIK::updateFloorContactTasks(const std::unordered_map<int, Eigen::Matrix<double, 6, 1>>& wrenchMap)
+bool HumanIK::updateFloorContactTasks(const std::unordered_map<int, Eigen::Matrix<double, 6, 1>>& wrenchMap, const double linkHeight)
 {
     for (const auto& [node, data] : wrenchMap)
     {
-        if (!updateFloorContactTask(node, data(WRENCH_FORCE_Z)))
+        if (!updateFloorContactTask(node, data(WRENCH_FORCE_Z), linkHeight))
         {
             BiomechanicalAnalysis::log()->error("[HumanIK::updateFloorContactTasks] Error in updating "
                                                 "the floor contact task of node {}",
@@ -337,13 +337,10 @@ bool HumanIK::clearCalibrationMatrices()
     return true;
 }
 
-bool HumanIK::calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct)
+bool HumanIK::calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct, Eigen::VectorXd jointPositions)
 {
     // reset the robot state
-    Eigen::VectorXd jointPositions;
     Eigen::VectorXd jointVelocities;
-    jointPositions.resize(this->getDoFsNumber());
-    jointPositions.setZero();
     jointVelocities.resize(this->getDoFsNumber());
     jointVelocities.setZero();
     Eigen::Matrix4d basePose;
@@ -384,13 +381,10 @@ bool HumanIK::calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct)
     return true;
 }
 
-bool HumanIK::calibrateAllWithWorld(std::unordered_map<int, nodeData> nodeStruct, std::string refFrame)
+bool HumanIK::calibrateAllWithWorld(std::unordered_map<int, nodeData> nodeStruct, Eigen::VectorXd jointPositions, std::string refFrame)
 {
     // reset the robot state
-    Eigen::VectorXd jointPositions;
     Eigen::VectorXd jointVelocities;
-    jointPositions.resize(this->getDoFsNumber());
-    jointPositions.setZero();
     jointVelocities.resize(this->getDoFsNumber());
     jointVelocities.setZero();
     Eigen::Matrix4d basePose;

@@ -438,8 +438,16 @@ int main()
                 // Perform T-Pose calibration for each node
                 nodeStruct[node].I_R_IMU = BipedalLocomotion::Conversions::toManifRot(I_R_IMU);
             }
-            ik.calibrateWorldYaw(nodeStruct); // Calibrate the world yaw
-            ik.calibrateAllWithWorld(nodeStruct, "LeftFoot"); // Calibrate all with world
+
+            // Define the robot state for calibration
+            Eigen::VectorXd calibJointPositions;
+            calibJointPositions.resize(kinDyn->getNrOfDegreesOfFreedom());
+            calibJointPositions.setZero();
+            Eigen::Vector3d calibBasePosition;
+            calibBasePosition.setZero();
+
+            ik.calibrateWorldYaw(nodeStruct, calibJointPositions); // Calibrate the world yaw
+            ik.calibrateAllWithWorld(nodeStruct, calibJointPositions, "LeftFoot"); // Calibrate all with world
 
             BiomechanicalAnalysis::log()->info("T-pose calibration done");
             tPoseFlag = false;
@@ -483,7 +491,7 @@ int main()
             getNodeVerticalForce(ifeel_data, node, ii, force);
 
             // IK solver: Update floor contact task for the current node
-            ik.updateFloorContactTask(node, force);
+            ik.updateFloorContactTask(node, force, 0.0);
 
             // Convert orientation to a manif object
             manif::SO3d I_R_IMU_manif = manif::SO3d(fromiDynTreeToEigenQuatConversion(I_R_IMU));

@@ -327,7 +327,7 @@ public:
      * node_number                     2
      * weight                          (1.0 1.0 1.0)
      * vertical_force_threshold        60.0
-     * 
+     *
      * [JOINT_LIMITS_TASK]
      * type                            "JointConstraintTask"
      * robot_velocity_variable_name    "robot_velocity"
@@ -337,7 +337,7 @@ public:
      * joints_list                     ("jLeftKnee_rotz", "jRightKnee_rotz", "jLeftAnkle_rotz", "jRightAnkle_rotz")
      * upper_bounds                    (0.0, 0.0, 0.0, 0.0)
      * lower_bounds                    (0.0, 0.0, 0.0, 0.0)
-     * 
+     *
      * [JOINT_REG_TASK]
      * type                            "JointRegularizationTask"
      * robot_velocity_variable_name    "robot_velocity"
@@ -391,7 +391,7 @@ public:
      * @param verticalForce vertical force
      * @return true if the orientation setpoint is set correctly
      */
-    bool updateFloorContactTask(const int node, const double verticalForce);
+    bool updateFloorContactTask(const int node, const double verticalForce, const double linkHeight);
 
     /**
      * set the setpoint for the joint regularization task.
@@ -423,7 +423,7 @@ public:
      * @param footInContact unordered map containing the node number and the vertical force
      * @return true if the calibration matrix is set correctly
      */
-    bool updateFloorContactTasks(const std::unordered_map<int, Eigen::Matrix<double, 6, 1>>& wrenchMap);
+    bool updateFloorContactTasks(const std::unordered_map<int, Eigen::Matrix<double, 6, 1>>& wrenchMap, const double linkHeight);
 
     /**
      * clear the calibration matrices W_R_WIMU and IMU_R_link of all the orientation and gravity tasks
@@ -439,7 +439,7 @@ public:
      * @return true if the calibration matrix is set correctly
      * @note gravity is expected to be aligned with the z-axis of the IMU frame
      */
-    bool calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct);
+    bool calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct, Eigen::VectorXd jointPositions);
 
     /**
      * compute the calibration matrix between the IMU frame and the associated link frame
@@ -449,7 +449,7 @@ public:
      * @param frameRef reference frame used as world
      * @return true if the calibration matrix is set correctly
      */
-    bool calibrateAllWithWorld(std::unordered_map<int, nodeData> nodeStruct, std::string frameRef = "");
+    bool calibrateAllWithWorld(std::unordered_map<int, nodeData> nodeStruct, Eigen::VectorXd jointPositions, std::string frameRef = "");
 
     /**
      * this function solves the inverse kinematics problem and integrate the joint velocity to
