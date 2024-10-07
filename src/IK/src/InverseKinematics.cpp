@@ -337,7 +337,7 @@ bool HumanIK::clearCalibrationMatrices()
     return true;
 }
 
-bool HumanIK::calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct, Eigen::VectorXd jointPositions)
+bool HumanIK::calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct, Eigen::Ref<const Eigen::VectorXd> jointPositions)
 {
     // reset the robot state
     Eigen::VectorXd jointVelocities;
@@ -381,7 +381,7 @@ bool HumanIK::calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct, Ei
     return true;
 }
 
-bool HumanIK::calibrateAllWithWorld(std::unordered_map<int, nodeData> nodeStruct, Eigen::VectorXd jointPositions, std::string refFrame)
+bool HumanIK::calibrateAllWithWorld(std::unordered_map<int, nodeData> nodeStruct, Eigen::Ref<const Eigen::VectorXd> jointPositions, std::string refFrame)
 {
     // reset the robot state
     Eigen::VectorXd jointVelocities;

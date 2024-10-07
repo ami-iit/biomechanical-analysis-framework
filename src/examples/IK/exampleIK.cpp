@@ -410,6 +410,9 @@ int main()
     // Start T-pose calibration thread
     std::thread tPoseThread = std::thread(setTPoseThread);
 
+    // Set foot height
+    const double linkHeight = 0.0;
+
     // Continuosly read from the sensor measurements (span time instants) and compute the IK
 
     // Cycle over the time instants
@@ -491,7 +494,7 @@ int main()
             getNodeVerticalForce(ifeel_data, node, ii, force);
 
             // IK solver: Update floor contact task for the current node
-            ik.updateFloorContactTask(node, force, 0.0);
+            ik.updateFloorContactTask(node, force, linkHeight);
 
             // Convert orientation to a manif object
             manif::SO3d I_R_IMU_manif = manif::SO3d(fromiDynTreeToEigenQuatConversion(I_R_IMU));

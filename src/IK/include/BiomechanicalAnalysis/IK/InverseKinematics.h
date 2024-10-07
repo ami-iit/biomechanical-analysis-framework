@@ -439,7 +439,7 @@ public:
      * @return true if the calibration matrix is set correctly
      * @note gravity is expected to be aligned with the z-axis of the IMU frame
      */
-    bool calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct, Eigen::VectorXd jointPositions);
+    bool calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct, Eigen::Ref<const Eigen::VectorXd> jointPositions);
 
     /**
      * compute the calibration matrix between the IMU frame and the associated link frame
@@ -449,7 +449,7 @@ public:
      * @param frameRef reference frame used as world
      * @return true if the calibration matrix is set correctly
      */
-    bool calibrateAllWithWorld(std::unordered_map<int, nodeData> nodeStruct, Eigen::VectorXd jointPositions, std::string frameRef = "");
+    bool calibrateAllWithWorld(std::unordered_map<int, nodeData> nodeStruct, Eigen::Ref<const Eigen::VectorXd> jointPositions, std::string frameRef = "");
 
     /**
      * this function solves the inverse kinematics problem and integrate the joint velocity to
