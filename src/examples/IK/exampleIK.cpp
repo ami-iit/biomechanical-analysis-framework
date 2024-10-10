@@ -438,6 +438,7 @@ int main()
                 // Perform T-Pose calibration for each node
                 nodeStruct[node].I_R_IMU = BipedalLocomotion::Conversions::toManifRot(I_R_IMU);
             }
+
             ik.calibrateWorldYaw(nodeStruct); // Calibrate the world yaw
             ik.calibrateAllWithWorld(nodeStruct, "LeftFoot"); // Calibrate all with world
 

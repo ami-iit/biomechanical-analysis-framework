@@ -125,6 +125,8 @@ private:
     manif::SO3d I_R_link; /** orientation of the link in the inertial frame */
     manif::SO3Tangentd I_omega_link; /** angular velocity of the link in the inertial frame */
 
+    Eigen::VectorXd m_calibrationJointPositions; /** Joint positions for calibration */
+
     /**
      * Struct containing the SO3 task from the BipedalLocomotion IK, the node number and the
      * rotation matrix between the IMU and the link
@@ -327,7 +329,7 @@ public:
      * node_number                     2
      * weight                          (1.0 1.0 1.0)
      * vertical_force_threshold        60.0
-     * 
+     *
      * [JOINT_LIMITS_TASK]
      * type                            "JointConstraintTask"
      * robot_velocity_variable_name    "robot_velocity"
@@ -337,7 +339,7 @@ public:
      * joints_list                     ("jLeftKnee_rotz", "jRightKnee_rotz", "jLeftAnkle_rotz", "jRightAnkle_rotz")
      * upper_bounds                    (0.0, 0.0, 0.0, 0.0)
      * lower_bounds                    (0.0, 0.0, 0.0, 0.0)
-     * 
+     *
      * [JOINT_REG_TASK]
      * type                            "JointRegularizationTask"
      * robot_velocity_variable_name    "robot_velocity"
@@ -391,7 +393,7 @@ public:
      * @param verticalForce vertical force
      * @return true if the orientation setpoint is set correctly
      */
-    bool updateFloorContactTask(const int node, const double verticalForce);
+    bool updateFloorContactTask(const int node, const double verticalForce, const double linkHeight = 0.0);
 
     /**
      * set the setpoint for the joint regularization task.
@@ -423,7 +425,7 @@ public:
      * @param footInContact unordered map containing the node number and the vertical force
      * @return true if the calibration matrix is set correctly
      */
-    bool updateFloorContactTasks(const std::unordered_map<int, Eigen::Matrix<double, 6, 1>>& wrenchMap);
+    bool updateFloorContactTasks(const std::unordered_map<int, Eigen::Matrix<double, 6, 1>>& wrenchMap, const double linkHeight = 0.0);
 
     /**
      * clear the calibration matrices W_R_WIMU and IMU_R_link of all the orientation and gravity tasks
