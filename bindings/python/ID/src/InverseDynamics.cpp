@@ -13,6 +13,7 @@
 #include <BiomechanicalAnalysis/ID/InverseDynamics.h>
 #include <BiomechanicalAnalysis/bindings/type_caster/swig.h>
 #include <BipedalLocomotion/ParametersHandler/IParametersHandler.h>
+#include <iDynTree/KinDynComputations.h>
 
 namespace BiomechanicalAnalysis
 {
@@ -45,7 +46,51 @@ void CreateInverseDynamics(pybind11::module& module)
                 return id.initialize(handler, *cls);
             },
             py::arg("param_handler"),
-            py::arg("kin_dyn"));
+            py::arg("kin_dyn"))
+        .def(
+            "updateExtWrenchesMeasurements",
+            [](HumanID& id, const std::unordered_map<std::string, Eigen::VectorXd>& wrenchesEigen) -> bool {
+                std::unordered_map<std::string, iDynTree::Wrench> wrenches;
+                for (const auto& [key, value] : wrenchesEigen)
+                {
+                    if (value.size() != 6)
+                    {
+                        throw ::pybind11::value_error("Invalid input for the function. The wrenches "
+                                                      "must have 6 elements.");
+                    }
+
+                    iDynTree::Wrench w;
+                    w.setLinearVec3(iDynTree::GeomVector3(value(0), value(1), value(2)));
+                    w.setAngularVec3(iDynTree::GeomVector3(value(3), value(4), value(5)));
+
+                    wrenches[key] = w;
+                }
+                return id.updateExtWrenchesMeasurements(wrenches);
+            },
+            py::arg("wrenches"))
+        .def("solve", &HumanID::solve)
+        .def("getJointTorques",
+             [](HumanID& id) -> Eigen::VectorXd {
+                 Eigen::VectorXd jointTorques(id.getJointTorques().size());
+                 id.getJointTorques(jointTorques);
+                 return jointTorques;
+             })
+        .def("getJointsList", &HumanID::getJointsList)
+        .def("getEstimatedExtWrenches",
+             [](HumanID& id) -> std::vector<Eigen::VectorXd> {
+                 std::vector<Eigen::VectorXd> wrenches;
+                 const auto& estimatedWrenches = id.getEstimatedExtWrenches();
+                 for (int i = 0; i < estimatedWrenches.size(); i++)
+                 {
+                     Eigen::VectorXd w(6);
+                     w << estimatedWrenches[i].getLinearVec3()(0), estimatedWrenches[i].getLinearVec3()(1),
+                         estimatedWrenches[i].getLinearVec3()(2), estimatedWrenches[i].getAngularVec3()(0),
+                         estimatedWrenches[i].getAngularVec3()(1), estimatedWrenches[i].getAngularVec3()(2);
+                     wrenches.push_back(w);
+                 }
+                 return wrenches;
+             })
+        .def("getEstimatedExtWrenchesList", &HumanID::getEstimatedExtWrenchesList);
 }
 
 } // namespace ID
