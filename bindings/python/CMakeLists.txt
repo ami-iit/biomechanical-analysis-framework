@@ -4,6 +4,7 @@
 
 add_subdirectory(type_caster)
 add_subdirectory(IK)
+add_subdirectory(ID)
 
 
 include(ConfigureFileWithCMakeIfTarget)
