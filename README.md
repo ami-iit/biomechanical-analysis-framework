@@ -11,11 +11,18 @@ The dependencies can be installed in two ways; the first one is via `conda` crea
    ```
    git clone https://github.com/ami-iit/biomechanical-analysis-framework
    ```
-* Create the conda environment from file
+* Create the conda environment from file to automatically install dependencies:
   ```
    cd biomechanical-analysis-framework
    conda env create -n <conda-environment-name> --file ci_env.yml
    ```
+* Note: if you are already inside an existing conda environment, you can type instead:
+  ```
+   cd biomechanical-analysis-framework
+   conda env update --file ci_env.yml
+   ```
+
+  
 The second option is to install the dependencies via [robotology-superbuild](https://github.com/robotology/robotology-superbuild/blob/master/README.md), making sure to enable the following CMake options:
    - `ROBOTOLOGY_ENABLE_DYNAMICS`;
    - `ROBOTOLOGY_ENABLE_DYNAMICS_FULL_DEPS`;
