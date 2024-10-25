@@ -218,17 +218,17 @@ bool HumanIK::updatePoseTask(const int node, const Eigen::Vector3d& I_position, 
 
     // Compute the rotation matrix from the world to the link frame as:
     // W_R_link = W_R_WIMU * WIMU_R_IMU * IMU_R_link
-    I_R_link = m_PoseTasks[node].calibrationMatrix * I_R_IMU * m_PoseTasks[node].IMU_R_link;
+    manif::SE3d I_H_IMU(I_position, I_R_IMU);
 
     // Create the transformation matrix from the world to the link frame
-    manif::SE3d I_H_link(manif::SE3d::Translation(I_position), I_R_link);
+    manif::SE3d I_H_link = I_H_IMU * m_PoseTasks[node].IMU_H_link;
 
     // Compute the linear velocity in the link frame (left trivialized)
     // I_linearVelocity_link = link_R_W * W_R_WIMU * WIMU_linearVelocity
-    Eigen::Vector3d I_linearVelocity_link = I_R_link.rotation().transpose() * m_PoseTasks[node].calibrationMatrix.rotation() * I_linearVelocity;
+    Eigen::Vector3d I_linearVelocity_link = I_H_link.rotation().transpose() * I_linearVelocity;
 
     // Compute the angular velocity of the link frame (right trivialized)
-    Eigen::Vector3d I_omega_link = m_PoseTasks[node].calibrationMatrix.rotation() * I_omega_IMU.coeffs();
+    Eigen::Vector3d I_omega_link = I_omega_IMU.coeffs();
 
     Eigen::VectorXd mixedVelocityVector(6);
     mixedVelocityVector << I_linearVelocity_link, I_omega_link;
@@ -430,8 +430,7 @@ bool HumanIK::clearCalibrationMatrices()
 {
     for (auto& [node, data] : m_PoseTasks)
     {
-        data.calibrationMatrix = manif::SO3d::Identity();
-        data.IMU_R_link = m_PoseTasks[node].IMU_R_link_init;
+        data.IMU_H_link = m_PoseTasks[node].IMU_H_link_init;
     }
     for (auto& [node, data] : m_OrientationTasks)
     {
@@ -462,23 +461,14 @@ bool HumanIK::calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct)
     for (const auto& [node, data] : nodeStruct)
     {
         // check if the node number is valid
-        if (m_PoseTasks.find(node) == m_PoseTasks.end() && m_OrientationTasks.find(node) == m_OrientationTasks.end() && m_GravityTasks.find(node) == m_GravityTasks.end())
+        if (m_OrientationTasks.find(node) == m_OrientationTasks.end() && m_GravityTasks.find(node) == m_GravityTasks.end())
         {
             BiomechanicalAnalysis::log()->error("[HumanIK::calibrateWorldYaw] Invalid node number.");
             return false;
         }
 
         iDynTree::Rotation rpyOffset;
-        if (m_PoseTasks.find(node) != m_PoseTasks.end())
-        {
-            // compute the offset between the world and the IMU world as:
-            // W_R_WIMU = W_R_link * (WIMU_R_IMU * IMU_R_link)^{T}
-            iDynTree::toEigen(rpyOffset) = iDynTree::toEigen(m_kinDyn->getWorldTransform(m_PoseTasks[node].frameName).getRotation())
-                                           * ((data.I_R_IMU * m_PoseTasks[node].IMU_R_link).inverse()).rotation();
-            // set the calibration matrix of the orientation task to the offset in yaw
-            m_PoseTasks[node].calibrationMatrix = manif::SO3d(0, 0, rpyOffset.asRPY()(2));
-        }
-        else if (m_OrientationTasks.find(node) != m_OrientationTasks.end())
+        if (m_OrientationTasks.find(node) != m_OrientationTasks.end())
         {
             // compute the offset between the world and the IMU world as:
             // W_R_WIMU = W_R_link * (WIMU_R_IMU * IMU_R_link)^{T}
@@ -523,22 +513,13 @@ bool HumanIK::calibrateAllWithWorld(std::unordered_map<int, nodeData> nodeStruct
     for (const auto& [node, data] : nodeStruct)
     {
         // check if the node number is valid
-        if (m_PoseTasks.find(node) == m_PoseTasks.end() && m_OrientationTasks.find(node) == m_OrientationTasks.end() && m_GravityTasks.find(node) == m_GravityTasks.end())
+        if (m_OrientationTasks.find(node) == m_OrientationTasks.end() && m_GravityTasks.find(node) == m_GravityTasks.end())
         {
             BiomechanicalAnalysis::log()->error("[HumanIK::calibrateWorldYaw] Invalid node number.");
             return false;
         }
 
-        if (m_PoseTasks.find(node) != m_PoseTasks.end())
-        {
-            // compute the rotation matrix from the IMU to the link frame as:
-            // IMU_R_link = (W_R_WIMU * WIMU_R_IMU)^{T} * W_R_link
-            Eigen::Matrix3d IMU_R_link = (m_PoseTasks[node].calibrationMatrix * data.I_R_IMU).rotation().transpose()
-                                         * iDynTree::toEigen(m_kinDyn->getWorldTransform(m_PoseTasks[node].frameName).getRotation());
-            m_PoseTasks[node].IMU_R_link = BipedalLocomotion::Conversions::toManifRot(IMU_R_link);
-            m_PoseTasks[node].calibrationMatrix = secondaryCalib * m_PoseTasks[node].calibrationMatrix;
-        }
-        else if (m_OrientationTasks.find(node) != m_OrientationTasks.end())
+        if (m_OrientationTasks.find(node) != m_OrientationTasks.end())
         {
             // compute the rotation matrix from the IMU to the link frame as:
             // IMU_R_link = (W_R_WIMU * WIMU_R_IMU)^{T} * W_R_link
@@ -715,13 +696,17 @@ bool HumanIK::initializePoseTask(const std::string& taskName,
     }
 
     // Check that the weight is a 3D vector
-    if (weight.size() != 6)
+    std::vector<bool> mask;
+    taskHandler->getParameter("mask", mask);
+    size_t numTrue = std::count(mask.begin(), mask.end(), true);
+    if (weight.size() !=  numTrue)
     {
         BiomechanicalAnalysis::log()->error("{} The size of the parameter weight of the {} task is "
-                                            "{}, it should be 6",
+                                            "{}, it should be {}",
                                             logPrefix,
                                             taskName,
-                                            weight.size());
+                                            weight.size(),
+                                            numTrue);
         return false;
     }
 
@@ -737,33 +722,34 @@ bool HumanIK::initializePoseTask(const std::string& taskName,
     // Retrieve Rotation matrix  IMU-to-link from configuration file exampleIK.ini
     //*****************************************************************************************************
 
-    std::vector<double> rotation_matrix;
-    if (taskHandler->getParameter("rotation_matrix", rotation_matrix))
+    std::vector<double> transformation_matrix;
+    if (taskHandler->getParameter("transformation_matrix", transformation_matrix))
     {
-        // Convert rotation matrix to ManifRot and assign it to IMU_R_link
-        m_PoseTasks[nodeNumber].IMU_R_link_init
-            = BipedalLocomotion::Conversions::toManifRot(Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(rotation_matrix.data()));
+        // Convert transformation matrix to ManifRot and assign it to IMU_R_link
+        Eigen::Matrix4d transformation_matrix_eigen = Eigen::Map<Eigen::Matrix<double, 4, 4, Eigen::RowMajor>>(transformation_matrix.data());
+        m_PoseTasks[nodeNumber].IMU_H_link_init = manif::SE3d(transformation_matrix_eigen.block<3, 1>(0, 3),
+                                BipedalLocomotion::Conversions::toManifRot(transformation_matrix_eigen.block<3, 3>(0, 0)));
     } else
     {
-        // If rotation_matrix parameter is missing, set IMU_R_link to identity
+        // If transformation_matrix parameter is missing, set IMU_H_link to identity
         std::string frame_name;
         taskHandler->getParameter("frame_name", frame_name);
-        BiomechanicalAnalysis::log()->warn("{} Parameter rotation_matrix of the {} task is "
-                                           "missing, setting the rotation "
+        BiomechanicalAnalysis::log()->warn("{} Parameter transformation_matrix of the {} task is "
+                                           "missing, setting the transformation "
                                            "matrix from the IMU to the frame {} to identity",
                                            logPrefix,
                                            taskName,
                                            frame_name);
-        m_PoseTasks[nodeNumber].IMU_R_link_init.setIdentity();
+        m_PoseTasks[nodeNumber].IMU_H_link_init.setIdentity();
     }
-    m_PoseTasks[nodeNumber].IMU_R_link = m_PoseTasks[nodeNumber].IMU_R_link_init;
+    m_PoseTasks[nodeNumber].IMU_H_link = m_PoseTasks[nodeNumber].IMU_H_link_init;
     //*****************************************************************************************************
 
     // Initialize the SE3Task object
     ok = ok && m_PoseTasks[nodeNumber].task->setKinDyn(m_kinDyn);
     ok = ok && m_PoseTasks[nodeNumber].task->initialize(taskHandler);
 
-    // Add the orientation task to the QP solver
+    // Add the pose task to the QP solver
     ok = ok && m_qpIK.addTask(m_PoseTasks[nodeNumber].task, taskName, 1, m_PoseTasks[nodeNumber].weight);
 
     // Check if initialization was successful

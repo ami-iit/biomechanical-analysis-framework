@@ -147,14 +147,9 @@ private:
     {
         std::shared_ptr<BipedalLocomotion::IK::SE3Task> task;
         int nodeNumber;
-        manif::SO3d IMU_R_link; // Rotation matrix from the IMU to related link
-        manif::SO3d IMU_R_link_init; // Initial value of the rotation matrix from the IMU to related link, set through config
+        manif::SE3d IMU_H_link; // Transformation matrix from the IMU to related link
+        manif::SE3d IMU_H_link_init; // Initial value of the transformation matrix from the IMU to related link, set through config
                                      // file
-        manif::SO3d calibrationMatrix = manif::SO3d::Identity(); // Initialization (to Identity) of
-                                                                 // Rotation matrix from the World
-                                                                 // to the World of the IMU, which
-                                                                 // will be calibrated using Tpose
-                                                                 // script
         Eigen::Matrix<double, 6, 1> weight; // Weight of the task
         std::string frameName; // Name of the frame in which the task is expressed
     };
