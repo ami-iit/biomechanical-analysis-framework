@@ -697,8 +697,16 @@ bool HumanIK::initializePoseTask(const std::string& taskName,
 
     // Check that the weight is a 3D vector
     std::vector<bool> mask;
-    taskHandler->getParameter("mask", mask);
-    size_t numTrue = std::count(mask.begin(), mask.end(), true);
+    size_t numTrue;
+    if (!taskHandler->getParameter("mask", mask))
+    {
+        numTrue = 6;
+    }
+    else
+    {
+        numTrue = std::count(mask.begin(), mask.end(), true);
+    }
+
     if (weight.size() !=  numTrue)
     {
         BiomechanicalAnalysis::log()->error("{} The size of the parameter weight of the {} task is "
