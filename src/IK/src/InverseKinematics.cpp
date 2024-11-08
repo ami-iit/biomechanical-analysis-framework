@@ -580,8 +580,7 @@ bool HumanIK::advance()
     {
         Eigen::Matrix4d basePose; // Pose of the base
         Eigen::VectorXd initialJointPositions; // Initial positions of the joints
-        basePose.setIdentity(); // Set the base pose to the identity matrix
-        m_system.dynamics->setState({basePose.topRightCorner<3, 1>(), toManifRot(basePose.topLeftCorner<3, 3>()), m_calibrationJointPositions});
+        m_system.dynamics->setState({m_basePose.topRightCorner<3, 1>(), toManifRot(m_basePose.topLeftCorner<3, 3>()), m_calibrationJointPositions});
         m_tPose = false;
     }
 
