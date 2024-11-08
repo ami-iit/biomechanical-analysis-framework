@@ -46,6 +46,9 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
         return false;
     }
 
+    // Save the initial base pose
+    initialBasePose = m_basePose;
+
     m_system.dynamics = std::make_shared<FloatingBaseSystemKinematics>();
     m_system.dynamics->setState({m_basePose.topRightCorner<3, 1>(), toManifRot(m_basePose.topLeftCorner<3, 3>()), m_jointPositions});
 
@@ -291,12 +294,10 @@ bool HumanIK::updateFloorContactTask(const int node, const double verticalForce,
         Eigen::VectorXd jointPositions;
         jointPositions.resize(this->getDoFsNumber());
         jointPositions.setZero();
-        Eigen::Matrix4d basePose;
-        basePose.setIdentity();
         Eigen::VectorXd baseVelocity;
         baseVelocity.resize(6);
         baseVelocity.setZero();
-        m_kinDyn->setRobotState(basePose, jointPositions, baseVelocity, m_jointVelocities, m_gravity);
+        m_kinDyn->setRobotState(m_basePose, jointPositions, baseVelocity, m_jointVelocities, m_gravity);
     }
 
     // if the vertical force is greater than the threshold and if the foot is not yet in contact,
@@ -526,7 +527,7 @@ bool HumanIK::calibrateAllWithWorld(std::unordered_map<int, nodeData> nodeStruct
             Eigen::Matrix3d IMU_R_link = (m_OrientationTasks[node].calibrationMatrix * data.I_R_IMU).rotation().transpose()
                                          * iDynTree::toEigen(m_kinDyn->getWorldTransform(m_OrientationTasks[node].frameName).getRotation());
             m_OrientationTasks[node].IMU_R_link = BipedalLocomotion::Conversions::toManifRot(IMU_R_link);
-            m_OrientationTasks[node].calibrationMatrix = secondaryCalib * m_OrientationTasks[node].calibrationMatrix;
+            m_OrientationTasks[node].calibrationMatrix = toManifRot(initialBasePose.topLeftCorner<3, 3>()) * secondaryCalib * m_OrientationTasks[node].calibrationMatrix;
         } else
         {
             // compute the rotation matrix from the IMU to the link frame as:
@@ -534,7 +535,7 @@ bool HumanIK::calibrateAllWithWorld(std::unordered_map<int, nodeData> nodeStruct
             Eigen::Matrix3d IMU_R_link = (m_GravityTasks[node].calibrationMatrix * data.I_R_IMU).rotation().transpose()
                                          * iDynTree::toEigen(m_kinDyn->getWorldTransform(m_GravityTasks[node].frameName).getRotation());
             m_GravityTasks[node].IMU_R_link = BipedalLocomotion::Conversions::toManifRot(IMU_R_link);
-            m_GravityTasks[node].calibrationMatrix = secondaryCalib * m_GravityTasks[node].calibrationMatrix;
+            m_GravityTasks[node].calibrationMatrix = toManifRot(initialBasePose.topLeftCorner<3, 3>()) * secondaryCalib * m_GravityTasks[node].calibrationMatrix;
         }
     }
     // set the flag to true to reset the integration

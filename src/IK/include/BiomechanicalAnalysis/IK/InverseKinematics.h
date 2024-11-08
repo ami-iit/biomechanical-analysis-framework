@@ -138,6 +138,7 @@ private:
     manif::SO3Tangentd I_omega_link; /** angular velocity of the link in the inertial frame */
 
     Eigen::VectorXd m_calibrationJointPositions; /** Joint positions for calibration */
+    Eigen::Matrix4d initialBasePose; /** Initial SO3 pose of the base */
 
     /**
      * Struct containing the SE3 task from the BipedalLocomotion IK, the node number and the
