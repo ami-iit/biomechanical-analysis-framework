@@ -146,11 +146,10 @@ private:
     struct PoseTaskStruct
     {
         std::shared_ptr<BipedalLocomotion::IK::SE3Task> task;
-        int nodeNumber;
         manif::SE3d IMU_H_link; // Transformation matrix from the IMU to related link
         manif::SE3d IMU_H_link_init; // Initial value of the transformation matrix from the IMU to related link, set through config
                                      // file
-        Eigen::Matrix<double, 6, 1> weight; // Weight of the task
+        Eigen::VectorXd weight; // Weight of the task, length depends on mask
         std::string frameName; // Name of the frame in which the task is expressed
     };
 
@@ -219,7 +218,7 @@ private:
     manif::SO3d calib_W_R_link = manif::SO3d::Identity(); /** calibration matrix between the world
                                                            and the link */
 
-    std::unordered_map<int, PoseTaskStruct> m_PoseTasks; /** unordered map of type
+    std::unordered_map<std::string, PoseTaskStruct> m_PoseTasks; /** unordered map of type
                                                                         PoseTaskStruct, each
                                                                         element referring to a
                                                                         node*/
@@ -434,7 +433,7 @@ public:
      * @return true if the orientation setpoint is set correctly
      */
     bool
-    updatePoseTask(const int node, const Eigen::Vector3d& I_position, const manif::SO3d& I_R_IMU, const Eigen::Vector3d& I_linearVelocity = Eigen::Vector3d::Zero(), const manif::SO3Tangentd& I_omega_IMU = manif::SO3d::Tangent::Zero());
+    updatePoseTask(const std::string frameName, const Eigen::Vector3d& I_position, const manif::SO3d& I_R_IMU, const Eigen::Vector3d& I_linearVelocity = Eigen::Vector3d::Zero(), const manif::SO3Tangentd& I_omega_IMU = manif::SO3d::Tangent::Zero());
 
     /**
      * set the orientation and the angular velocity for a given node of a SO3 task
@@ -487,7 +486,7 @@ public:
      * containing the position, orientation, linear and angular velocity of an IMU, associated to the node number
      * @return true if the calibration matrix is set correctly
      */
-    bool updatePoseTasks(const std::unordered_map<int, nodeData>& nodeStruct);
+    bool updatePoseTasks(const std::unordered_map<std::string, nodeData>& nodeStruct);
 
     /**
      * update the orientation for all the nodes of the SO3 and gravity tasks

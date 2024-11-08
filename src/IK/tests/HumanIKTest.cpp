@@ -49,17 +49,17 @@ TEST_CASE("InverseKinematics test")
     mapNodeData[7].I_R_IMU = I_R_IMU;
     mapNodeData[7].I_omega_IMU = I_omega_IMU;
 
-    std::unordered_map<int, BiomechanicalAnalysis::IK::nodeData> poseNodeData;
-    poseNodeData[3].I_R_IMU = I_R_IMU;
-    poseNodeData[3].I_omega_IMU = I_omega_IMU;
-    poseNodeData[3].I_position = I_position;
-    poseNodeData[3].I_linearVelocity = I_linearVelocity;
+    std::unordered_map<std::string, BiomechanicalAnalysis::IK::nodeData> poseNodeData;
+    poseNodeData["root_link"].I_R_IMU = I_R_IMU;
+    poseNodeData["root_link"].I_omega_IMU = I_omega_IMU;
+    poseNodeData["root_link"].I_position = I_position;
+    poseNodeData["root_link"].I_linearVelocity = I_linearVelocity;
 
     qInitial.setConstant(0.0);
 
     REQUIRE(ik.initialize(paramHandler, kinDyn));
     REQUIRE(ik.setDt(0.1));
-    REQUIRE(ik.updatePoseTask(3, I_position, I_R_IMU, I_linearVelocity, I_omega_IMU));
+    REQUIRE(ik.updatePoseTask("root_link", I_position, I_R_IMU, I_linearVelocity, I_omega_IMU));
     REQUIRE(ik.updateOrientationTask(4, I_R_IMU, I_omega_IMU));
     REQUIRE(ik.updateFloorContactTask(10, 11.0));
     REQUIRE(ik.updateGravityTask(10, I_R_IMU));
