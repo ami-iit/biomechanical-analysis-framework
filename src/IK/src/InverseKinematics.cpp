@@ -683,8 +683,8 @@ bool HumanIK::initializePoseTask(const std::string& taskName,
     int priority;
     if (!taskHandler->getParameter("priority", priority))
     {
-        BiomechanicalAnalysis::log()->error("{} Parameter priority of the {} task is missing", logPrefix, taskName);
-        return false;
+        BiomechanicalAnalysis::log()->warn("{} Parameter priority of the {} task is missing, setting to 1 (soft priority)", logPrefix, taskName);
+        priority = 1;
     }
 
     // Retrieve the mask parameter from config file, using the task handler
