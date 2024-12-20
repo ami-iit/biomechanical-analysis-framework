@@ -32,6 +32,8 @@ TEST_CASE("InverseKinematics test")
     Eigen::VectorXd qInitial(kinDyn->getNrOfDegreesOfFreedom());
     BiomechanicalAnalysis::IK::HumanIK ik;
 
+    Eigen::Vector3d I_position = Eigen::Vector3d::Random();
+    Eigen::Vector3d I_linearVelocity = Eigen::Vector3d::Random();
     manif::SO3d I_R_IMU;
     manif::SO3Tangentd I_omega_IMU;
     I_R_IMU.setRandom();
@@ -47,13 +49,21 @@ TEST_CASE("InverseKinematics test")
     mapNodeData[7].I_R_IMU = I_R_IMU;
     mapNodeData[7].I_omega_IMU = I_omega_IMU;
 
+    std::unordered_map<std::string, BiomechanicalAnalysis::IK::nodeData> poseNodeData;
+    poseNodeData["link0"].I_R_IMU = I_R_IMU;
+    poseNodeData["link0"].I_omega_IMU = I_omega_IMU;
+    poseNodeData["link0"].I_position = I_position;
+    poseNodeData["link0"].I_linearVelocity = I_linearVelocity;
+
     qInitial.setConstant(0.0);
 
     REQUIRE(ik.initialize(paramHandler, kinDyn));
     REQUIRE(ik.setDt(0.1));
-    REQUIRE(ik.updateOrientationTask(3, I_R_IMU, I_omega_IMU));
+    REQUIRE(ik.updatePoseTask("link0", I_position, I_R_IMU, I_linearVelocity, I_omega_IMU));
+    REQUIRE(ik.updateOrientationTask(4, I_R_IMU, I_omega_IMU));
     REQUIRE(ik.updateFloorContactTask(10, 11.0));
     REQUIRE(ik.updateGravityTask(10, I_R_IMU));
+    REQUIRE(ik.updatePoseTasks(poseNodeData));
     REQUIRE(ik.updateOrientationAndGravityTasks(mapNodeData));
     REQUIRE(ik.updateJointConstraintsTask());
     REQUIRE(ik.updateJointRegularizationTask());
