@@ -279,7 +279,7 @@ bool HumanIK::updateGravityTask(const int node, const manif::SO3d& I_R_IMU)
     return m_GravityTasks[node].task->setSetPoint((I_R_link.rotation().transpose().rightCols(1)));
 }
 
-bool HumanIK::updateFloorContactTask(const int node, const double verticalForce, const double linkHeight)
+bool HumanIK::updateFloorContactTask(const int node, const double verticalForce, const Eigen::Vector3d& I_position, const manif::SO3d& I_R_IMU, const Eigen::Vector3d& I_linearVelocity, const manif::SO3Tangentd& I_omega_IMU, const double linkHeight)
 {
     bool ok{true};
     // check if the node number is valid
@@ -300,30 +300,33 @@ bool HumanIK::updateFloorContactTask(const int node, const double verticalForce,
         m_kinDyn->setRobotState(m_basePose, jointPositions, baseVelocity, m_jointVelocities, m_gravity);
     }
 
-    // if the vertical force is greater than the threshold and if the foot is not yet in contact,
-    // set the weight of the associated task to the weight of the task and set the set point of the
-    // task to the position of the frame computed with the legged odometry
-    if (verticalForce > m_FloorContactTasks[node].verticalForceThreshold && !m_FloorContactTasks[node].footInContact)
-    {
-        m_qpIK.setTaskWeight(m_FloorContactTasks[node].taskName, m_FloorContactTasks[node].weight);
-        m_FloorContactTasks[node].footInContact = true;
-        m_FloorContactTasks[node].setPointPosition
-            = iDynTree::toEigen(m_kinDyn->getWorldTransform(m_FloorContactTasks[node].frameName).getPosition());
-        m_FloorContactTasks[node].setPointPosition(2) = linkHeight;
-    } else if (verticalForce < m_FloorContactTasks[node].verticalForceThreshold && m_FloorContactTasks[node].footInContact)
-    {
-        // if the foot is not more in contact, set the weight of the associated task to zero
-        m_qpIK.setTaskWeight(m_FloorContactTasks[node].taskName, Eigen::Vector3d::Zero());
-        m_FloorContactTasks[node].footInContact = false;
+    // Compute the rotation matrix from the world to the link frame as:
+    // W_R_link = W_R_WIMU * WIMU_R_IMU * IMU_R_link
+    manif::SE3d I_H_IMU(I_position, I_R_IMU);
+
+    // Create the transformation matrix from the world to the link frame
+    manif::SE3d I_H_link = I_H_IMU * m_FloorContactTasks[node].IMU_H_link;
+
+    // Compute the linear velocity in the link frame (left trivialized)
+    // I_linearVelocity_link = link_R_W * W_R_WIMU * WIMU_linearVelocity
+    Eigen::Vector3d I_linearVelocity_link = I_H_link.rotation().transpose() * I_linearVelocity;
+
+    // Compute the angular velocity of the link frame (right trivialized)
+    Eigen::Vector3d I_omega_link = I_omega_IMU.coeffs();
+
+    Eigen::VectorXd mixedVelocityVector(6);
+    mixedVelocityVector << I_linearVelocity_link, I_omega_link;
+
+    // Create mixed velocity vector
+    manif::SE3d::Tangent mixedVelocity(mixedVelocityVector);
+
+    if (verticalForce > m_FloorContactTasks[node].verticalForceThreshold)
+    { // if the vertical force is greater than the threshold, set the foot height to 0
+        I_H_link.translation(Eigen::Vector3d(I_H_link.translation().x(), I_H_link.translation().y(), linkHeight));
     }
 
-    // if the foot is in contact, set the set point of the task
-    if (m_FloorContactTasks[node].footInContact)
-    {
-        ok = m_FloorContactTasks[node].task->setSetPoint(m_FloorContactTasks[node].setPointPosition);
-    }
-
-    return ok;
+    // then set the set point for the task regardless of whether the foot is in contact
+    return m_FloorContactTasks[node].task->setSetPoint(I_H_link, mixedVelocity);
 }
 
 bool HumanIK::updateJointRegularizationTask()
@@ -412,11 +415,11 @@ bool HumanIK::updateOrientationAndGravityTasks(const std::unordered_map<int, nod
     return true;
 }
 
-bool HumanIK::updateFloorContactTasks(const std::unordered_map<int, Eigen::Matrix<double, 6, 1>>& wrenchMap, const double linkHeight)
+bool HumanIK::updateFloorContactTasks(const std::unordered_map<int, Eigen::Matrix<double, 6, 1>>& wrenchMap, const Eigen::Vector3d& I_position, const manif::SO3d& I_R_IMU, const Eigen::Vector3d& I_linearVelocity, const manif::SO3Tangentd& I_omega_IMU, const double linkHeight)
 {
     for (const auto& [node, data] : wrenchMap)
     {
-        if (!updateFloorContactTask(node, data(WRENCH_FORCE_Z), linkHeight))
+        if (!updateFloorContactTask(node, data(WRENCH_FORCE_Z), I_position, I_R_IMU, I_linearVelocity, I_omega_IMU, linkHeight))
         {
             BiomechanicalAnalysis::log()->error("[HumanIK::updateFloorContactTasks] Error in updating "
                                                 "the floor contact task of node {}",
@@ -442,6 +445,10 @@ bool HumanIK::clearCalibrationMatrices()
     {
         data.calibrationMatrix = manif::SO3d::Identity();
         data.IMU_R_link = m_GravityTasks[node].IMU_R_link_init;
+    }
+    for (auto& [frameName, data] : m_FloorContactTasks)
+    {
+        data.IMU_H_link = m_FloorContactTasks[frameName].IMU_H_link_init;
     }
     return true;
 }
@@ -994,24 +1001,73 @@ bool HumanIK::initializeFloorContactTask(const std::string& taskName,
         return false;
     }
 
-    // Retrieve weight parameter from the task handler
+    // Set node number and task name for the FloorContactTask
+    m_FloorContactTasks[nodeNumber].nodeNumber = nodeNumber;
+    m_FloorContactTasks[nodeNumber].taskName = taskName;
+
+    // Retrieve the mask parameter from config file, using the task handler
+    std::vector<bool> mask;
+    size_t numTrue;
+    if (!taskHandler->getParameter("mask", mask))
+    {
+        numTrue = 6;
+    }
+    else
+    {
+        numTrue = std::count(mask.begin(), mask.end(), true) + 3;
+    }
+
+    // Retrieve weight parameter from config file, using the task handler
     std::vector<double> weight;
     if (!taskHandler->getParameter("weight", weight))
     {
         BiomechanicalAnalysis::log()->error("{} Parameter weight of the {} task is missing", logPrefix, taskName);
         return false;
+
+        if (weight.size() !=  numTrue)
+        {
+            BiomechanicalAnalysis::log()->error("{} The size of the parameter weight of the {} task is "
+                                                "{}, it should be {}",
+                                                logPrefix,
+                                                taskName,
+                                                weight.size(),
+                                                numTrue);
+            return false;
+        }
+
     }
 
-    // Check that the weight is a 3D vector
-    if (weight.size() != 3)
+    m_FloorContactTasks[nodeNumber].weight.resize(weight.size());
+    m_FloorContactTasks[nodeNumber].weight = Eigen::Map<Eigen::VectorXd>(weight.data(), weight.size());
+
+    // Create an SE3Task object for the pose task
+    m_FloorContactTasks[nodeNumber].task = std::make_shared<BipedalLocomotion::IK::SE3Task>();
+
+    //*****************************************************************************************************
+    // Retrieve Transformation matrix  IMU-to-link from configuration file exampleIK.ini
+    //*****************************************************************************************************
+
+    std::vector<double> transformation_matrix;
+    if (taskHandler->getParameter("transformation_matrix", transformation_matrix))
     {
-        BiomechanicalAnalysis::log()->error("{} The size of the parameter weight of the {} task is "
-                                            "{}, it should be 3",
-                                            logPrefix,
-                                            taskName,
-                                            weight.size());
-        return false;
+        // Convert transformation matrix to ManifRot and assign it to IMU_R_link
+        Eigen::Matrix4d transformation_matrix_eigen = Eigen::Map<Eigen::Matrix<double, 4, 4, Eigen::RowMajor>>(transformation_matrix.data());
+        m_FloorContactTasks[nodeNumber].IMU_H_link_init = manif::SE3d(transformation_matrix_eigen.block<3, 1>(0, 3),
+                                BipedalLocomotion::Conversions::toManifRot(transformation_matrix_eigen.block<3, 3>(0, 0)));
+    } else
+    {
+        // If transformation_matrix parameter is missing, set IMU_H_link to identity
+        std::string frame_name;
+        taskHandler->getParameter("frame_name", frame_name);
+        BiomechanicalAnalysis::log()->warn("{} Parameter transformation_matrix of the {} task is "
+                                           "missing, setting the transformation "
+                                           "matrix from the IMU to the frame {} to identity",
+                                           logPrefix,
+                                           taskName,
+                                           frame_name);
+        m_FloorContactTasks[nodeNumber].IMU_H_link_init.setIdentity();
     }
+    m_FloorContactTasks[nodeNumber].IMU_H_link = m_FloorContactTasks[nodeNumber].IMU_H_link_init;
 
     // Retrieve vertical force threshold parameter from the task handler and assign it to the
     // corresponding FloorContactTask
@@ -1024,17 +1080,7 @@ bool HumanIK::initializeFloorContactTask(const std::string& taskName,
         return false;
     }
 
-    // Map weight vector to Eigen::Vector3d and assign it to the corresponding FloorContactTask
-    m_FloorContactTasks[nodeNumber].weight = Eigen::Map<Eigen::Vector3d>(weight.data());
-
-    // Set node number and task name for the FloorContactTask
-    m_FloorContactTasks[nodeNumber].nodeNumber = nodeNumber;
-    m_FloorContactTasks[nodeNumber].taskName = taskName;
-
-    // Create an R3Task object for the floor contact task
-    m_FloorContactTasks[nodeNumber].task = std::make_shared<BipedalLocomotion::IK::R3Task>();
-
-    // Initialize the R3Task object
+    // Initialize the SE3Task object
     ok = ok && m_FloorContactTasks[nodeNumber].task->setKinDyn(m_kinDyn);
     ok = ok && m_FloorContactTasks[nodeNumber].task->initialize(taskHandler);
 
@@ -1042,6 +1088,12 @@ bool HumanIK::initializeFloorContactTask(const std::string& taskName,
     ok = ok && m_qpIK.addTask(m_FloorContactTasks[nodeNumber].task, taskName, 1, m_FloorContactTasks[nodeNumber].weight);
 
     // Check if initialization was successful
+    if (!ok)
+    {
+        BiomechanicalAnalysis::log()->error("{} Error in the initialization of the {} task", logPrefix, taskName);
+        return false;
+    }
+
     return ok;
 }
 

@@ -17,7 +17,6 @@
 #include <BipedalLocomotion/IK/JointTrackingTask.h>
 #include <BipedalLocomotion/IK/JointVelocityLimitsTask.h>
 #include <BipedalLocomotion/IK/QPInverseKinematics.h>
-#include <BipedalLocomotion/IK/R3Task.h>
 #include <BipedalLocomotion/IK/SO3Task.h>
 #include <BipedalLocomotion/IK/SE3Task.h>
 #include <BipedalLocomotion/ParametersHandler/IParametersHandler.h>
@@ -77,10 +76,10 @@ private:
                                const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
 
     /**
-     * initialize the R3 task
+     * initialize the SE3 task
      * @param taskName name of the task
      * @param handler pointer to the parameters handler
-     * @return true if the R3 task is initialized correctly
+     * @return true if the SE3 task is initialized correctly
      */
     bool initializeFloorContactTask(const std::string& taskName,
                                     const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
@@ -192,16 +191,18 @@ private:
     };
 
     /**
-     * Struct containing the R3 task from the BipedalLocomotion IK, the node number and the
+     * Struct containing the SE3 task from the BipedalLocomotion IK, the node number and the
      * multiple state weight provider
      */
     struct FloorContactTaskStruct
     {
-        std::shared_ptr<BipedalLocomotion::IK::R3Task> task;
-        Eigen::Vector3d weight;
+        std::shared_ptr<BipedalLocomotion::IK::SE3Task> task;
+        Eigen::VectorXd weight;
         int nodeNumber;
         bool footInContact{false};
-        Eigen::Vector3d setPointPosition;
+        manif::SE3d IMU_H_link; // Transformation matrix from the IMU to related link
+        manif::SE3d IMU_H_link_init; // Initial value of the transformation matrix from the IMU to related link, set through config
+                                     // file
         std::string taskName;
         std::string frameName;
         double verticalForceThreshold;
@@ -463,7 +464,7 @@ public:
      * @param verticalForce vertical force
      * @return true if the orientation setpoint is set correctly
      */
-    bool updateFloorContactTask(const int node, const double verticalForce, const double linkHeight = 0.0);
+    bool updateFloorContactTask(const int node, const double verticalForce, const Eigen::Vector3d& I_position = Eigen::Vector3d::Zero(), const manif::SO3d& I_R_IMU = manif::SO3d::Identity(), const Eigen::Vector3d& I_linearVelocity = Eigen::Vector3d::Zero(), const manif::SO3Tangentd& I_omega_IMU = manif::SO3d::Tangent::Zero(), const double linkHeight = 0.0);
 
     /**
      * set the setpoint for the joint regularization task.
@@ -503,7 +504,7 @@ public:
      * @param footInContact unordered map containing the node number and the vertical force
      * @return true if the calibration matrix is set correctly
      */
-    bool updateFloorContactTasks(const std::unordered_map<int, Eigen::Matrix<double, 6, 1>>& wrenchMap, const double linkHeight = 0.0);
+    bool updateFloorContactTasks(const std::unordered_map<int, Eigen::Matrix<double, 6, 1>>& wrenchMap, const Eigen::Vector3d& I_position = Eigen::Vector3d::Zero(), const manif::SO3d& I_R_IMU = manif::SO3d::Identity(), const Eigen::Vector3d& I_linearVelocity = Eigen::Vector3d::Zero(), const manif::SO3Tangentd& I_omega_IMU = manif::SO3d::Tangent::Zero(), const double linkHeight = 0.0);
 
     /**
      * clear the calibration matrices W_R_WIMU and IMU_R_link of all the orientation and gravity tasks
