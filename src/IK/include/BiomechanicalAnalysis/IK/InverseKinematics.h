@@ -17,8 +17,8 @@
 #include <BipedalLocomotion/IK/JointTrackingTask.h>
 #include <BipedalLocomotion/IK/JointVelocityLimitsTask.h>
 #include <BipedalLocomotion/IK/QPInverseKinematics.h>
-#include <BipedalLocomotion/IK/R3Task.h>
 #include <BipedalLocomotion/IK/SO3Task.h>
+#include <BipedalLocomotion/IK/SE3Task.h>
 #include <BipedalLocomotion/ParametersHandler/IParametersHandler.h>
 #include <BipedalLocomotion/ParametersHandler/StdImplementation.h>
 #include <BipedalLocomotion/System/VariablesHandler.h>
@@ -36,6 +36,8 @@ struct nodeData
 {
     manif::SO3d I_R_IMU;
     manif::SO3Tangentd I_omega_IMU = manif::SO3d::Tangent::Zero();
+    Eigen::Vector3d I_position = Eigen::Vector3d::Zero();
+    Eigen::Vector3d I_linearVelocity = Eigen::Vector3d::Zero();
 };
 
 // clang-format off
@@ -46,6 +48,15 @@ struct nodeData
 class HumanIK
 {
 private:
+    /**
+     * initialize the SE3 task
+     * @param taskName name of the task
+     * @param handler pointer to the parameters handler
+     * @return true if the SE3 task is initialized correctly
+     */
+    bool initializePoseTask(const std::string& taskName,
+                                   const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
+
     /**
      * initialize the SO3 task
      * @param taskName name of the task
@@ -65,10 +76,10 @@ private:
                                const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
 
     /**
-     * initialize the R3 task
+     * initialize the SE3 task
      * @param taskName name of the task
      * @param handler pointer to the parameters handler
-     * @return true if the R3 task is initialized correctly
+     * @return true if the SE3 task is initialized correctly
      */
     bool initializeFloorContactTask(const std::string& taskName,
                                     const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
@@ -126,6 +137,21 @@ private:
     manif::SO3Tangentd I_omega_link; /** angular velocity of the link in the inertial frame */
 
     Eigen::VectorXd m_calibrationJointPositions; /** Joint positions for calibration */
+    Eigen::Matrix4d initialBasePose; /** Initial SO3 pose of the base */
+
+    /**
+     * Struct containing the SE3 task from the BipedalLocomotion IK, the node number and the
+     * rotation matrix between the IMU and the link
+     */
+    struct PoseTaskStruct
+    {
+        std::shared_ptr<BipedalLocomotion::IK::SE3Task> task;
+        manif::SE3d IMU_H_link; // Transformation matrix from the IMU to related link
+        manif::SE3d IMU_H_link_init; // Initial value of the transformation matrix from the IMU to related link, set through config
+                                     // file
+        Eigen::VectorXd weight; // Weight of the task, length depends on mask
+        std::string frameName; // Name of the frame in which the task is expressed
+    };
 
     /**
      * Struct containing the SO3 task from the BipedalLocomotion IK, the node number and the
@@ -165,16 +191,18 @@ private:
     };
 
     /**
-     * Struct containing the R3 task from the BipedalLocomotion IK, the node number and the
+     * Struct containing the SE3 task from the BipedalLocomotion IK, the node number and the
      * multiple state weight provider
      */
     struct FloorContactTaskStruct
     {
-        std::shared_ptr<BipedalLocomotion::IK::R3Task> task;
-        Eigen::Vector3d weight;
+        std::shared_ptr<BipedalLocomotion::IK::SE3Task> task;
+        Eigen::VectorXd weight;
         int nodeNumber;
         bool footInContact{false};
-        Eigen::Vector3d setPointPosition;
+        manif::SE3d IMU_H_link; // Transformation matrix from the IMU to related link
+        manif::SE3d IMU_H_link_init; // Initial value of the transformation matrix from the IMU to related link, set through config
+                                     // file
         std::string taskName;
         std::string frameName;
         double verticalForceThreshold;
@@ -191,6 +219,11 @@ private:
 
     manif::SO3d calib_W_R_link = manif::SO3d::Identity(); /** calibration matrix between the world
                                                            and the link */
+
+    std::unordered_map<std::string, PoseTaskStruct> m_PoseTasks; /** unordered map of type
+                                                                        PoseTaskStruct, each
+                                                                        element referring to a
+                                                                        node*/
 
     std::unordered_map<int, OrientationTaskStruct> m_OrientationTasks; /** unordered map of type
                                                                         OrientationTaskStruct, each
@@ -240,7 +273,21 @@ public:
      * For **each** task listed in the parameter `tasks` the user must specify all the parameters
      * required by the task itself but `robot_velocity_variable_name` since is already specified in
      * the `IK` group. Moreover, each task requires a parameter `type` that identifies the type of
-     * task. Up to now, only the "SO3Task" is implemented.
+     * task.
+     *
+     *      * The "SE3Task" requires the following parameters:
+     * |   Group   |         Parameter Name         |       Type      |                                       Description                                       | Mandatory |
+     * |:---------:|:------------------------------:|:---------------:|:---------------------------------------------------------------------------------------:|:---------:|
+     * | `SE3Task` |           `type`               |     `string`    |                         Type of the task. The value to be set is `SE3Task`              |  Yes |
+     * | `SE3Task` | `robot_velocity_variable_name` |     `string`    |Name of the variable contained in `VariablesHandler` describing the generalized robot velocity|  Yes |
+     * | `SE3Task` |        `node_number`           |      `int`      |                    Node number of the task. The node number must be unique.             |  Yes |
+     * | `SE3Task` |      `rotation_matrix`         | `vector<double>`|    Rotation matrix between the IMU and the link. By default it set to identity.         |  No  |
+     * | `SE3Task` |         `frame_name`           |     `string`    |                          Name of the frame in which the task is expressed.              |  Yes |
+     *    * | `SE3Task` |         `kp_linear`           |     `double`    |                        Value of the gain of the linear velocity feedback.              |  Yes |
+     * | `SE3Task` |         `kp_angular`           |     `double`    |                        Value of the gain of the angular velocity feedback.              |  Yes |
+     * | `SE3Task` |           `weight`             | `vector<double>`|                        Weight of the task. Default value is (1.0, 1.0, 1.0)             |  yes |
+     * `SE3Task` is a placeholder for the name of the task contained in the `tasks` list.
+     *
      * The "SO3Task" requires the following parameters:
      * |   Group   |         Parameter Name         |       Type      |                                       Description                                       | Mandatory |
      * |:---------:|:------------------------------:|:---------------:|:---------------------------------------------------------------------------------------:|:---------:|
@@ -296,22 +343,34 @@ public:
      * @note The following `ini` file presents an example of the configuration that can be used to
      * build the HumanIK class.
      *  ~~~~~{.ini}
-     * tasks                           ("PELVIS_TASK", "GRAVITY_TASK", "RIGHT_TOE_TASK", "JOINT_LIMITS_TASK", "JOINT_REG_TASK")
+     * tasks                           ("PELVIS_TASK", "T8_TASK", "GRAVITY_TASK", "RIGHT_TOE_TASK", "JOINT_LIMITS_TASK", "JOINT_REG_TASK")
      *
      * [IK]
      * robot_velocity_variable_name    "robot_velocity"
      * verbosity                       false
      *
      * [PELVIS_TASK]
-     * type                            "SO3Task"
+     * type                            "SE3Task"
      * robot_velocity_variable_name    "robot_velocity"
      * frame_name                      "Pelvis"
-     * kp_angular                      5.0
+     * kp_linear                       1.0
+     * kp_angular                      1.0
      * node_number                     3
      * weight                          (1.0, 1.0, 1.0)
      * rotation_matrix                 (0.0, 1.0, 0.0,
      *                                  0.0, 0.0, -1.0,
      *                                 -1.0, 0.0, 0.0)
+     *
+     * [T8_TASK]
+     * type                            "SO3Task"
+     * robot_velocity_variable_name    "robot_velocity"
+     * frame_name                      "T8"
+     * kp_angular                      20.0
+     * node_number                     6
+     * weight                          (1.0 1.0 1.0)
+     * rotation_matrix                 (0.0, 1.0, 0.0,
+     *                                  0.0, 0.0, 1.0,
+     *                                  1.0, 0.0, 0.0)
      *
      * [GRAVITY_TASK]
      * type                            "GravityTask"
@@ -376,6 +435,18 @@ public:
      * @return true if the orientation setpoint is set correctly
      */
     bool
+    updatePoseTask(const std::string frameName, const Eigen::Vector3d& I_position, const manif::SO3d& I_R_IMU, const Eigen::Vector3d& I_linearVelocity = Eigen::Vector3d::Zero(), const manif::SO3Tangentd& I_omega_IMU = manif::SO3d::Tangent::Zero());
+
+    /**
+     * set the orientation and the angular velocity for a given node of a SO3 task
+     * @param node node number
+     * @param I_position position of the sensor in the world frame
+     * @param I_R_IMU orientation of the IMU
+     * @param I_linearVelocity linear velocity of the sensor in the world frame
+     * @param I_omega_IMU angular velocity of the IMU
+     * @return true if the orientation setpoint is set correctly
+     */
+    bool
     updateOrientationTask(const int node, const manif::SO3d& I_R_IMU, const manif::SO3Tangentd& I_omega_IMU = manif::SO3d::Tangent::Zero());
 
     /**
@@ -393,7 +464,7 @@ public:
      * @param verticalForce vertical force
      * @return true if the orientation setpoint is set correctly
      */
-    bool updateFloorContactTask(const int node, const double verticalForce, const double linkHeight = 0.0);
+    bool updateFloorContactTask(const int node, const double verticalForce, const Eigen::Vector3d& I_position = Eigen::Vector3d::Zero(), const manif::SO3d& I_R_IMU = manif::SO3d::Identity(), const Eigen::Vector3d& I_linearVelocity = Eigen::Vector3d::Zero(), const manif::SO3Tangentd& I_omega_IMU = manif::SO3d::Tangent::Zero(), const double linkHeight = 0.0);
 
     /**
      * set the setpoint for the joint regularization task.
@@ -412,6 +483,14 @@ public:
     bool updateJointConstraintsTask();
 
     /**
+     * update the pose for all the nodes of the SE3 tasks
+     * @param nodeStruct unordered map containing the struct node data
+     * containing the position, orientation, linear and angular velocity of an IMU, associated to the node number
+     * @return true if the calibration matrix is set correctly
+     */
+    bool updatePoseTasks(const std::unordered_map<std::string, nodeData>& nodeStruct);
+
+    /**
      * update the orientation for all the nodes of the SO3 and gravity tasks
      * @param nodeStruct unordered map containing the struct node data (see
      * https://github.com/ami-iit/biomechanical-analysis-framework/blob/338129086dca24989552a20ecc1c9dec0492806a/src/IK/include/BiomechanicalAnalysis/IK/InverseKinematics.h#L32)
@@ -425,7 +504,7 @@ public:
      * @param footInContact unordered map containing the node number and the vertical force
      * @return true if the calibration matrix is set correctly
      */
-    bool updateFloorContactTasks(const std::unordered_map<int, Eigen::Matrix<double, 6, 1>>& wrenchMap, const double linkHeight = 0.0);
+    bool updateFloorContactTasks(const std::unordered_map<int, Eigen::Matrix<double, 6, 1>>& wrenchMap, const Eigen::Vector3d& I_position = Eigen::Vector3d::Zero(), const manif::SO3d& I_R_IMU = manif::SO3d::Identity(), const Eigen::Vector3d& I_linearVelocity = Eigen::Vector3d::Zero(), const manif::SO3Tangentd& I_omega_IMU = manif::SO3d::Tangent::Zero(), const double linkHeight = 0.0);
 
     /**
      * clear the calibration matrices W_R_WIMU and IMU_R_link of all the orientation and gravity tasks

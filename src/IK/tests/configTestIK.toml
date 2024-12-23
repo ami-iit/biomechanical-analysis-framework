@@ -1,7 +1,7 @@
 tasks = [
-    "PELVIS_TASK", "T8_TASK", "RIGHT_UPPER_ARM_TASK", "RIGHT_FORE_ARM_TASK", 
-    "LEFT_UPPER_ARM_TASK", "LEFT_FORE_ARM_TASK", "RIGHT_UPPER_LEG_TASK", 
-    "RIGHT_LOWER_LEG_TASK", "LEFT_UPPER_LEG_TASK", "LEFT_LOWER_LEG_TASK", 
+    "PELVIS_TASK", "T8_TASK", "RIGHT_UPPER_ARM_TASK", "RIGHT_FORE_ARM_TASK",
+    "LEFT_UPPER_ARM_TASK", "LEFT_FORE_ARM_TASK", "RIGHT_UPPER_LEG_TASK",
+    "RIGHT_LOWER_LEG_TASK", "LEFT_UPPER_LEG_TASK", "LEFT_LOWER_LEG_TASK",
     "GRAVITY_TASK_1", "FLOOR_CONTACT_TASK_1", "JOINT_LIMITS_TASK", "JOINT_REG_TASK", "JOINT_VEL_LIMITS_TASK"
 ]
 
@@ -10,12 +10,13 @@ robot_velocity_variable_name = "robot_velocity"
 verbosity = false
 
 [PELVIS_TASK]
-type = "SO3Task"
+type = "SE3Task"
 robot_velocity_variable_name = "robot_velocity"
 frame_name = "link0"
+kp_linear = 1.0
 kp_angular = 1.0
 node_number = 3
-weight = [1.0, 1.0, 1.0]
+weight = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 
 [T8_TASK]
 type = "SO3Task"
@@ -102,8 +103,9 @@ type = "FloorContactTask"
 robot_velocity_variable_name = "robot_velocity"
 frame_name = "link10"
 kp_linear = 1.0
+kp_angular = 1.0
 node_number = 10
-weight = [10.0, 10.0, 10.0]
+weight = [10.0, 10.0, 10.0, 10.0, 10.0, 10.0]
 vertical_force_threshold = 60.0
 
 [JOINT_LIMITS_TASK]
