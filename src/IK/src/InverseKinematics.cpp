@@ -186,10 +186,10 @@ bool HumanIK::updateOrientationTask(const int node, const manif::SO3d& I_R_IMU, 
 
     // Compute the rotation matrix from the world to the link frame as:
     // W_R_link = W_R_WIMU * WIMU_R_IMU * IMU_R_link
-    I_R_link = m_OrientationTasks[node].calibrationMatrix * I_R_IMU * m_OrientationTasks[node].IMU_R_link;
+    m_OrientationTasks[node].W_R_link = m_OrientationTasks[node].calibrationMatrix * I_R_IMU * m_OrientationTasks[node].IMU_R_link;
 
     // Set the setpoint for the orientation task of the node
-    return m_OrientationTasks[node].task->setSetPoint(I_R_link,
+    return m_OrientationTasks[node].task->setSetPoint(m_OrientationTasks[node].W_R_link,
                                                       m_OrientationTasks[node].calibrationMatrix.rotation() * I_omega_IMU.coeffs());
 }
 
@@ -204,11 +204,11 @@ bool HumanIK::updateGravityTask(const int node, const manif::SO3d& I_R_IMU)
 
     // compute the rotation matrix from the world to the link frame as:
     // W_R_link = W_R_WIMU * WIMU_R_IMU * IMU_R_link
-    I_R_link = m_GravityTasks[node].calibrationMatrix * I_R_IMU * m_GravityTasks[node].IMU_R_link;
+    m_GravityTasks[node].W_R_link = m_GravityTasks[node].calibrationMatrix * I_R_IMU * m_GravityTasks[node].IMU_R_link;
 
     // set the set point of the gravity task choosing the z direction of the link_R_W rotation
     // matrix
-    return m_GravityTasks[node].task->setSetPoint((I_R_link.rotation().transpose().rightCols(1)));
+    return m_GravityTasks[node].task->setSetPoint((m_GravityTasks[node].W_R_link.rotation().transpose().rightCols(1)));
 }
 
 bool HumanIK::updateFloorContactTask(const int node, const double verticalForce)
@@ -561,6 +561,48 @@ bool HumanIK::getBaseAngularVelocity(Eigen::Ref<Eigen::Vector3d> baseAngularVelo
 
     return true;
 }
+
+const manif::SO3d& HumanIK::getCalibratedIMURotation(int node) const
+{
+    // Check if the node exists in the orientation tasks
+    if (m_OrientationTasks.find(node) != m_OrientationTasks.end())
+    {
+        return m_OrientationTasks.at(node).W_R_link;
+    }
+    // Check if the node exists in the gravity tasks
+    else if (m_GravityTasks.find(node) != m_GravityTasks.end())
+    {
+        return m_GravityTasks.at(node).W_R_link;
+    }
+    else
+    {
+        // If the node is not defined in any of the tasks, generate an error
+        BiomechanicalAnalysis::log()->error("[HumanIK::getCalibratedIMURotationMatrix] Invalid node number {}.", node);
+        throw std::out_of_range("Invalid node number");
+    }
+}
+
+
+std::string HumanIK::getNodeFrameName(int node) const
+{
+    // Check if the node exists in the orientation tasks
+    if (m_OrientationTasks.find(node) != m_OrientationTasks.end())
+    {
+        return m_OrientationTasks.at(node).frameName;
+    }
+    // Check if the node exists in the gravity tasks
+    else if (m_GravityTasks.find(node) != m_GravityTasks.end())
+    {
+        return m_GravityTasks.at(node).frameName;
+    }
+    else
+    {
+        // If the node is not defined in any of the tasks, generate an error
+        BiomechanicalAnalysis::log()->error("[HumanIK::getFrameNameOrientationTask] Invalid node number {}.", node);
+        throw std::out_of_range("Invalid node number");
+    }
+}
+
 
 bool HumanIK::initializeOrientationTask(const std::string& taskName,
                                         const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler)
