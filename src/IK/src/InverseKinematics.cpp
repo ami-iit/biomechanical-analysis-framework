@@ -926,7 +926,16 @@ bool HumanIK::initializeJointRegularizationTask(const std::string& taskName,
                                                     jointsList[i]);
                 return false;
             }
-            weightVector[index] = Jointsweights[i];
+
+            if (m_kinDyn->model()->getJoint(index)->getNrOfDOFs() != 1)
+            {
+                          BiomechanicalAnalysis::log()->error("[HumanIK::initializeJointRegularizationTask] "
+                                                    "Joint {} has a number of dofs different from 1",
+                                                    jointsList[i]);
+                return false;
+            }
+            auto dofOffset = m_kinDyn->model()->getJoint(index)->getDOFsOffset()
+            weightVector[dofOffset] = Jointsweights[i];
         }
     }
 
