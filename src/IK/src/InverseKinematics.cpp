@@ -927,14 +927,14 @@ bool HumanIK::initializeJointRegularizationTask(const std::string& taskName,
                 return false;
             }
 
-            if (m_kinDyn->model()->getJoint(index)->getNrOfDOFs() != 1)
+            if (m_kinDyn->model().getJoint(index)->getNrOfDOFs() != 1)
             {
-                          BiomechanicalAnalysis::log()->error("[HumanIK::initializeJointRegularizationTask] "
+                BiomechanicalAnalysis::log()->error("[HumanIK::initializeJointRegularizationTask] "
                                                     "Joint {} has a number of dofs different from 1",
                                                     jointsList[i]);
                 return false;
             }
-            auto dofOffset = m_kinDyn->model()->getJoint(index)->getDOFsOffset()
+            auto dofOffset = m_kinDyn->model().getJoint(index)->getDOFsOffset();
             weightVector[dofOffset] = Jointsweights[i];
         }
     }
