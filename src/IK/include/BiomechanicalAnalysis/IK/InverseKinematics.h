@@ -402,7 +402,7 @@ public:
      * @param jointVelocities joint velocities, by defualt it is set to zero
      * @return true if the joint regularization task is set correctly
      */
-    bool updateJointRegularizationTask();
+    bool updateJointRegularizationTask(const Eigen::VectorXd& desiredPositionsKp, const std::vector<std::string> jointsListKp);
 
     /**
      * update the joint constraint task.
