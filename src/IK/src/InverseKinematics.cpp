@@ -291,8 +291,6 @@ bool HumanIK::updateJointRegularizationTask(const Eigen::VectorXd& desiredPositi
         return false;
     }
 
-    // std::cout << "desiredPositionsKp: " << desiredPositionsKp << std::endl;
-
     Eigen::VectorXd customSetPoint;
     customSetPoint = Eigen::VectorXd::Zero(m_nrDoFs);
 

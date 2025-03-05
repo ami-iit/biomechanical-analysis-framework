@@ -18,7 +18,7 @@ TEST_CASE("InverseKinematics test")
     int nrDoFs = 20;
 
     const iDynTree::Model model = iDynTree::getRandomModel(nrDoFs);
-    kinDyn->loadRobotModel(model);
+    kinDyn->loadRobotModel(model);   
     auto paramHandler = std::make_shared<BipedalLocomotion::ParametersHandler::TomlImplementation>();
 
     std::cout << "configPath = " << getConfigPath() + "/configTestIK.toml" << std::endl;
@@ -49,8 +49,9 @@ TEST_CASE("InverseKinematics test")
 
     qInitial.setConstant(0.0);
 
-    Eigen::VectorXd desiredPositionsKp(kinDyn->getNrOfDegreesOfFreedom());
     std::vector<std::string> jointsListKp;
+    jointsListKp.push_back("link3joint");
+    Eigen::VectorXd desiredJointsPositionsKp = Eigen::VectorXd::Zero(jointsListKp.size());
 
     REQUIRE(ik.initialize(paramHandler, kinDyn));
     REQUIRE(ik.setDt(0.1));
@@ -59,7 +60,7 @@ TEST_CASE("InverseKinematics test")
     REQUIRE(ik.updateGravityTask(10, I_R_IMU));
     REQUIRE(ik.updateOrientationAndGravityTasks(mapNodeData));
     REQUIRE(ik.updateJointConstraintsTask());
-    REQUIRE(ik.updateJointRegularizationTask(desiredPositionsKp, jointsListKp));
+    REQUIRE(ik.updateJointRegularizationTask(desiredJointsPositionsKp, jointsListKp));
     REQUIRE(ik.calibrateWorldYaw(mapNodeData));
     REQUIRE(ik.calibrateAllWithWorld(mapNodeData, "link1"));
     REQUIRE(ik.advance());

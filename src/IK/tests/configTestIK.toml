@@ -121,19 +121,17 @@ type = "JointRegularizationTask"
 robot_velocity_variable_name = "robot_velocity"
 weight = 0.01
 joints_list = [
-    "jLeftKnee_rotz", 
-    "jRightKnee_rotz", 
-    "jLeftAnkle_rotz", 
-    "jRightAnkle_rotz"
+    "link3joint",
+    "link4joint", 
+    "link6joint",
 ]
-joints_weights = [0.1, 0.1, 0.1, 0.1]
+joints_weights = [0.1, 0.1, 0.1]
 joints_list_kp = [
-    "jLeftKnee_rotz", 
-    "jRightKnee_rotz", 
-    "jLeftAnkle_rotz", 
-    "jRightAnkle_rotz"
+    "link3joint",
+    "link4joint", 
+    "link6joint",
 ]
-joints_kp = [10.0, 10.0, 10.0, 10.0]
+joints_kp = [10.0, 10.0, 10.0]
 
 [JOINT_VEL_LIMITS_TASK]
 type = "JointVelocityLimitsTask"
