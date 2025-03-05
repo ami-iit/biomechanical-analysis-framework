@@ -62,7 +62,7 @@ void CreateInverseKinematics(pybind11::module& module)
         .def("calibrateAllWithWorld", &HumanIK::calibrateAllWithWorld, py::arg("nodeStruct"), py::arg("frameName"))
         .def("updateOrientationGravityTasks", &HumanIK::updateOrientationAndGravityTasks, py::arg("nodeStruct"))
         .def("updateFloorContactTasks", &HumanIK::updateFloorContactTasks, py::arg("wrenchMap"), py::arg("linkHeight"))
-        .def("updateJointRegularizationTask", &HumanIK::updateJointRegularizationTask)
+        .def("updateJointRegularizationTask", &HumanIK::updateJointRegularizationTask, py::arg("desiredPositionsKp"), py::arg("jointsListKp"))
         .def("updateJointConstraintsTask", &HumanIK::updateJointConstraintsTask)
         .def("advance", &HumanIK::advance)
         .def("getJointPositions",
