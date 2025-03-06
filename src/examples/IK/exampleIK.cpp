@@ -502,7 +502,7 @@ int main()
             BiomechanicalAnalysis::log()->error("Cannot find the parameter 'joints_list_kp'");
             return 1;
         }
-        Eigen::VectorXd& jointPositionSetPoint = ik.getJointPositionSetPoint();
+        Eigen::VectorXd jointPositionSetPoint = ik.getJointPositionSetPoint();
         ik.updateJointRegularizationTask(jointPositionSetPoint);
 
         // Advance the inverse kinematics solver: compute solution

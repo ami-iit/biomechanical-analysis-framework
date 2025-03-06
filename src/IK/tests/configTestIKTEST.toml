@@ -1,0 +1,132 @@
+tasks = [
+    "PELVIS_TASK", "T8_TASK", "RIGHT_UPPER_ARM_TASK", "RIGHT_FORE_ARM_TASK", 
+    "LEFT_UPPER_ARM_TASK", "LEFT_FORE_ARM_TASK", "RIGHT_UPPER_LEG_TASK", 
+    "RIGHT_LOWER_LEG_TASK", "LEFT_UPPER_LEG_TASK", "LEFT_LOWER_LEG_TASK", 
+    "GRAVITY_TASK_1", "FLOOR_CONTACT_TASK_1", "JOINT_LIMITS_TASK", "JOINT_REG_TASK", "JOINT_VEL_LIMITS_TASK"
+]
+
+[IK]
+robot_velocity_variable_name = "robot_velocity"
+verbosity = false
+
+[PELVIS_TASK]
+type = "SO3Task"
+robot_velocity_variable_name = "robot_velocity"
+frame_name = "link0"
+kp_angular = 1.0
+node_number = 3
+weight = [1.0, 1.0, 1.0]
+
+[T8_TASK]
+type = "SO3Task"
+robot_velocity_variable_name = "robot_velocity"
+frame_name = "link1"
+kp_angular = 1.0
+node_number = 6
+weight = [1.0, 1.0, 1.0]
+
+[RIGHT_UPPER_ARM_TASK]
+type = "SO3Task"
+robot_velocity_variable_name = "robot_velocity"
+frame_name = "link2"
+kp_angular = 1.0
+node_number = 7
+weight = [1.0, 1.0, 1.0]
+
+[RIGHT_FORE_ARM_TASK]
+type = "SO3Task"
+robot_velocity_variable_name = "robot_velocity"
+frame_name = "link3"
+kp_angular = 1.0
+node_number = 8
+weight = [1.0, 1.0, 1.0]
+
+[LEFT_UPPER_ARM_TASK]
+type = "SO3Task"
+robot_velocity_variable_name = "robot_velocity"
+frame_name = "link4"
+kp_angular = 1.0
+node_number = 5
+weight = [1.0, 1.0, 1.0]
+
+[LEFT_FORE_ARM_TASK]
+type = "SO3Task"
+robot_velocity_variable_name = "robot_velocity"
+frame_name = "link5"
+kp_angular = 1.0
+node_number = 4
+weight = [1.0, 1.0, 1.0]
+
+[RIGHT_UPPER_LEG_TASK]
+type = "SO3Task"
+robot_velocity_variable_name = "robot_velocity"
+frame_name = "link6"
+kp_angular = 1.0
+node_number = 11
+weight = [1.0, 1.0, 1.0]
+
+[RIGHT_LOWER_LEG_TASK]
+type = "SO3Task"
+robot_velocity_variable_name = "robot_velocity"
+frame_name = "link7"
+kp_angular = 1.0
+node_number = 12
+weight = [1.0, 1.0, 1.0]
+
+[LEFT_UPPER_LEG_TASK]
+type = "SO3Task"
+robot_velocity_variable_name = "robot_velocity"
+frame_name = "link8"
+kp_angular = 1.0
+node_number = 9
+weight = [1.0, 1.0, 1.0]
+
+[LEFT_LOWER_LEG_TASK]
+type = "SO3Task"
+robot_velocity_variable_name = "robot_velocity"
+frame_name = "link9"
+kp_angular = 1.0
+node_number = 10
+weight = [1.0, 1.0, 1.0]
+
+[GRAVITY_TASK_1]
+type = "GravityTask"
+robot_velocity_variable_name = "robot_velocity"
+target_frame_name = "link10"
+kp = 1.0
+node_number = 10
+weight = [1.0, 1.0]
+
+[FLOOR_CONTACT_TASK_1]
+type = "FloorContactTask"
+robot_velocity_variable_name = "robot_velocity"
+frame_name = "link10"
+kp_linear = 1.0
+node_number = 10
+weight = [10.0, 10.0, 10.0]
+vertical_force_threshold = 60.0
+
+[JOINT_LIMITS_TASK]
+type = "JointConstraintTask"
+robot_velocity_variable_name = "robot_velocity"
+use_model_limits = false
+sampling_time = 0.01
+k_limits = 1.0
+joints_list = ["link0joint", "link1joint"]
+upper_bounds = [1.0, 1.0]
+lower_bounds = [-1.0, -1.0]
+
+[JOINT_REG_TASK]
+type = "JointRegularizationTask"
+robot_velocity_variable_name = "robot_velocity"
+weight = 0.01
+joints_list = ["link3joint", "link4joint", "link6joint", "link8joint", "link9joint", "link10joint", "link11joint", "link12joint", "link14joint", "link15joint", "link16joint", "link17joint", "link18joint", "link19joint"]
+joints_weights = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+joints_list_kp = ["link3joint", "link4joint", "link6joint", "link8joint", "link9joint", "link10joint", "link11joint", "link12joint", "link14joint", "link15joint", "link16joint", "link17joint", "link18joint", "link19joint"]
+joints_kp = [10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0]
+
+[JOINT_VEL_LIMITS_TASK]
+type = "JointVelocityLimitsTask"
+robot_velocity_variable_name = "robot_velocity"
+upper_limit = 5.0
+lower_limit = -5.0

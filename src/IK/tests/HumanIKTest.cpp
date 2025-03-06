@@ -155,7 +155,7 @@ TEST_CASE("InverseKinematics test")
     REQUIRE(ik.updateGravityTask(10, I_R_IMU));
     REQUIRE(ik.updateOrientationAndGravityTasks(mapNodeData));
     REQUIRE(ik.updateJointConstraintsTask());
-    Eigen::VectorXd& jointPositionSetPoint = ik.getJointPositionSetPoint();
+    Eigen::VectorXd jointPositionSetPoint = ik.getJointPositionSetPoint();
     REQUIRE(ik.updateJointRegularizationTask(jointPositionSetPoint));
     REQUIRE(ik.calibrateWorldYaw(mapNodeData));
     REQUIRE(ik.calibrateAllWithWorld(mapNodeData, "link1"));
