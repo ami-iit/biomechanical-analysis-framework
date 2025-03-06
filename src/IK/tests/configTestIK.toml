@@ -120,18 +120,6 @@ lower_bounds = [-1.0, -1.0]
 type = "JointRegularizationTask"
 robot_velocity_variable_name = "robot_velocity"
 weight = 0.01
-joints_list = [
-    "link3joint",
-    "link4joint", 
-    "link6joint",
-]
-joints_weights = [0.1, 0.1, 0.1]
-joints_list_kp = [
-    "link3joint",
-    "link4joint", 
-    "link6joint",
-]
-joints_kp = [10.0, 10.0, 10.0]
 
 [JOINT_VEL_LIMITS_TASK]
 type = "JointVelocityLimitsTask"

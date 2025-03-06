@@ -127,6 +127,9 @@ private:
 
     Eigen::VectorXd m_calibrationJointPositions; /** Joint positions for calibration */
 
+    Eigen::VectorXd jointPositionSetPoint; /** Custom set point for the regularization task */
+    Eigen::VectorXd m_zeroOfDimensionNrDoFs; /** Buffer of dimention nrOfDoFs full of zeros */
+
     /**
      * Struct containing the SO3 task from the BipedalLocomotion IK, the node number and the
      * rotation matrix between the IMU and the link
@@ -211,6 +214,7 @@ private:
 
     BipedalLocomotion::IK::QPInverseKinematics m_qpIK; /** QP Inverse Kinematics solver */
     BipedalLocomotion::System::VariablesHandler m_variableHandler; /** Variables handler */
+
 
 public:
     /**
@@ -398,11 +402,26 @@ public:
     /**
      * set the setpoint for the joint regularization task.
      * This function is to be called before the advance function to set the joint constraints
+     * This function does not allow to set the position regularization setpoint
      * @param jointPositions joint positions, by defualt it is set to zero
      * @param jointVelocities joint velocities, by defualt it is set to zero
      * @return true if the joint regularization task is set correctly
      */
-    bool updateJointRegularizationTask(const Eigen::VectorXd& desiredPositionsKp, const std::vector<std::string> jointsListKp);
+    bool updateJointRegularizationTask();
+
+    /**
+     * set the setpoint for the joint regularization task.
+     * This function is to be called before the advance function to set the joint constraints
+     * This function allows to set the position regularization setpoint
+     * @param jointPositionSetPoint setpoint for the joint regularization task: it is a vector of the same size of the number of DoFs
+     * @return true if the joint regularization task is set correctly
+     */
+    bool updateJointRegularizationTask(const Eigen::VectorXd& jointPositionSetPoint);
+
+    /**
+     * get the setpoint for the joint regularization task.
+     */
+    Eigen::VectorXd getJointPositionSetPoint();
 
     /**
      * update the joint constraint task.

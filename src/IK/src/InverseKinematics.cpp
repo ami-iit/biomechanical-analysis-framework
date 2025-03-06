@@ -38,6 +38,7 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
     m_jointPositions.resize(m_kinDyn->getNrOfDegreesOfFreedom());
     m_jointVelocities.resize(m_kinDyn->getNrOfDegreesOfFreedom());
     m_calibrationJointPositions.resize(m_kinDyn->getNrOfDegreesOfFreedom());
+    m_zeroOfDimensionNrDoFs = Eigen::VectorXd::Zero(m_kinDyn->getNrOfDegreesOfFreedom());
 
     // Retrieve the state of the system
     if (!kinDyn->getRobotState(m_basePose, m_jointPositions, m_baseVelocity, m_jointVelocities, m_gravity))
@@ -282,7 +283,7 @@ bool HumanIK::updateFloorContactTask(const int node, const double verticalForce,
     return ok;
 }
 
-bool HumanIK::updateJointRegularizationTask(const Eigen::VectorXd& desiredPositionsKp, const std::vector<std::string> jointsListKp)
+bool HumanIK::updateJointRegularizationTask(const Eigen::VectorXd& jointPositionSetPoint)
 {
     // check if the joint regularization task is initialized
     if (m_jointRegularizationTask == nullptr)
@@ -291,39 +292,15 @@ bool HumanIK::updateJointRegularizationTask(const Eigen::VectorXd& desiredPositi
         return false;
     }
 
-    Eigen::VectorXd customSetPoint;
-    customSetPoint = Eigen::VectorXd::Zero(m_nrDoFs);
-
-
-    for (size_t i = 0; i < jointsListKp.size(); i++)
-    {
-        // Retrieve the index of the joint
-        auto index =  m_kinDyn->model().getJointIndex(jointsListKp[i]);
-        if (!m_kinDyn->model().isValidJointIndex(index))
-        {
-            BiomechanicalAnalysis::log()->error("[HumanIK::initializeJointRegularizationTask] "
-                                                "Joint {} is not present in the model",
-                                                jointsListKp[i]);
-            return false;
-        }
-
-        if (m_kinDyn->model().getJoint(index)->getNrOfDOFs() != 1)
-        {
-            BiomechanicalAnalysis::log()->error("[HumanIK::initializeJointRegularizationTask] "
-                                                "Joint {} has a number of dofs different from 1",
-                                                jointsListKp[i]);
-            return false;
-        }
-
-        auto dofOffset = m_kinDyn->model().getJoint(index)->getDOFsOffset();
-        customSetPoint(dofOffset) = desiredPositionsKp(i);
-    }
-
-    // std::cout << "customSetPoint: " << customSetPoint << std::endl;
-
     // Set the set point of the joint regularization task to vector of size m_nrDoFs with the desired joint positions where Kp is different from zero, otherwise set to zero
-    return m_jointRegularizationTask->setSetPoint(customSetPoint);
+    return m_jointRegularizationTask->setSetPoint(jointPositionSetPoint);
 }
+
+bool HumanIK::updateJointRegularizationTask()
+{
+    return updateJointRegularizationTask(m_zeroOfDimensionNrDoFs);
+}
+
 
 bool HumanIK::updateJointConstraintsTask()
 {
@@ -889,6 +866,7 @@ bool HumanIK::initializeFloorContactTask(const std::string& taskName,
     return ok;
 }
 
+
 bool HumanIK::initializeJointRegularizationTask(const std::string& taskName,
                                                 const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler)
 {
@@ -906,6 +884,7 @@ bool HumanIK::initializeJointRegularizationTask(const std::string& taskName,
         std::vector<double> JointsKp;
         if (!taskHandler->getParameter("joints_kp", JointsKp))
         {
+
             BiomechanicalAnalysis::log()->error("[HumanIK::initializeJointRegularizationTask] "
                                                 "Parameter 'joints_kp' of the {} task is missing; this parameter is only ",
                                                 "required if 'joints_list_kp' is provided. Please provide the 'joints_kp' parameter",
@@ -947,6 +926,37 @@ bool HumanIK::initializeJointRegularizationTask(const std::string& taskName,
             auto dofOffset = m_kinDyn->model().getJoint(index)->getDOFsOffset();
             kp[dofOffset] = JointsKp[i];
         }
+
+        // Initialize the desired positions for the joints with Kp != 0
+        Eigen::VectorXd desiredJointsPositionsKp = Eigen::VectorXd::Zero(jointsListKp.size());
+        jointPositionSetPoint = Eigen::VectorXd::Zero(m_nrDoFs);
+
+        for (size_t i = 0; i < jointsListKp.size(); ++i)
+        {
+            // Retrieve the index of the joint in the list of joints
+            auto index = m_kinDyn->model().getJointIndex(jointsListKp[i]);
+            // Check if the joint is valid
+            if(!m_kinDyn->model().isValidJointIndex(index))
+            {
+                BiomechanicalAnalysis::log()->error("[HumanIK::initializeJointRegularizationTask] "
+                    "Joint {} is not present in the model",
+                    jointsListKp[i]);
+                return false;
+            }
+
+            if(m_kinDyn->model().getJoint(index)->getNrOfDOFs() != 1)
+            {
+                BiomechanicalAnalysis::log()->error("[HumanIK::initializeJointRegularizationTask] "
+                    "Joint {} has a number of dofs different from 1",
+                    jointsListKp[i]);
+                return false;
+            }
+
+            // Retrieve the joint position from the model
+            auto dOffset = m_kinDyn->model().getJoint(index)->getDOFsOffset();
+            jointPositionSetPoint(dOffset) = desiredJointsPositionsKp(i);
+        }
+
     }
 
     // Set the kp parameter for the regularization task
@@ -1027,6 +1037,11 @@ bool HumanIK::initializeJointRegularizationTask(const std::string& taskName,
 
     // Return true if initialization was successful, otherwise return false
     return ok;
+}
+
+Eigen::VectorXd HumanIK::getJointPositionSetPoint()
+{
+    return jointPositionSetPoint;
 }
 
 bool HumanIK::initializeJointConstraintsTask(const std::string& taskName,
