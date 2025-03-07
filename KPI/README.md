@@ -15,11 +15,16 @@ conda install idyntree
 conda install pip
 ```
 
+**NOTE:** if you want to create a new Conda environment do the following steps:
+```
+conda create -n kpi-py idyntree pip
+conda activate kpi-py
+```
 
 ### Installing the package
 After completing the setup, navigate to the `KPI` directory and install the package using:
 ```bash
-cd KPI
+cd biomechanical-analysis-framework/KPI
 pip install .
 ```
 
