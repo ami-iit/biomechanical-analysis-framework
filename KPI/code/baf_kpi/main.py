@@ -36,7 +36,6 @@ from baf_kpi.scripts.computeSwingWidth import computeSwingWidth
 from baf_kpi.scripts.computePathLength import computePathLength
 from baf_kpi.scripts.removeShoesOffset import removeShoesOffset
 from baf_kpi.scripts.computeNioshKPI import computeNioshKPI
-from baf_kpi.scripts.computeLiftingEnergyConsumption import computeLiftingEnergyConsumption
 from baf_kpi.scripts.saveKPI import saveKPI
 from baf_kpi.visualize.visualizeKPI import visualizeKPI
 
