@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 import os
-import openpyxl
 
 
 def saveKPI(KPI, paths, SUBJECT_ID, TRIAL_ID, node1Filt, node2Filt):
@@ -68,25 +67,6 @@ def saveKPI(KPI, paths, SUBJECT_ID, TRIAL_ID, node1Filt, node2Filt):
     file_name = f"S{SUBJECT_ID:02d}_T{TRIAL_ID}.xlsx"
     file_path = os.path.join(paths['pathToProcessedData'], file_name)
     df.to_excel(file_path, index=False)
-    
-    
-    """ Uncomment to write the data in one unic row """
-    # wb = openpyxl.load_workbook(file_path)
-    # sheet = wb.active
-    
-    # range_to_join = sheet["B3:D22"]
-    # joined_text = joined_text = ";".join(
-    # str(cell.value) for row in range_to_join for cell in row if cell.value is not None
-    # )
-
-    # sheet["A32"] = joined_text
-
-
-    # values = joined_text.split(";")
-    # for i, value in enumerate(values, start=1):  
-    #     sheet.cell(row=32, column=i).value = value
-
-    # wb.save(file_path)
     
     return 0
     
