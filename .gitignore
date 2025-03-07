@@ -7,3 +7,23 @@ build/*
 .cache
 # MacOS
 .DS_Store
+
+# Files
+*.pyc
+*.stl
+*.urdf
+*.mat
+*.html
+*.xlsx
+*~
+
+# Directories
+build/
+install/
+dataBAF/
+dataKPI/
+plots/
+videos/
+processed/
+tables/
+*.egg-info/
