@@ -79,6 +79,7 @@ Add `<directory-where-you-downloaded-BAF>/build/install/bin`
 
 
 ## KPI Computation
+This repository also contains Python code for computing Key Performance Indicators (KPI) related to gait analysis, located in the `baf_kpi` folder. KPI refers to a set of biomechanical metrics used to assess human locomotion, providing essential indicators for evaluating gait efficiency, identifying potential abnormalities, and exploring different movement strategies.
 
-This repository also contains Python code for KPI computation located in the `KPI` folder. For detailed instructions on how to install and use the Python package, please refer to the [`README`](https://github.com/ami-iit/biomechanical-analysis-framework/tree/add-KPI/KPI/README.md) in the `KPI` directory.
+For detailed instructions on how to install and use the Python package, as well as information on the KPIs we compute, please refer to the [`README`](.baf_kpi/README.md) in the `baf_kpi` directory.
 

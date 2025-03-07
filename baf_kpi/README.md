@@ -1,9 +1,22 @@
 # KPI Python Computation
 
-In this directory, we will store code, high-level tasks, discussions, and material, related to the research activity conducted together with [AISM - Associazione Italiana Sclerosi Multipla](https://www.aism.it/), under the superfivion of Gianpaolo Brichetto.  This research is developed within the framework of [iFeel](https://github.com/ami-iit/component_ifeel) project and aims to analyze/validate our technology in the rehabilitation context of multiple sclerosis patients.
+**Key Performance Indicators (KPIs)** are essential metrics used to assess and measure performance in a specific domain. In the context of **gait analysis**, KPIs refer to quantifiable indicators that provide insights into various aspects of human locomotion. These indicators are used to analyze walking patterns, identify abnormalities, and optimize rehabilitation or performance training.
 
-## Guide to use the code
-This project has been updated to make the code more accessible and user-friendly. Below are the steps to execute the code for KPI calculation in Python.
+The computed KPI include:
+
+- **Gait Cycle Duration**: The total time taken to complete a full gait cycle (one complete step with both legs).
+- **Cadence**: The number of steps taken per minute, an essential parameter for analyzing walking speed and rhythm.
+- **Stride Length**: The distance covered in one full gait cycle, indicating spatial characteristics of walking.
+- **Step Length**: The distance covered between consecutive foot contacts, providing insights into step symmetry.
+- **Swing Time**: The duration for which a foot is off the ground, crucial for analyzing gait dynamics.
+- **Stance Time**: The duration for which a foot is in contact with the ground, useful for stability assessments.
+- **Double Support Time**: The period where both feet are simultaneously in contact with the ground, often used to assess balance.
+- **Maximum Angular Velocity**: The peak rotational speed of specific joints during gait, relevant for joint kinematics analysis.
+- **Center of Pressure (COP) Trajectory**: The path of the ground reaction force application point, useful for balance assessment.
+- **Step Width (Swing Width)**: The lateral distance between steps, important for stability evaluation.
+- **Path Length**: The total distance traveled by a specific body segment during gait, providing a measure of movement efficiency.
+- **Steady-State Gait Events**: Identification of periods of consistent walking patterns, excluding acceleration and deceleration phases.
+
 
 ### Setting up the environment
 You should have already cloned the repository [biomechanical-analysis-framework](https://github.com/ami-iit/biomechanical-analysis-framework) and installed the project.  
