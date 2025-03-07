@@ -76,3 +76,9 @@ Once the installation is completed, update the following environment variables:
 
 - `PATH`  
 Add `<directory-where-you-downloaded-BAF>/build/install/bin`
+
+
+## KPI Computation
+
+This repository also contains Python code for KPI computation located in the `KPI` folder. For detailed instructions on how to install and use the Python package, please refer to the [`README`](https://github.com/ami-iit/biomechanical-analysis-framework/tree/add-KPI/KPI/README.md) in the `KPI` directory.
+

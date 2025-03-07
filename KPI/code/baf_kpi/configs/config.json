@@ -1,11 +1,12 @@
 {
-    "subject_id": 3,
-    "trial_list": [19],
-    "subject_mass": 70,
-    "experiment_dir": "C:/Users/ldanovaro/Documents/GitHub/element_ifeel-aism/KPI_Python/dataset",
+    "subject_id": 0,
+    "trial_list": [0],
+    "subject_mass": 0,
+    "experiment_dir": "my_dir_path/dataset",
     "data_BAF": false,
+    "niosh_kpi": false,
     "visualize_model": true,
-    "plot_kpis": true,
+    "plot_kpis": false,
     "save_on": false,
     "leg_skeleton_viz": false    
 }

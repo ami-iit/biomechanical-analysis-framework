@@ -3,7 +3,7 @@ name = "baf-kpi"
 version = "0.0.1"
 description = "Python project to compute KPI parameters"
 license.file = "LICENSE"
-dependencies = ["numpy", "matplotlib", "pandas", "scipy", "h5py", "idyntree", "rich", "joblib", "argparse", "meshcat"]
+dependencies = ["numpy", "matplotlib", "pandas", "scipy", "h5py", "idyntree", "rich", "joblib", "argparse", "meshcat", "resolve-robotics-uri-py"]
 
 
 [build-system]

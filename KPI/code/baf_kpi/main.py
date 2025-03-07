@@ -114,6 +114,7 @@ def main():
     optVisualizeModel = config["visualize_model"]
     plotKPIs = config["plot_kpis"]
     saveOn = config["save_on"]
+    NioshKPI = config["niosh_kpi"]
     legSkeletonViz = config["leg_skeleton_viz"]
     dataBAF = config["data_BAF"]
     
@@ -126,7 +127,7 @@ def main():
         
         
         print("ANALYSIS SUBJECT: ", SUBJECT_ID, " TRIAL: ", TRIAL_ID)
-        computeKPI(paths, URDF_NAME, TRIAL_ID, subjectMass, plotKPIs, saveOn, legSkeletonViz, JOINT_NAMES, NODES_ID, ATTACHED_LINKS, dataBAF)
+        computeKPI(paths, URDF_NAME, TRIAL_ID, subjectMass, plotKPIs, saveOn, NioshKPI, legSkeletonViz, JOINT_NAMES, NODES_ID, ATTACHED_LINKS, dataBAF)
         
         
         
@@ -154,7 +155,7 @@ def getConfig():
     
         
 
-def computeKPI(paths, URDF_NAME, TRIAL_ID, subjectMass, plotKPIs, saveOn, legSkeletonViz, JOINT_NAMES, NODES_ID, ATTACHED_LINKS, dataBAF):
+def computeKPI(paths, URDF_NAME, TRIAL_ID, subjectMass, plotKPIs, saveOn, NioshKPI, legSkeletonViz, JOINT_NAMES, NODES_ID, ATTACHED_LINKS, dataBAF):
     """
     Computes key performance indicators (KPI) for gait analysis.
     
@@ -325,10 +326,9 @@ def computeKPI(paths, URDF_NAME, TRIAL_ID, subjectMass, plotKPIs, saveOn, legSke
     # Path length
     KPI['pathLength'] = computePathLength(KPI)
     
-    # NIOSH KPI
-    KPI['Niosh'] = computeNioshKPI(kinDynComp, joints_state, human_state, W_T_B, KPI, TIMESTAMPS)
-    
-    # KPI['LEC'] = computeLiftingEnergyConsumption(KPI, subjectMass)
+    if NioshKPI:
+        # NIOSH KPI
+        KPI['Niosh'] = computeNioshKPI(kinDynComp, joints_state, human_state, W_T_B, KPI, TIMESTAMPS)
 
     print("End: Gait KPI Computation")
     
