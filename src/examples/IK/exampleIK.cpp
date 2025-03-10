@@ -495,7 +495,9 @@ int main()
 
         // IK Solver: Update joint constraints and regularization tasks
         ik.updateJointConstraintsTask();
-        ik.updateJointRegularizationTask();
+
+        Eigen::VectorXd jointPositionSetPoint = ik.getJointPositionSetPoint();
+        ik.updateJointRegularizationTask(jointPositionSetPoint);
 
         // Advance the inverse kinematics solver: compute solution
         if (!ik.advance())
