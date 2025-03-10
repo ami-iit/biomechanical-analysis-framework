@@ -12,7 +12,6 @@
 
 using namespace BipedalLocomotion::ParametersHandler;
 
-
 TEST_CASE("InverseKinematics test")
 {
     auto kinDyn = std::make_shared<iDynTree::KinDynComputations>();
@@ -21,7 +20,7 @@ TEST_CASE("InverseKinematics test")
     int nrDoFs = 20;
 
     const iDynTree::Model model = iDynTree::getRandomModel(nrDoFs);
-    kinDyn->loadRobotModel(model);   
+    kinDyn->loadRobotModel(model);
     auto paramHandler = std::make_shared<BipedalLocomotion::ParametersHandler::TomlImplementation>();
     IParametersHandler::shared_ptr handler = paramHandler;
     std::cout << "configPath = " << getConfigPath() + "/configTestIK.toml" << std::endl;
@@ -32,11 +31,13 @@ TEST_CASE("InverseKinematics test")
     std::vector<double> joints_kp, joints_weights;
 
     // Iter over all the joints of the model
-    for (int i = 0; i < model.getNrOfJoints(); i++) {
+    for (int i = 0; i < model.getNrOfJoints(); i++)
+    {
         auto joint = model.getJoint(i);
 
         // Check if the joint has only one degree of freedom
-        if (joint->getNrOfDOFs() == 1) {
+        if (joint->getNrOfDOFs() == 1)
+        {
             std::string jointName = model.getJointName(i);
             joints_list_kp.push_back(jointName);
             joints_kp.push_back(10.0);
@@ -56,8 +57,6 @@ TEST_CASE("InverseKinematics test")
     setGroup->setParameter("joints_list", joints_list);
     setGroup->setParameter("joints_weights", joints_weights);
     REQUIRE(paramHandler->setGroup("JOINT_REG_TASK", setGroup));
-
-    
 
     // inintialize the joint positions and velocities
     Eigen::VectorXd JointPositions(kinDyn->getNrOfDegreesOfFreedom());
@@ -83,7 +82,6 @@ TEST_CASE("InverseKinematics test")
 
     qInitial.setConstant(0.0);
 
-
     REQUIRE(ik.initialize(paramHandler, kinDyn));
     REQUIRE(ik.setDt(0.1));
     REQUIRE(ik.updateOrientationTask(3, I_R_IMU, I_omega_IMU));
@@ -102,5 +100,3 @@ TEST_CASE("InverseKinematics test")
     std::cout << "JointPositions = " << JointPositions.transpose() << std::endl;
     std::cout << "JointVelocities = " << JointVelocities.transpose() << std::endl;
 }
-
-

@@ -735,7 +735,8 @@ bool HumanID::initializeExtWrenchesHelper(const std::shared_ptr<BipedalLocomotio
         switch (berdySensor.type)
         {
 
-        case iDynTree::BerdySensorTypes::NET_EXT_WRENCH_SENSOR: {
+        case iDynTree::BerdySensorTypes::NET_EXT_WRENCH_SENSOR:
+        {
             // Initialize with default covariance
             iDynTree::Vector6 wrenchCovariance;
             for (int i = 0; i < 6; i++)
@@ -754,7 +755,8 @@ bool HumanID::initializeExtWrenchesHelper(const std::shared_ptr<BipedalLocomotio
                     {berdySensor.range.offset + i, berdySensor.range.offset + i, wrenchCovariance[i]});
         }
         break;
-        case iDynTree::BerdySensorTypes::RCM_SENSOR: {
+        case iDynTree::BerdySensorTypes::RCM_SENSOR:
+        {
             auto specificMeasurementsPtr = m_extWrenchesEstimator.params.specificMeasurementsCovariance.find("RCM_"
                                                                                                              "SENS"
                                                                                                              "OR");

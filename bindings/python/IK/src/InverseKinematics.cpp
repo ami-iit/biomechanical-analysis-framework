@@ -35,22 +35,21 @@ void CreateInverseKinematics(pybind11::module& module)
 
     py::class_<HumanIK>(module, "HumanIK")
         .def(py::init())
-        .def(
-            "initialize",
-            [](HumanIK& ik, std::shared_ptr<const IParametersHandler> handler, py::object& obj) -> bool {
-                std::shared_ptr<iDynTree::KinDynComputations>* cls
-                    = py::detail::swig_wrapped_pointer_to_pybind<std::shared_ptr<iDynTree::KinDynComputations>>(obj);
+        .def("initialize",
+             [](HumanIK& ik, std::shared_ptr<const IParametersHandler> handler, py::object& obj) -> bool {
+                 std::shared_ptr<iDynTree::KinDynComputations>* cls
+                     = py::detail::swig_wrapped_pointer_to_pybind<std::shared_ptr<iDynTree::KinDynComputations>>(obj);
 
-                if (cls == nullptr)
-                {
-                    throw ::pybind11::value_error("Invalid input for the function. Please provide "
-                                                  "an iDynTree::KinDynComputations object.");
-                }
+                 if (cls == nullptr)
+                 {
+                     throw ::pybind11::value_error("Invalid input for the function. Please provide "
+                                                   "an iDynTree::KinDynComputations object.");
+                 }
 
-                return ik.initialize(handler, *cls);
-            },
-            py::arg("param_handler"),
-            py::arg("kin_dyn"))
+                 return ik.initialize(handler, *cls);
+             },
+             py::arg("param_handler"),
+             py::arg("kin_dyn"))
         .def("setDt", &HumanIK::setDt, py::arg("dt"))
         .def("getDt", &HumanIK::getDt)
         .def("getDoFsNumber", &HumanIK::getDoFsNumber)
@@ -63,7 +62,9 @@ void CreateInverseKinematics(pybind11::module& module)
         .def("updateOrientationGravityTasks", &HumanIK::updateOrientationAndGravityTasks, py::arg("nodeStruct"))
         .def("updateFloorContactTasks", &HumanIK::updateFloorContactTasks, py::arg("wrenchMap"), py::arg("linkHeight"))
         .def("updateJointRegularizationTask", py::overload_cast<>(&HumanIK::updateJointRegularizationTask))
-        .def("updateJointRegularizationTask", py::overload_cast<const Eigen::VectorXd&>(&HumanIK::updateJointRegularizationTask), py::arg("jointPositionSetPoint"))
+        .def("updateJointRegularizationTask",
+             py::overload_cast<const Eigen::VectorXd&>(&HumanIK::updateJointRegularizationTask),
+             py::arg("jointPositionSetPoint"))
         .def("updateJointConstraintsTask", &HumanIK::updateJointConstraintsTask)
         .def("advance", &HumanIK::advance)
         .def("getJointPositions",

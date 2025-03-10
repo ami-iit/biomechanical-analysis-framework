@@ -215,7 +215,6 @@ private:
     BipedalLocomotion::IK::QPInverseKinematics m_qpIK; /** QP Inverse Kinematics solver */
     BipedalLocomotion::System::VariablesHandler m_variableHandler; /** Variables handler */
 
-
 public:
     /**
      * Constructor

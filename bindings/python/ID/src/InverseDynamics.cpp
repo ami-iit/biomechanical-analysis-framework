@@ -31,43 +31,41 @@ void CreateInverseDynamics(pybind11::module& module)
 
     py::class_<HumanID>(module, "HumanID")
         .def(py::init())
-        .def(
-            "initialize",
-            [](HumanID& id, std::shared_ptr<const IParametersHandler> handler, py::object& obj) -> bool {
-                std::shared_ptr<iDynTree::KinDynComputations>* cls
-                    = py::detail::swig_wrapped_pointer_to_pybind<std::shared_ptr<iDynTree::KinDynComputations>>(obj);
+        .def("initialize",
+             [](HumanID& id, std::shared_ptr<const IParametersHandler> handler, py::object& obj) -> bool {
+                 std::shared_ptr<iDynTree::KinDynComputations>* cls
+                     = py::detail::swig_wrapped_pointer_to_pybind<std::shared_ptr<iDynTree::KinDynComputations>>(obj);
 
-                if (cls == nullptr)
-                {
-                    throw ::pybind11::value_error("Invalid input for the function. Please provide "
-                                                  "an iDynTree::KinDynComputations object.");
-                }
+                 if (cls == nullptr)
+                 {
+                     throw ::pybind11::value_error("Invalid input for the function. Please provide "
+                                                   "an iDynTree::KinDynComputations object.");
+                 }
 
-                return id.initialize(handler, *cls);
-            },
-            py::arg("param_handler"),
-            py::arg("kin_dyn"))
-        .def(
-            "updateExtWrenchesMeasurements",
-            [](HumanID& id, const std::unordered_map<std::string, Eigen::VectorXd>& wrenchesEigen) -> bool {
-                std::unordered_map<std::string, iDynTree::Wrench> wrenches;
-                for (const auto& [key, value] : wrenchesEigen)
-                {
-                    if (value.size() != 6)
-                    {
-                        throw ::pybind11::value_error("Invalid input for the function. The wrenches "
-                                                      "must have 6 elements.");
-                    }
+                 return id.initialize(handler, *cls);
+             },
+             py::arg("param_handler"),
+             py::arg("kin_dyn"))
+        .def("updateExtWrenchesMeasurements",
+             [](HumanID& id, const std::unordered_map<std::string, Eigen::VectorXd>& wrenchesEigen) -> bool {
+                 std::unordered_map<std::string, iDynTree::Wrench> wrenches;
+                 for (const auto & [ key, value ] : wrenchesEigen)
+                 {
+                     if (value.size() != 6)
+                     {
+                         throw ::pybind11::value_error("Invalid input for the function. The wrenches "
+                                                       "must have 6 elements.");
+                     }
 
-                    iDynTree::Wrench w;
-                    w.setLinearVec3(iDynTree::GeomVector3(value(0), value(1), value(2)));
-                    w.setAngularVec3(iDynTree::GeomVector3(value(3), value(4), value(5)));
+                     iDynTree::Wrench w;
+                     w.setLinearVec3(iDynTree::GeomVector3(value(0), value(1), value(2)));
+                     w.setAngularVec3(iDynTree::GeomVector3(value(3), value(4), value(5)));
 
-                    wrenches[key] = w;
-                }
-                return id.updateExtWrenchesMeasurements(wrenches);
-            },
-            py::arg("wrenches"))
+                     wrenches[key] = w;
+                 }
+                 return id.updateExtWrenchesMeasurements(wrenches);
+             },
+             py::arg("wrenches"))
         .def("solve", &HumanID::solve)
         .def("getJointTorques",
              [](HumanID& id) -> Eigen::VectorXd {
