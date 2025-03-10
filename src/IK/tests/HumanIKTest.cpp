@@ -13,6 +13,9 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include <toml++/toml.h>
+
+using namespace BipedalLocomotion::ParametersHandler;
 
 
 TEST_CASE("InverseKinematics test")
@@ -25,10 +28,9 @@ TEST_CASE("InverseKinematics test")
     const iDynTree::Model model = iDynTree::getRandomModel(nrDoFs);
     kinDyn->loadRobotModel(model);   
     auto paramHandler = std::make_shared<BipedalLocomotion::ParametersHandler::TomlImplementation>();
-    
+    IParametersHandler::shared_ptr handler = paramHandler;
     std::cout << "configPath = " << getConfigPath() + "/configTestIK.toml" << std::endl;
-
-
+    REQUIRE(paramHandler->setFromFile(getConfigPath() + "/configTestIK.toml"));
 
     /* CREATE THE PARAMETERS FOR THE JOINT_REG TASK*/
     std::vector<std::string> joints_list_kp, joints_list;
@@ -48,80 +50,19 @@ TEST_CASE("InverseKinematics test")
         }
     }
 
-    std::string filename = getConfigPath() + "/configTestIK.toml";
-    std::ifstream inputFile(filename);
-    std::string tempFilename = getConfigPath() + "/configTestIKTEST.toml";
-    std::ofstream outputFile(tempFilename);
-    std::string line;
-    bool inTargetSection = false;
-    bool foundType = false;
-    bool foundVelocity = false;
-    bool foundWeight = false;
+    IParametersHandler::shared_ptr setGroup = std::make_shared<TomlImplementation>();
+    setGroup->setParameter("type", "JointRegularizationTask");
+    setGroup->setParameter("robot_velocity_variable_name", "robot_velocity");
+    setGroup->setParameter("weight", 0.01);
+    setGroup->setParameter("upper_limit", 5.0);
+    setGroup->setParameter("lower_limit", -5.0);
+    setGroup->setParameter("joints_list_kp", joints_list_kp);
+    setGroup->setParameter("joints_kp", joints_kp);
+    setGroup->setParameter("joints_list", joints_list);
+    setGroup->setParameter("joints_weights", joints_weights);
+    REQUIRE(paramHandler->setGroup("JOINT_REG_TASK", setGroup));
 
-    while (std::getline(inputFile, line)) {
-        outputFile << line << "\n";
-        
-        if (line == "[JOINT_REG_TASK]") {
-            inTargetSection = true;
-        } else if (inTargetSection) {
-            if (line.find("type") != std::string::npos) {
-                foundType = true;
-            } else if (line.find("robot_velocity_variable_name") != std::string::npos) {
-                foundVelocity = true;
-            } else if (line.find("weight") != std::string::npos) {
-                foundWeight = true;
-            }
-            
-            if (foundType && foundVelocity && foundWeight) {
-                outputFile << "joints_list = [";
-                for (size_t i = 0; i < joints_list.size(); ++i) {
-                    outputFile << "\"" << joints_list[i] << "\"";
-                    if (i != joints_list.size() - 1) {
-                        outputFile << ", ";
-                    }
-                }
-                outputFile << "]\n"; // End of joints_list line
-                
-                outputFile << "joints_weights = [";
-                for (size_t i = 0; i < joints_weights.size(); ++i) {
-                    outputFile << joints_weights[i];
-                    if (i != joints_weights.size() - 1) {
-                        outputFile << ", ";
-                    }
-                }
-                outputFile << "]\n"; // End of joints_weights line
-                
-                outputFile << "joints_list_kp = [";
-                for (size_t i = 0; i < joints_list_kp.size(); ++i) {
-                    outputFile << "\"" << joints_list_kp[i] << "\"";
-                    if (i != joints_list_kp.size() - 1) {
-                        outputFile << ", ";
-                    }
-                }
-                outputFile << "]\n"; // End of joints_list_kp line
-                
-                outputFile << "joints_kp = [";
-                for (size_t i = 0; i < joints_kp.size(); ++i) {
-                    outputFile << std::fixed << std::setprecision(1) << joints_kp[i];
-                    if (i != joints_kp.size() - 1) {
-                        outputFile << ", ";
-                    }
-                }
-                outputFile << "]\n"; // End of joints_kp line
     
-                inTargetSection = false;
-            }
-        }
-    }
-    
-    inputFile.close();
-    outputFile.close();
-    /* END CREATE THE PARAMETERS FOR THE JOINT_REG TASK*/
-
-
-
-    // set the parameters from the config file
-    REQUIRE(paramHandler->setFromFile(tempFilename));
 
     // inintialize the joint positions and velocities
     Eigen::VectorXd JointPositions(kinDyn->getNrOfDegreesOfFreedom());
@@ -165,9 +106,6 @@ TEST_CASE("InverseKinematics test")
 
     std::cout << "JointPositions = " << JointPositions.transpose() << std::endl;
     std::cout << "JointVelocities = " << JointVelocities.transpose() << std::endl;
-
-    // Remove the temporary file after the test
-    std::remove(tempFilename.c_str());
 }
 
 
