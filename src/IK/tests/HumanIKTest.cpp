@@ -9,11 +9,6 @@
 #include <BipedalLocomotion/ParametersHandler/StdImplementation.h>
 #include <BipedalLocomotion/ParametersHandler/TomlImplementation.h>
 #include <ConfigFolderPath.h>
-#include <iostream>
-#include <fstream>
-#include <sstream>
-#include <vector>
-#include <toml++/toml.h>
 
 using namespace BipedalLocomotion::ParametersHandler;
 
