@@ -127,7 +127,7 @@ private:
 
     Eigen::VectorXd m_calibrationJointPositions; /** Joint positions for calibration */
 
-    Eigen::VectorXd jointPositionSetPoint; /** Custom set point for the regularization task */
+    Eigen::VectorXd m_jointPositionSetPoint; /** Custom set point for the regularization task */
     Eigen::VectorXd m_zeroOfDimensionNrDoFs; /** Buffer of dimention nrOfDoFs full of zeros */
 
     /**

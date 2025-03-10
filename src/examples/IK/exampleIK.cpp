@@ -496,12 +496,6 @@ int main()
         // IK Solver: Update joint constraints and regularization tasks
         ik.updateJointConstraintsTask();
 
-        std::vector<std::string> jointsListKp = getJointsList();
-        if (!paramHandler->getParameter("joints_list_kp", jointsListKp))
-        {
-            BiomechanicalAnalysis::log()->error("Cannot find the parameter 'joints_list_kp'");
-            return 1;
-        }
         Eigen::VectorXd jointPositionSetPoint = ik.getJointPositionSetPoint();
         ik.updateJointRegularizationTask(jointPositionSetPoint);
 

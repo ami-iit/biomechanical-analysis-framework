@@ -929,7 +929,7 @@ bool HumanIK::initializeJointRegularizationTask(const std::string& taskName,
 
         // Initialize the desired positions for the joints with Kp != 0
         Eigen::VectorXd desiredJointsPositionsKp = Eigen::VectorXd::Zero(jointsListKp.size());
-        jointPositionSetPoint = Eigen::VectorXd::Zero(m_nrDoFs);
+        m_jointPositionSetPoint = Eigen::VectorXd::Zero(m_nrDoFs);
 
         for (size_t i = 0; i < jointsListKp.size(); ++i)
         {
@@ -954,7 +954,7 @@ bool HumanIK::initializeJointRegularizationTask(const std::string& taskName,
 
             // Retrieve the joint position from the model
             auto dOffset = m_kinDyn->model().getJoint(index)->getDOFsOffset();
-            jointPositionSetPoint(dOffset) = desiredJointsPositionsKp(i);
+            m_jointPositionSetPoint(dOffset) = desiredJointsPositionsKp(i);
         }
 
     }
@@ -1041,7 +1041,7 @@ bool HumanIK::initializeJointRegularizationTask(const std::string& taskName,
 
 Eigen::VectorXd HumanIK::getJointPositionSetPoint()
 {
-    return jointPositionSetPoint;
+    return m_jointPositionSetPoint;
 }
 
 bool HumanIK::initializeJointConstraintsTask(const std::string& taskName,
