@@ -124,8 +124,17 @@ jobs:
             export PATH=$PATH:${GITHUB_WORKSPACE}/build/install/bin:${GITHUB_WORKSPACE}/install/deps/bin
             ctest --output-on-failure -C ${{ matrix.build_type }} .
 
-        - name: Install
+        - name: Install  [Ubuntu, macOS]
+          if: matrix.os != 'windows-latest'
           shell: bash -l {0}
+          run: |
+            cd build
+            cmake --install . --config ${{matrix.build_type}} --verbose
+            cmake-package-check BiomechanicalAnalysisFramework --targets BiomechanicalAnalysis::IK BiomechanicalAnalysis::ID BiomechanicalAnalysis::CommonConversions BiomechanicalAnalysis::Logging
+
+
+        - name: Install [Windows]
+          shell: cmd /C CALL {0}
           run: |
             cd build
             cmake --install . --config ${{matrix.build_type}} --verbose
