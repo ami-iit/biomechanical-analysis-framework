@@ -85,6 +85,7 @@ jobs:
             mkdir -p build
             cd build
             cmake -G"Ninja" .. \
+                  -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX \
                   -DCMAKE_PREFIX_PATH=${GITHUB_WORKSPACE}/install/deps \
                   -DCMAKE_BUILD_TYPE=${{matrix.build_type}} \
                   -DFRAMEWORK_COMPILE_YarpImplementation=ON \
@@ -100,6 +101,7 @@ jobs:
             mkdir -p build
             cd build
             cmake -G"Visual Studio 17 2022" .. \
+                  -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX/Library \
                   -DCMAKE_PREFIX_PATH=${GITHUB_WORKSPACE}/install/deps \
                   -DCMAKE_BUILD_TYPE=${{matrix.build_type}} \
                   -DFRAMEWORK_COMPILE_YarpImplementation=ON \
@@ -122,3 +124,10 @@ jobs:
             cd build
             export PATH=$PATH:${GITHUB_WORKSPACE}/build/install/bin:${GITHUB_WORKSPACE}/install/deps/bin
             ctest --output-on-failure -C ${{ matrix.build_type }} .
+
+        - name: Install
+          shell: bash -l {0}
+          run: |
+            cd build
+            cmake --install . --config ${{matrix.build_type}} --verbose
+          - cmake-package-check BiomechanicalAnalysisFramework --targets BiomechanicalAnalysis::IK BiomechanicalAnalysis::ID BiomechanicalAnalysis::CommonConversions BiomechanicalAnalysis::Logging
