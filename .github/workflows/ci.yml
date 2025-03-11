@@ -85,14 +85,13 @@ jobs:
             mkdir -p build
             cd build
             cmake -G"Ninja" .. \
-                  -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX \
                   -DCMAKE_PREFIX_PATH=${GITHUB_WORKSPACE}/install/deps \
                   -DCMAKE_BUILD_TYPE=${{matrix.build_type}} \
                   -DFRAMEWORK_COMPILE_YarpImplementation=ON \
                   -DBUILD_TESTING:BOOL=ON \
                   -DBUILD_EXAMPLES:BOOL=ON \
                   -DFRAMEWORK_COMPILE_PYTHON_BINDINGS:BOOL=ON \
-                  -DCMAKE_INSTALL_PREFIX=${GITHUB_WORKSPACE}/install
+                  -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
 
         - name: Configure [Windows]
           if: matrix.os == 'windows-latest'
@@ -108,7 +107,7 @@ jobs:
                   -DBUILD_TESTING:BOOL=ON \
                   -DBUILD_EXAMPLES:BOOL=ON \
                   -DFRAMEWORK_COMPILE_PYTHON_BINDINGS:BOOL=ON \
-                  -DCMAKE_INSTALL_PREFIX=${GITHUB_WORKSPACE}/install
+                  -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX/Library
                     
         # Build step          
         - name: Build
