@@ -17,7 +17,7 @@ endif()
 ########################## Mandatory dependencies ###############################
 # Find all packages
 
-find_package(BipedalLocomotionFramework 0.12.0 REQUIRED)
+find_package(BipedalLocomotionFramework 0.19.0 REQUIRED)
 
 ########################## Optional dependencies  ##############################
 
