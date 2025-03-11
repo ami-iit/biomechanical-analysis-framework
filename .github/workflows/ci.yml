@@ -134,6 +134,7 @@ jobs:
 
 
         - name: Install [Windows]
+          if: matrix.os == 'windows-latest'
           shell: cmd /C CALL {0}
           run: |
             cd build
