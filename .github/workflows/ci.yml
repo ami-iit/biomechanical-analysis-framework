@@ -130,4 +130,4 @@ jobs:
           run: |
             cd build
             cmake --install . --config ${{matrix.build_type}} --verbose
-          - cmake-package-check BiomechanicalAnalysisFramework --targets BiomechanicalAnalysis::IK BiomechanicalAnalysis::ID BiomechanicalAnalysis::CommonConversions BiomechanicalAnalysis::Logging
+            cmake-package-check BiomechanicalAnalysisFramework --targets BiomechanicalAnalysis::IK BiomechanicalAnalysis::ID BiomechanicalAnalysis::CommonConversions BiomechanicalAnalysis::Logging
