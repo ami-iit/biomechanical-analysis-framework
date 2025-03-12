@@ -86,8 +86,6 @@ include(AddBiomechanicalAnalysisPythonModule)
 
 
 include(InstallBasicPackageFiles)
-get_property(FRAMEWORK_PRIVATE_DEPENDENCIES GLOBAL PROPERTY BiomechanicalAnalysisFramework_PrivateDependencies)
-get_property(FRAMEWORK_PUBLIC_DEPENDENCIES GLOBAL PROPERTY BiomechanicalAnalysisFramework_PublicDependencies)
 install_basic_package_files(${PROJECT_NAME}
                             NAMESPACE BiomechanicalAnalysis::
                             VERSION ${BiomechanicalAnalysisFramework_VERSION}
@@ -95,8 +93,7 @@ install_basic_package_files(${PROJECT_NAME}
                             TARGETS_PROPERTY BiomechanicalAnalysisFramework_TARGETS
                             VARS_PREFIX ${PROJECT_NAME}
                             NO_CHECK_REQUIRED_COMPONENTS_MACRO
-                            DEPENDENCIES ${FRAMEWORK_PUBLIC_DEPENDENCIES}
-                            PRIVATE_DEPENDENCIES ${FRAMEWORK_PRIVATE_DEPENDENCIES})
+                            DEPENDENCIES Eigen3 iDynTree BipedalLocomotionFramework)
 
 
 include(AddUninstallTarget)
