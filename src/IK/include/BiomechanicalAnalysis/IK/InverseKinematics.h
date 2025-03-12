@@ -10,7 +10,18 @@
 #include <iDynTree/KinDynComputations.h>
 
 // BipedalLocomotion
+#if __has_include(<BipedalLocomotion/ContinuousDynamicalSystem/FloatingBaseSystemVelocityKinematics.h>)
+#include <BipedalLocomotion/ContinuousDynamicalSystem/FloatingBaseSystemVelocityKinematics.h>
+#else
 #include <BipedalLocomotion/ContinuousDynamicalSystem/FloatingBaseSystemKinematics.h>
+namespace BipedalLocomotion
+{
+namespace ContinuousDynamicalSystem
+{
+typedef FloatingBaseSystemKinematics FloatingBaseSystemVelocityKinematics;
+}
+}
+#endif
 #include <BipedalLocomotion/ContinuousDynamicalSystem/ForwardEuler.h>
 #include <BipedalLocomotion/IK/GravityTask.h>
 #include <BipedalLocomotion/IK/JointLimitsTask.h>
@@ -108,9 +119,9 @@ private:
     struct System
     {
         std::shared_ptr<BipedalLocomotion::ContinuousDynamicalSystem::ForwardEuler<
-            BipedalLocomotion::ContinuousDynamicalSystem::FloatingBaseSystemKinematics>>
+            BipedalLocomotion::ContinuousDynamicalSystem::FloatingBaseSystemVelocityKinematics>>
             integrator;
-        std::shared_ptr<BipedalLocomotion::ContinuousDynamicalSystem::FloatingBaseSystemKinematics> dynamics;
+        std::shared_ptr<BipedalLocomotion::ContinuousDynamicalSystem::FloatingBaseSystemVelocityKinematics> dynamics;
     };
 
     System m_system; /** Struct containing the integrator and the dynamics */

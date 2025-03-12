@@ -47,10 +47,10 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
         return false;
     }
 
-    m_system.dynamics = std::make_shared<FloatingBaseSystemKinematics>();
+    m_system.dynamics = std::make_shared<FloatingBaseSystemVelocityKinematics>();
     m_system.dynamics->setState({m_basePose.topRightCorner<3, 1>(), toManifRot(m_basePose.topLeftCorner<3, 3>()), m_jointPositions});
 
-    m_system.integrator = std::make_shared<ForwardEuler<FloatingBaseSystemKinematics>>();
+    m_system.integrator = std::make_shared<ForwardEuler<FloatingBaseSystemVelocityKinematics>>();
     m_system.integrator->setDynamicalSystem(m_system.dynamics);
 
     // Variable for number of DoF of the model
