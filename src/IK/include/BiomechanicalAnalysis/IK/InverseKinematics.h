@@ -18,7 +18,7 @@ namespace BipedalLocomotion
 {
 namespace ContinuousDynamicalSystem
 {
-typedef FloatingBaseSystemVelocityKinematics FloatingBaseSystemKinematics;
+typedef FloatingBaseSystemKinematics FloatingBaseSystemVelocityKinematics;
 }
 }
 #endif
