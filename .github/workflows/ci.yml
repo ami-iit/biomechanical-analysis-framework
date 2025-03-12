@@ -139,5 +139,5 @@ jobs:
           run: |
             cd build
             cmake --install . --config ${{matrix.build_type}} --verbose
-            # Re-enable when we understand why cmake-package-check is not found
-            # cmake-package-check BiomechanicalAnalysisFramework --targets BiomechanicalAnalysis::IK BiomechanicalAnalysis::ID BiomechanicalAnalysis::CommonConversions BiomechanicalAnalysis::Logging
+            :: Re-enable when we understand why cmake-package-check is not found
+            :: cmake-package-check BiomechanicalAnalysisFramework --targets BiomechanicalAnalysis::IK BiomechanicalAnalysis::ID BiomechanicalAnalysis::CommonConversions BiomechanicalAnalysis::Logging
