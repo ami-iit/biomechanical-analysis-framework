@@ -3,7 +3,7 @@ name = "baf-kpi"
 version = "0.2.0"   # The version of this python package should be aligned with the version number in  "https://github.com/ami-iit/biomechanical-analysis-framework/blob/main/CMakeLists.txt#L10"
 description = "Python project to compute KPI parameters"
 license.file = "LICENSE"
-dependencies = ["numpy", "matplotlib", "pandas", "scipy", "h5py", "idyntree", "rich", "joblib", "argparse", "meshcat", "resolve-robotics-uri-py"]
+dependencies = ["numpy", "matplotlib", "pandas", "scipy", "h5py", "idyntree", "rich", "joblib", "meshcat", "resolve-robotics-uri-py"]
 
 
 [build-system]
