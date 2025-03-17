@@ -47,7 +47,7 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
     }
 
     // Save the initial base pose
-    initialBasePose = m_basePose;
+    m_initialBasePose = m_basePose;
 
     m_system.dynamics = std::make_shared<FloatingBaseSystemKinematics>();
     m_system.dynamics->setState({m_basePose.topRightCorner<3, 1>(), toManifRot(m_basePose.topLeftCorner<3, 3>()), m_jointPositions});
@@ -72,6 +72,15 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
         BiomechanicalAnalysis::log()->error("{} Parameter tasks is missing", logPrefix);
         return false;
     }
+
+    // Initialize a variable for choosing whether to reset the base pose when tPose is activated
+    bool useMeasuredBasePose;
+    if (!ptr->getParameter("use_measured_base_pose", useMeasuredBasePose))
+    {
+        BiomechanicalAnalysis::log()->error("{} Parameter use_measured_base_pose is missing", logPrefix);
+        return false;
+    }
+    m_useMeasuredBasePose = useMeasuredBasePose;
 
     bool ok = m_qpIK.initialize(ptr->getGroup("IK"));
     auto group = ptr->getGroup("IK").lock();
@@ -499,6 +508,9 @@ bool HumanIK::calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct)
 
 bool HumanIK::calibrateAllWithWorld(std::unordered_map<int, nodeData> nodeStruct, std::string refFrame)
 {
+    // Set the log prefix
+    constexpr auto logPrefix = "[HumanIK::calibrateAllWithWorld]";
+
     // reset the robot state
     Eigen::VectorXd jointVelocities;
     jointVelocities.resize(this->getDoFsNumber());
@@ -534,7 +546,7 @@ bool HumanIK::calibrateAllWithWorld(std::unordered_map<int, nodeData> nodeStruct
             Eigen::Matrix3d IMU_R_link = (m_OrientationTasks[node].calibrationMatrix * data.I_R_IMU).rotation().transpose()
                                          * iDynTree::toEigen(m_kinDyn->getWorldTransform(m_OrientationTasks[node].frameName).getRotation());
             m_OrientationTasks[node].IMU_R_link = BipedalLocomotion::Conversions::toManifRot(IMU_R_link);
-            m_OrientationTasks[node].calibrationMatrix = toManifRot(initialBasePose.topLeftCorner<3, 3>()) * secondaryCalib * m_OrientationTasks[node].calibrationMatrix;
+            m_OrientationTasks[node].calibrationMatrix = toManifRot(m_initialBasePose.topLeftCorner<3, 3>()) * secondaryCalib * m_OrientationTasks[node].calibrationMatrix;
         } else
         {
             // compute the rotation matrix from the IMU to the link frame as:
@@ -542,7 +554,14 @@ bool HumanIK::calibrateAllWithWorld(std::unordered_map<int, nodeData> nodeStruct
             Eigen::Matrix3d IMU_R_link = (m_GravityTasks[node].calibrationMatrix * data.I_R_IMU).rotation().transpose()
                                          * iDynTree::toEigen(m_kinDyn->getWorldTransform(m_GravityTasks[node].frameName).getRotation());
             m_GravityTasks[node].IMU_R_link = BipedalLocomotion::Conversions::toManifRot(IMU_R_link);
-            m_GravityTasks[node].calibrationMatrix = toManifRot(initialBasePose.topLeftCorner<3, 3>()) * secondaryCalib * m_GravityTasks[node].calibrationMatrix;
+            if (m_useMeasuredBasePose)
+            {
+                m_GravityTasks[node].calibrationMatrix = toManifRot(m_initialBasePose.topLeftCorner<3, 3>()) * secondaryCalib * m_GravityTasks[node].calibrationMatrix;
+            } else
+            {
+                m_GravityTasks[node].calibrationMatrix = secondaryCalib * m_GravityTasks[node].calibrationMatrix;
+                BiomechanicalAnalysis::log()->info("{} Assuming initial base pose is identity.", logPrefix);
+            }
         }
     }
     // set the flag to true to reset the integration
@@ -555,6 +574,9 @@ bool HumanIK::advance()
 {
     // Initialize ok flag to true
     bool ok{true};
+
+    // Log prefix for error messages
+    constexpr auto logPrefix = "[HumanIK::advance]";
 
     // Advance the QP solver
     ok = ok && m_qpIK.advance();
@@ -586,7 +608,11 @@ bool HumanIK::advance()
 
     if (m_tPose)
     {
-        Eigen::Matrix4d basePose; // Pose of the base
+        if (!m_useMeasuredBasePose)
+        {
+            m_basePose.setIdentity();
+            BiomechanicalAnalysis::log()->info("{} Resetting base pose to identity.", logPrefix);
+        }
         Eigen::VectorXd initialJointPositions; // Initial positions of the joints
         m_system.dynamics->setState({m_basePose.topRightCorner<3, 1>(), toManifRot(m_basePose.topLeftCorner<3, 3>()), m_calibrationJointPositions});
         m_tPose = false;

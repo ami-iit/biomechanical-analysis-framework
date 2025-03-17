@@ -128,6 +128,7 @@ private:
     Eigen::VectorXd m_jointPositions; /** Position of the joints */
     Eigen::VectorXd m_jointVelocities; /** Velocity of the joints */
     Eigen::Matrix4d m_basePose; /** SO3 pose of the base */
+    bool m_useMeasuredBasePose; /** Flag to show that the vive tracker is being used to provide base pose info */
     Eigen::Matrix<double, 6, 1> m_baseVelocity; /** Vector containing the linear and angular
                                                    velocity of the base */
     Eigen::Vector3d m_gravity; /** Gravity vector */
@@ -137,7 +138,7 @@ private:
     manif::SO3Tangentd I_omega_link; /** angular velocity of the link in the inertial frame */
 
     Eigen::VectorXd m_calibrationJointPositions; /** Joint positions for calibration */
-    Eigen::Matrix4d initialBasePose; /** Initial SO3 pose of the base */
+    Eigen::Matrix4d m_initialBasePose; /** Initial SO3 pose of the base */
 
     /**
      * Struct containing the SE3 task from the BipedalLocomotion IK, the node number and the

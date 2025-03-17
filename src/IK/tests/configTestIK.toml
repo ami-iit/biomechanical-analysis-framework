@@ -5,6 +5,8 @@ tasks = [
     "GRAVITY_TASK_1", "FLOOR_CONTACT_TASK_1", "JOINT_LIMITS_TASK", "JOINT_REG_TASK", "JOINT_VEL_LIMITS_TASK"
 ]
 
+use_measured_base_pose = true
+
 [IK]
 robot_velocity_variable_name = "robot_velocity"
 verbosity = false
