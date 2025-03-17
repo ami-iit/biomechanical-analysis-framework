@@ -207,6 +207,8 @@ private:
         std::string taskName;
         std::string frameName;
         double verticalForceThreshold;
+        manif::SE3d I_H_link;
+        manif::SE3d::Tangent mixedVelocity;
     };
 
     std::shared_ptr<BipedalLocomotion::IK::JointTrackingTask> m_jointRegularizationTask; /** Joint

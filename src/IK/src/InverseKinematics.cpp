@@ -309,33 +309,62 @@ bool HumanIK::updateFloorContactTask(const int node, const double verticalForce,
         m_kinDyn->setRobotState(m_basePose, jointPositions, baseVelocity, m_jointVelocities, m_gravity);
     }
 
-    // Compute the rotation matrix from the world to the link frame as:
-    // W_R_link = W_R_WIMU * WIMU_R_IMU * IMU_R_link
-    manif::SE3d I_H_IMU(I_position, I_R_IMU);
+    // if the vertical force is greater than the threshold and if the foot is not yet in contact,
+    // set the weight of the associated task to the weight of the task and set the set point of the
+    // task to the position of the frame computed with the legged odometry
+    if (verticalForce > m_FloorContactTasks[node].verticalForceThreshold && !m_FloorContactTasks[node].footInContact)
+    {
+        m_qpIK.setTaskWeight(m_FloorContactTasks[node].taskName, m_FloorContactTasks[node].weight);
+        m_FloorContactTasks[node].footInContact = true;
+        // m_FloorContactTasks[node].setPointPosition
+            // = iDynTree::toEigen(m_kinDyn->getWorldTransform(m_FloorContactTasks[node].frameName).getPosition());
 
-    // Create the transformation matrix from the world to the link frame
-    manif::SE3d I_H_link = I_H_IMU * m_FloorContactTasks[node].IMU_H_link;
+        // Compute the rotation matrix from the world to the link frame as:
+        // W_R_link = W_R_WIMU * WIMU_R_IMU * IMU_R_link
+        manif::SE3d I_H_IMU(I_position, I_R_IMU);
 
-    // Compute the linear velocity in the link frame (left trivialized)
-    // I_linearVelocity_link = link_R_W * W_R_WIMU * WIMU_linearVelocity
-    Eigen::Vector3d I_linearVelocity_link = I_H_link.rotation().transpose() * I_linearVelocity;
+        // Create the transformation matrix from the world to the link frame
+        manif::SE3d I_H_link = I_H_IMU * m_FloorContactTasks[node].IMU_H_link;
 
-    // Compute the angular velocity of the link frame (right trivialized)
-    Eigen::Vector3d I_omega_link = I_omega_IMU.coeffs();
+        // Compute the linear velocity in the link frame (left trivialized)
+        // I_linearVelocity_link = link_R_W * W_R_WIMU * WIMU_linearVelocity
+        Eigen::Vector3d I_linearVelocity_link = I_H_link.rotation().transpose() * I_linearVelocity;
 
-    Eigen::VectorXd mixedVelocityVector(6);
-    mixedVelocityVector << I_linearVelocity_link, I_omega_link;
+        // Compute the angular velocity of the link frame (right trivialized)
+        Eigen::Vector3d I_omega_link = I_omega_IMU.coeffs();
 
-    // Create mixed velocity vector
-    manif::SE3d::Tangent mixedVelocity(mixedVelocityVector);
+        Eigen::VectorXd mixedVelocityVector(6);
+        mixedVelocityVector << I_linearVelocity_link, I_omega_link;
 
-    if (verticalForce > m_FloorContactTasks[node].verticalForceThreshold)
-    { // if the vertical force is greater than the threshold, set the foot height to 0
-        I_H_link.translation(Eigen::Vector3d(I_H_link.translation().x(), I_H_link.translation().y(), linkHeight));
+        // Create mixed velocity vector
+        manif::SE3d::Tangent mixedVelocity(mixedVelocityVector);
+
+        // m_FloorContactTasks[node].setPointPosition(2) = linkHeight;
+        I_H_link.translation().z() = linkHeight;
+
+        std::cout << "I_H_link: \n" << I_H_link << std::endl;
+
+        // Save the transformation matrix and the mixed velocity values for the task update
+        m_FloorContactTasks[node].I_H_link = I_H_link;
+        m_FloorContactTasks[node].mixedVelocity = mixedVelocity;
+
+    } else if (verticalForce < m_FloorContactTasks[node].verticalForceThreshold && m_FloorContactTasks[node].footInContact)
+    {
+        // if the foot is not more in contact, set the weight of the associated task to zero
+        Eigen::VectorXd zeroWeight = Eigen::VectorXd::Zero(m_FloorContactTasks[node].weight.size());
+        m_qpIK.setTaskWeight(m_FloorContactTasks[node].taskName, zeroWeight);
+        m_FloorContactTasks[node].footInContact = false;
     }
 
-    // then set the set point for the task regardless of whether the foot is in contact
-    return m_FloorContactTasks[node].task->setSetPoint(I_H_link, mixedVelocity);
+    // if the foot is in contact, set the set point of the task
+    if (m_FloorContactTasks[node].footInContact)
+    {
+        // ok = m_FloorContactTasks[node].task->setSetPoint(m_FloorContactTasks[node].setPointPosition);
+        ok = m_FloorContactTasks[node].task->setSetPoint(m_FloorContactTasks[node].I_H_link, m_FloorContactTasks[node].mixedVelocity);
+
+    }
+
+    return ok;
 }
 
 bool HumanIK::updateJointRegularizationTask()
