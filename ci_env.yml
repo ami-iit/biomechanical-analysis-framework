@@ -12,6 +12,8 @@ dependencies:
   - spdlog>=1.15.1
   - catch2>=3.3.0
   - manif
+  # Workaround for https://github.com/ami-iit/biomechanical-analysis-framework/issues/69
+  - pcl==1.15.0=*_0
   - bipedal-locomotion-framework>=0.19.0
   - pybind11
   - cmake-package-check
