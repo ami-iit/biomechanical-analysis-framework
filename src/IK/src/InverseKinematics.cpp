@@ -546,7 +546,14 @@ bool HumanIK::calibrateAllWithWorld(std::unordered_map<int, nodeData> nodeStruct
             Eigen::Matrix3d IMU_R_link = (m_OrientationTasks[node].calibrationMatrix * data.I_R_IMU).rotation().transpose()
                                          * iDynTree::toEigen(m_kinDyn->getWorldTransform(m_OrientationTasks[node].frameName).getRotation());
             m_OrientationTasks[node].IMU_R_link = BipedalLocomotion::Conversions::toManifRot(IMU_R_link);
-            m_OrientationTasks[node].calibrationMatrix = toManifRot(m_initialBasePose.topLeftCorner<3, 3>()) * secondaryCalib * m_OrientationTasks[node].calibrationMatrix;
+            if (m_useMeasuredBasePose)
+            {
+                m_OrientationTasks[node].calibrationMatrix = toManifRot(m_initialBasePose.topLeftCorner<3, 3>()) * secondaryCalib * m_OrientationTasks[node].calibrationMatrix;
+            } else
+            {
+                m_OrientationTasks[node].calibrationMatrix = secondaryCalib * m_OrientationTasks[node].calibrationMatrix;
+                BiomechanicalAnalysis::log()->info("{} Assuming initial base pose is identity for OrientationTask.", logPrefix);
+            }
         } else
         {
             // compute the rotation matrix from the IMU to the link frame as:
@@ -560,7 +567,7 @@ bool HumanIK::calibrateAllWithWorld(std::unordered_map<int, nodeData> nodeStruct
             } else
             {
                 m_GravityTasks[node].calibrationMatrix = secondaryCalib * m_GravityTasks[node].calibrationMatrix;
-                BiomechanicalAnalysis::log()->info("{} Assuming initial base pose is identity.", logPrefix);
+                BiomechanicalAnalysis::log()->info("{} Assuming initial base pose is identity for GravityTask.", logPrefix);
             }
         }
     }
