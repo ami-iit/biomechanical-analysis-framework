@@ -67,10 +67,11 @@ jobs:
           if: matrix.os == 'ubuntu-latest'
           shell: bash -l {0}
           run: |
-            # Additional dependencies only useful on Linux
-            # See https://github.com/robotology/robotology-superbuild/issues/477
-            micromamba install expat-cos6-x86_64 libselinux-cos6-x86_64 libxau-cos6-x86_64 libxcb-cos6-x86_64 libxdamage-cos6-x86_64 libxext-cos6-x86_64 libxfixes-cos6-x86_64 libxxf86vm-cos6-x86_64 mesalib mesa-libgl-cos6-x86_64 mesa-libgl-devel-cos6-x86_64
-
+            # Additional dependencies only useful on Linux, both at the conda and the system level,
+            # see https://conda-forge.org/docs/maintainer/maintainer_faq/#how-do-i-fix-the-libglso1-import-error
+            micromamba install libgl-devel
+            sudo apt-get update
+            sudo apt install libgl1-mesa-dri libglx-mesa0 libegl-mesa0
 
         # ===================
         # CMAKE-BASED PROJECT
@@ -89,7 +90,8 @@ jobs:
                   -DFRAMEWORK_COMPILE_YarpImplementation=ON \
                   -DBUILD_TESTING:BOOL=ON \
                   -DBUILD_EXAMPLES:BOOL=ON \
-                  -DCMAKE_INSTALL_PREFIX=${GITHUB_WORKSPACE}/install
+                  -DFRAMEWORK_COMPILE_PYTHON_BINDINGS:BOOL=ON \
+                  -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
 
         - name: Configure [Windows]
           if: matrix.os == 'windows-latest'
@@ -98,12 +100,14 @@ jobs:
             mkdir -p build
             cd build
             cmake -G"Visual Studio 17 2022" .. \
+                  -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX/Library \
                   -DCMAKE_PREFIX_PATH=${GITHUB_WORKSPACE}/install/deps \
                   -DCMAKE_BUILD_TYPE=${{matrix.build_type}} \
                   -DFRAMEWORK_COMPILE_YarpImplementation=ON \
                   -DBUILD_TESTING:BOOL=ON \
                   -DBUILD_EXAMPLES:BOOL=ON \
-                  -DCMAKE_INSTALL_PREFIX=${GITHUB_WORKSPACE}/install
+                  -DFRAMEWORK_COMPILE_PYTHON_BINDINGS:BOOL=ON \
+                  -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX/Library
                     
         # Build step          
         - name: Build
@@ -119,3 +123,21 @@ jobs:
             cd build
             export PATH=$PATH:${GITHUB_WORKSPACE}/build/install/bin:${GITHUB_WORKSPACE}/install/deps/bin
             ctest --output-on-failure -C ${{ matrix.build_type }} .
+
+        - name: Install  [Ubuntu, macOS]
+          if: matrix.os != 'windows-latest'
+          shell: bash -l {0}
+          run: |
+            cd build
+            cmake --install . --config ${{matrix.build_type}} --verbose
+            cmake-package-check BiomechanicalAnalysisFramework --targets BiomechanicalAnalysis::IK BiomechanicalAnalysis::ID BiomechanicalAnalysis::CommonConversions BiomechanicalAnalysis::Logging
+
+
+        - name: Install [Windows]
+          if: matrix.os == 'windows-latest'
+          shell: cmd /C CALL {0}
+          run: |
+            cd build
+            cmake --install . --config ${{matrix.build_type}} --verbose
+            :: Re-enable when we understand why cmake-package-check is not found
+            :: cmake-package-check BiomechanicalAnalysisFramework --targets BiomechanicalAnalysis::IK BiomechanicalAnalysis::ID BiomechanicalAnalysis::CommonConversions BiomechanicalAnalysis::Logging

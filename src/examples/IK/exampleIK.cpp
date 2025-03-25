@@ -438,6 +438,7 @@ int main()
                 // Perform T-Pose calibration for each node
                 nodeStruct[node].I_R_IMU = BipedalLocomotion::Conversions::toManifRot(I_R_IMU);
             }
+
             ik.calibrateWorldYaw(nodeStruct); // Calibrate the world yaw
             ik.calibrateAllWithWorld(nodeStruct, "LeftFoot"); // Calibrate all with world
 
@@ -494,7 +495,9 @@ int main()
 
         // IK Solver: Update joint constraints and regularization tasks
         ik.updateJointConstraintsTask();
-        ik.updateJointRegularizationTask();
+
+        Eigen::VectorXd jointPositionSetPoint = ik.getJointPositionSetPoint();
+        ik.updateJointRegularizationTask(jointPositionSetPoint);
 
         // Advance the inverse kinematics solver: compute solution
         if (!ik.advance())
