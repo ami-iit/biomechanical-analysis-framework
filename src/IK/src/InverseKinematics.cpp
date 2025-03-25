@@ -796,12 +796,12 @@ bool HumanIK::initializeFloorContactTask(const std::string& taskName,
     constexpr auto logPrefix = "[HumanIK::initializeFloorContactTask]";
 
     // Variable to store the node number
-    int nodeNumber;
+    int taskNumber;
     // Flag to indicate successful initialization
     bool ok{true};
 
     // Retrieve node number parameter from the task handler
-    if (!taskHandler->getParameter("node_number", nodeNumber))
+    if (!taskHandler->getParameter("floor_contact_task", taskNumber))
     {
         BiomechanicalAnalysis::log()->error("{} Parameter node_number of the {} task is missing", logPrefix, taskName);
         return false;
@@ -809,7 +809,7 @@ bool HumanIK::initializeFloorContactTask(const std::string& taskName,
 
     // Retrieve frame name parameter from the task handler and assign it to the corresponding
     // FloorContactTask
-    if (!taskHandler->getParameter("frame_name", m_FloorContactTasks[nodeNumber].frameName))
+    if (!taskHandler->getParameter("frame_name", m_FloorContactTasks[taskNumber].frameName))
     {
         BiomechanicalAnalysis::log()->error("{} Parameter frame_name of the {} task is missing", logPrefix, taskName);
         return false;
@@ -836,7 +836,7 @@ bool HumanIK::initializeFloorContactTask(const std::string& taskName,
 
     // Retrieve vertical force threshold parameter from the task handler and assign it to the
     // corresponding FloorContactTask
-    if (!taskHandler->getParameter("vertical_force_threshold", m_FloorContactTasks[nodeNumber].verticalForceThreshold))
+    if (!taskHandler->getParameter("vertical_force_threshold", m_FloorContactTasks[taskNumber].verticalForceThreshold))
     {
         BiomechanicalAnalysis::log()->error("{} Parameter vertical_force_threshold of the {} task "
                                             "is missing",
@@ -846,21 +846,21 @@ bool HumanIK::initializeFloorContactTask(const std::string& taskName,
     }
 
     // Map weight vector to Eigen::Vector3d and assign it to the corresponding FloorContactTask
-    m_FloorContactTasks[nodeNumber].weight = Eigen::Map<Eigen::Vector3d>(weight.data());
+    m_FloorContactTasks[taskNumber].weight = Eigen::Map<Eigen::Vector3d>(weight.data());
 
     // Set node number and task name for the FloorContactTask
-    m_FloorContactTasks[nodeNumber].nodeNumber = nodeNumber;
-    m_FloorContactTasks[nodeNumber].taskName = taskName;
+    m_FloorContactTasks[taskNumber].taskNumber = taskNumber;
+    m_FloorContactTasks[taskNumber].taskName = taskName;
 
     // Create an R3Task object for the floor contact task
-    m_FloorContactTasks[nodeNumber].task = std::make_shared<BipedalLocomotion::IK::R3Task>();
+    m_FloorContactTasks[taskNumber].task = std::make_shared<BipedalLocomotion::IK::R3Task>();
 
     // Initialize the R3Task object
-    ok = ok && m_FloorContactTasks[nodeNumber].task->setKinDyn(m_kinDyn);
-    ok = ok && m_FloorContactTasks[nodeNumber].task->initialize(taskHandler);
+    ok = ok && m_FloorContactTasks[taskNumber].task->setKinDyn(m_kinDyn);
+    ok = ok && m_FloorContactTasks[taskNumber].task->initialize(taskHandler);
 
     // Add the floor contact task to the QP solver
-    ok = ok && m_qpIK.addTask(m_FloorContactTasks[nodeNumber].task, taskName, 1, m_FloorContactTasks[nodeNumber].weight);
+    ok = ok && m_qpIK.addTask(m_FloorContactTasks[taskNumber].task, taskName, 1, m_FloorContactTasks[taskNumber].weight);
 
     // Check if initialization was successful
     return ok;
