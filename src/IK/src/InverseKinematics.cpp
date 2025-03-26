@@ -803,7 +803,7 @@ bool HumanIK::initializeFloorContactTask(const std::string& taskName,
     // Retrieve node number parameter from the task handler
     if (!taskHandler->getParameter("floor_contact_task", taskNumber))
     {
-        BiomechanicalAnalysis::log()->error("{} Parameter node_number of the {} task is missing", logPrefix, taskName);
+        BiomechanicalAnalysis::log()->error("{} Parameter floor_contact_task of the {} task is missing", logPrefix, taskName);
         return false;
     }
 
