@@ -808,7 +808,7 @@ bool HumanIK::initializeFloorContactTask(const std::string& taskName,
     // Handle deprecated parameter name
     if (taskHandler->getParameter("node_number", taskNumber))
     {
-        BiomechanicalAnalysis::log()->warning("{} Parameter node_number of the {} task is deprecated, please use floor_contact_task instead", logPrefix, taskName);
+        BiomechanicalAnalysis::log()->warn("{} Parameter node_number of the {} task is deprecated, please use floor_contact_task instead", logPrefix, taskName);
         taskNumberSet = true;
     }
 
