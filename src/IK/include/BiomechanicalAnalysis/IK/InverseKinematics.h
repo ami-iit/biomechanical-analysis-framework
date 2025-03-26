@@ -186,7 +186,7 @@ private:
     {
         std::shared_ptr<BipedalLocomotion::IK::R3Task> task;
         Eigen::Vector3d weight;
-        int nodeNumber;
+        int taskNumber;
         bool footInContact{false};
         Eigen::Vector3d setPointPosition;
         std::string taskName;
@@ -283,7 +283,7 @@ public:
      * |:-----------:|:------------------------------:|:----------:|:--------------------------------------------------------------------------------------------:|:---------:|
      * |`FloorContactTask`|           `type`               |  `string`  |                       Type of the task. The value to be set is `FloorContactTask`       |  Yes  |
      * |`FloorContactTask`| `robot_velocity_variable_name` |  `string`  |Name of the variable contained in `VariablesHandler` describing the generalized robot velocity|  Yes  |
-     * |`FloorContactTask`|         `node_number`          |   `int`    |                  Node number of the task. The node number must be unique.               |  Yes  |
+     * |`FloorContactTask`|         `floor_contact_task`   |   `int`    |                  Node number of the task. The node number must be unique.               |  Yes  |
      * |`FloorContactTask`|          `kp_linear`           |  `double`  |                          Gain of the distance controller                                |  Yes  |
      * |`FloorContactTask`|         `frame_name`           |  `string`  |                 Name of the frame to which apply the floor contact task                 |  Yes  |
      * |`FloorContactTask`|   `vertical_force_threshold`   |  `double`  |                 Threshold of the vertical force to consider the foot in contact         |  Yes  |
