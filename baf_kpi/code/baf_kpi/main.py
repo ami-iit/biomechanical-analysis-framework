@@ -4,7 +4,6 @@ import re
 import idyntree.bindings as iDynTree
 from joblib import dump
 from pathlib import Path
-import argparse
 import json
 import tkinter as tk
 from tkinter import filedialog
