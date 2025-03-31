@@ -858,6 +858,7 @@ bool HumanIK::initializeFloorContactTask(const std::string& taskName,
     // Initialize the R3Task object
     ok = ok && m_FloorContactTasks[nodeNumber].task->setKinDyn(m_kinDyn);
     ok = ok && m_FloorContactTasks[nodeNumber].task->initialize(taskHandler);
+    ok = ok && m_FloorContactTasks[nodeNumber].task->setSetPoint(Eigen::Vector3d::Zero());
 
     // Add the floor contact task to the QP solver
     ok = ok && m_qpIK.addTask(m_FloorContactTasks[nodeNumber].task, taskName, 1, m_FloorContactTasks[nodeNumber].weight);
