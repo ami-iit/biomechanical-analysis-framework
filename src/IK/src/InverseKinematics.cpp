@@ -274,11 +274,8 @@ bool HumanIK::updateFloorContactTask(const int node, const double verticalForce,
         m_FloorContactTasks[node].footInContact = false;
     }
 
-    // if the foot is in contact, set the set point of the task
-    if (m_FloorContactTasks[node].footInContact)
-    {
-        ok = m_FloorContactTasks[node].task->setSetPoint(m_FloorContactTasks[node].setPointPosition);
-    }
+    // Set the set point of the task
+    ok = m_FloorContactTasks[node].task->setSetPoint(m_FloorContactTasks[node].setPointPosition);
 
     return ok;
 }

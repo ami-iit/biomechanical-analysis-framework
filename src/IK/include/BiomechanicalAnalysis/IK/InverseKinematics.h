@@ -188,7 +188,7 @@ private:
         Eigen::Vector3d weight;
         int nodeNumber;
         bool footInContact{false};
-        Eigen::Vector3d setPointPosition;
+        Eigen::Vector3d setPointPosition = Eigen::Vector3d::Zero();
         std::string taskName;
         std::string frameName;
         double verticalForceThreshold;
