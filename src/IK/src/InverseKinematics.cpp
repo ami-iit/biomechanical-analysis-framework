@@ -274,11 +274,8 @@ bool HumanIK::updateFloorContactTask(const int node, const double verticalForce,
         m_FloorContactTasks[node].footInContact = false;
     }
 
-    // if the foot is in contact, set the set point of the task
-    if (m_FloorContactTasks[node].footInContact)
-    {
-        ok = m_FloorContactTasks[node].task->setSetPoint(m_FloorContactTasks[node].setPointPosition);
-    }
+    // Set the set point of the task
+    ok = m_FloorContactTasks[node].task->setSetPoint(m_FloorContactTasks[node].setPointPosition);
 
     return ok;
 }
@@ -858,7 +855,6 @@ bool HumanIK::initializeFloorContactTask(const std::string& taskName,
     // Initialize the R3Task object
     ok = ok && m_FloorContactTasks[nodeNumber].task->setKinDyn(m_kinDyn);
     ok = ok && m_FloorContactTasks[nodeNumber].task->initialize(taskHandler);
-    ok = ok && m_FloorContactTasks[nodeNumber].task->setSetPoint(Eigen::Vector3d::Zero());
 
     // Add the floor contact task to the QP solver
     ok = ok && m_qpIK.addTask(m_FloorContactTasks[nodeNumber].task, taskName, 1, m_FloorContactTasks[nodeNumber].weight);
