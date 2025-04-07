@@ -11,7 +11,7 @@
 // iDynTree headers
 #include <iDynTree/BerdyHelper.h>
 #include <iDynTree/BerdySparseMAPSolver.h>
-#include <iDynTree/Core/SparseMatrix.h>
+#include <iDynTree/SparseMatrix.h>
 #include <iDynTree/KinDynComputations.h>
 
 // BipedalLocomotion headers
