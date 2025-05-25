@@ -4,6 +4,7 @@
 
 The computed KPI include:
 
+- **Niosh KPI**:An index based on the guidelines of the National Institute for Occupational Safety and Health (NIOSH), used to assess biomechanical risk during occupational tasks, particularly lifting activities. It helps estimate the physical load on body segments (e.g., the lumbar spine) and supports the prevention of musculoskeletal disorders and overexertion injuries.
 - **Gait Cycle Duration**: The total time taken to complete a full gait cycle (one complete step with both legs).
 - **Cadence**: The number of steps taken per minute, an essential parameter for analyzing walking speed and rhythm.
 - **Stride Length**: The distance covered in one full gait cycle, indicating spatial characteristics of walking.
@@ -16,6 +17,7 @@ The computed KPI include:
 - **Step Width (Swing Width)**: The lateral distance between steps, important for stability evaluation.
 - **Path Length**: The total distance traveled by a specific body segment during gait, providing a measure of movement efficiency.
 - **Steady-State Gait Events**: Identification of periods of consistent walking patterns, excluding acceleration and deceleration phases.
+
 
 
 ### Setting up the environment
