@@ -23,7 +23,6 @@ TEST_CASE("InverseKinematics test")
     kinDyn->loadRobotModel(model);
     auto paramHandler = std::make_shared<BipedalLocomotion::ParametersHandler::TomlImplementation>();
     IParametersHandler::shared_ptr handler = paramHandler;
-    std::cout << "configPath = " << getConfigPath() + "/configTestIK.toml" << std::endl;
     REQUIRE(paramHandler->setFromFile(getConfigPath() + "/configTestIK.toml"));
 
     /* CREATE THE PARAMETERS FOR THE JOINT_REG TASK*/
@@ -74,9 +73,7 @@ TEST_CASE("InverseKinematics test")
     desiredDirection << 1.0, 2.0, 3.0;
 
     std::unordered_map<int, BiomechanicalAnalysis::IK::nodeData> mapNodeData;
-    mapNodeData[11].I_R_IMU.setIdentity();
-    mapNodeData[6].I_R_IMU = I_R_IMU;
-    mapNodeData[6].I_omega_IMU = I_omega_IMU;
+    mapNodeData[6].I_R_IMU.setIdentity();
     mapNodeData[7].I_R_IMU = I_R_IMU;
     mapNodeData[7].I_omega_IMU = I_omega_IMU;
 
