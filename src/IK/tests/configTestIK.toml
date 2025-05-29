@@ -44,7 +44,7 @@ type = "FloorContactTask"
 robot_velocity_variable_name = "robot_velocity"
 frame_name = "link10"
 kp_linear = 1.0
-node_number = 10
+floor_contact_task = 10
 weight = [10.0, 10.0, 10.0]
 vertical_force_threshold = 60.0
 
