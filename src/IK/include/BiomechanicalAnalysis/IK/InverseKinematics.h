@@ -157,6 +157,7 @@ private:
                                                                  // to the World of the IMU, which
                                                                  // will be calibrated using Tpose
                                                                  // script
+        manif::SO3d W_R_link; // Calibrated orientation of the link in the inertial frame
         Eigen::Vector3d weight; // Weight of the task
         std::string frameName; // Name of the frame in which the task is expressed
     };
@@ -172,6 +173,7 @@ private:
         manif::SO3d IMU_R_link_init; // Initial value of the rotation matrix from the IMU to related link, set through config
                                      // file
         manif::SO3d calibrationMatrix = manif::SO3d::Identity();
+        manif::SO3d W_R_link; // Calibrated orientation of the link in the inertial frame
         Eigen::Vector2d weight;
         int nodeNumber;
         std::string taskName;
@@ -531,7 +533,22 @@ public:
      * @return true if the base angular velocity is retrieved correctly
      */
     bool getBaseAngularVelocity(Eigen::Ref<Eigen::Vector3d> baseAngularVelocity) const;
-};
+
+    /**
+     * get the calibration matrix between the world and the link
+     * @param node node number
+     * @return calibration matrix
+     */
+    const manif::SO3d& getCalibratedIMURotation(int node) const;
+
+    /**
+     * get the frame name of the orientation task
+     * @param node node number
+     * @return frame name
+     */
+    std::string getNodeFrameName(int node) const;
+
+};          
 
 } // namespace IK
 } // namespace BiomechanicalAnalysis
