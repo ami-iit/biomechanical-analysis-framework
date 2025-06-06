@@ -2,6 +2,8 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <BiomechanicalAnalysis/IK/InverseKinematics.h>
+#include <iDynTree/ModelExporter.h> // Add this include
+#include <iDynTree/ModelLoader.h>
 #include <iDynTree/ModelTestUtils.h>
 #include <manif/SO3.h>
 
@@ -19,8 +21,9 @@ TEST_CASE("InverseKinematics test")
     // set the number of DoFs
     int nrDoFs = 20;
 
-    const iDynTree::Model model = iDynTree::getRandomModel(nrDoFs);
-    kinDyn->loadRobotModel(model);
+    iDynTree::ModelLoader mdlLoader;
+    REQUIRE(mdlLoader.loadModelFromFile(getConfigPath() + "/humanSubject01_48dof.urdf"));
+    kinDyn->loadRobotModel(mdlLoader.model());
     auto paramHandler = std::make_shared<BipedalLocomotion::ParametersHandler::TomlImplementation>();
     IParametersHandler::shared_ptr handler = paramHandler;
     REQUIRE(paramHandler->setFromFile(getConfigPath() + "/configTestIK.toml"));
@@ -30,14 +33,14 @@ TEST_CASE("InverseKinematics test")
     std::vector<double> joints_kp, joints_weights;
 
     // Iter over all the joints of the model
-    for (int i = 0; i < model.getNrOfJoints(); i++)
+    for (int i = 0; i < mdlLoader.model().getNrOfJoints(); i++)
     {
-        auto joint = model.getJoint(i);
+        auto joint = mdlLoader.model().getJoint(i);
 
         // Check if the joint has only one degree of freedom
         if (joint->getNrOfDOFs() == 1)
         {
-            std::string jointName = model.getJointName(i);
+            std::string jointName = mdlLoader.model().getJointName(i);
             joints_list_kp.push_back(jointName);
             joints_kp.push_back(10.0);
             joints_list.push_back(jointName);
