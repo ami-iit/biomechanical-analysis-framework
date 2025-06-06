@@ -19,6 +19,7 @@ TEST_CASE("InverseKinematics test")
     // set the number of DoFs
     int nrDoFs = 20;
 
+    srand(227);
     const iDynTree::Model model = iDynTree::getRandomModel(nrDoFs);
     kinDyn->loadRobotModel(model);
     auto paramHandler = std::make_shared<BipedalLocomotion::ParametersHandler::TomlImplementation>();
