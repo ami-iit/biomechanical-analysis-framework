@@ -17,6 +17,8 @@ build/*
 *.xlsx
 *~
 
+!src/IK/tests/*.urdf
+
 # Directories
 build/
 install/
