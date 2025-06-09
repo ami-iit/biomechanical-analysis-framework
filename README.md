@@ -52,7 +52,7 @@ make install
 
 Once the installation is completed, append the following lines to your `.bashrc`:
 ```bash
-BAF_INSTALL_DIR=<directory-where-you-downloaded-component_ifeel>element_wearable_sw/build/install
+BAF_INSTALL_DIR=<directory-where-you-downloaded-baf>/build/install
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${BAF_INSTALL_DIR}/lib
 export CMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH:${BAF_INSTALL_DIR}
 ```
