@@ -165,6 +165,13 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
                 BiomechanicalAnalysis::log()->error("{} Error in the initialization of the {} task", logPrefix, task);
                 return false;
             }
+        } else if (taskType == "BaseVelocityRegularizationTask")
+        {
+            if (!initializeBaseVelocityRegularizationTask(task, taskHandler))
+            {
+                BiomechanicalAnalysis::log()->error("{} Error in the initialization of the {} task", logPrefix, task);
+                return false;
+            }
         } else
         {
             BiomechanicalAnalysis::log()->error("{} Invalid task type {}", logPrefix, taskType);
@@ -314,7 +321,7 @@ bool HumanIK::updateJointConstraintsTask()
 bool HumanIK::updateOrientationAndGravityTasks(const std::unordered_map<int, nodeData>& nodeStruct)
 {
     // Update the orientation and gravity tasks
-    for (const auto & [ node, data ] : nodeStruct)
+    for (const auto& [node, data] : nodeStruct)
     {
         if (m_OrientationTasks.find(node) != m_OrientationTasks.end())
         {
@@ -348,7 +355,7 @@ bool HumanIK::updateOrientationAndGravityTasks(const std::unordered_map<int, nod
 
 bool HumanIK::updateFloorContactTasks(const std::unordered_map<int, Eigen::Matrix<double, 6, 1>>& wrenchMap, const double linkHeight)
 {
-    for (const auto & [ node, data ] : wrenchMap)
+    for (const auto& [node, data] : wrenchMap)
     {
         if (!updateFloorContactTask(node, data(WRENCH_FORCE_Z), linkHeight))
         {
@@ -363,12 +370,12 @@ bool HumanIK::updateFloorContactTasks(const std::unordered_map<int, Eigen::Matri
 
 bool HumanIK::clearCalibrationMatrices()
 {
-    for (auto & [ node, data ] : m_OrientationTasks)
+    for (auto& [node, data] : m_OrientationTasks)
     {
         data.calibrationMatrix = manif::SO3d::Identity();
         data.IMU_R_link = m_OrientationTasks[node].IMU_R_link_init;
     }
-    for (auto & [ node, data ] : m_GravityTasks)
+    for (auto& [node, data] : m_GravityTasks)
     {
         data.calibrationMatrix = manif::SO3d::Identity();
         data.IMU_R_link = m_GravityTasks[node].IMU_R_link_init;
@@ -389,7 +396,7 @@ bool HumanIK::calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct)
     baseVelocity.setZero();
     m_kinDyn->setRobotState(basePose, m_calibrationJointPositions, baseVelocity, jointVelocities, m_gravity);
     // Update the orientation and gravity tasks
-    for (const auto & [ node, data ] : nodeStruct)
+    for (const auto& [node, data] : nodeStruct)
     {
         // check if the node number is valid
         if (m_OrientationTasks.find(node) == m_OrientationTasks.end() && m_GravityTasks.find(node) == m_GravityTasks.end())
@@ -441,7 +448,7 @@ bool HumanIK::calibrateAllWithWorld(std::unordered_map<int, nodeData> nodeStruct
         secondaryCalib = manif::SO3d(refFrameRot.asRPY()(0), refFrameRot.asRPY()(1), refFrameRot.asRPY()(2));
     }
 
-    for (const auto & [ node, data ] : nodeStruct)
+    for (const auto& [node, data] : nodeStruct)
     {
         // check if the node number is valid
         if (m_OrientationTasks.find(node) == m_OrientationTasks.end() && m_GravityTasks.find(node) == m_GravityTasks.end())
@@ -518,7 +525,7 @@ bool HumanIK::advance()
     }
 
     // Get the solution (base position, base rotation, joint positions) from the integrator
-    const auto & [ basePosition, baseRotation, jointPosition ] = m_system.integrator->getSolution();
+    const auto& [basePosition, baseRotation, jointPosition] = m_system.integrator->getSolution();
     // Update the base pose and joint positions
     m_basePose.topRightCorner<3, 1>() = basePosition;
     m_basePose.topLeftCorner<3, 3>() = baseRotation.rotation();
@@ -605,15 +612,13 @@ const manif::SO3d& HumanIK::getCalibratedIMURotation(int node) const
     else if (m_GravityTasks.find(node) != m_GravityTasks.end())
     {
         return m_GravityTasks.at(node).W_R_link;
-    }
-    else
+    } else
     {
         // If the node is not defined in any of the tasks, generate an error
         BiomechanicalAnalysis::log()->error("[HumanIK::getCalibratedIMURotationMatrix] Invalid node number {}.", node);
         throw std::out_of_range("Invalid node number");
     }
 }
-
 
 std::string HumanIK::getNodeFrameName(int node) const
 {
@@ -626,15 +631,13 @@ std::string HumanIK::getNodeFrameName(int node) const
     else if (m_GravityTasks.find(node) != m_GravityTasks.end())
     {
         return m_GravityTasks.at(node).frameName;
-    }
-    else
+    } else
     {
         // If the node is not defined in any of the tasks, generate an error
         BiomechanicalAnalysis::log()->error("[HumanIK::getFrameNameOrientationTask] Invalid node number {}.", node);
         throw std::out_of_range("Invalid node number");
     }
 }
-
 
 bool HumanIK::initializeOrientationTask(const std::string& taskName,
                                         const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler)
@@ -839,15 +842,14 @@ bool HumanIK::initializeFloorContactTask(const std::string& taskName,
     // Flag to indicate successful initialization
     bool ok{true};
 
-
-
-
     // Retrieve node number parameter from the task handler
     bool taskNumberSet = false;
     // Handle deprecated parameter name
     if (taskHandler->getParameter("node_number", taskNumber))
     {
-        BiomechanicalAnalysis::log()->warn("{} Parameter node_number of the {} task is deprecated, please use floor_contact_task instead", logPrefix, taskName);
+        BiomechanicalAnalysis::log()->warn("{} Parameter node_number of the {} task is deprecated, please use floor_contact_task instead",
+                                           logPrefix,
+                                           taskName);
         taskNumberSet = true;
     }
 
@@ -1267,6 +1269,51 @@ bool HumanIK::initializeJointVelocityLimitsTask(const std::string& taskName,
 
     // Add the joint velocity limits task to the QP solver
     ok = ok && m_qpIK.addTask(m_jointVelocityLimitsTask, taskName, 0);
+
+    // Return true if initialization was successful, otherwise return false
+    return ok;
+}
+
+bool HumanIK::initializeBaseVelocityRegularizationTask(
+    const std::string& taskName, const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler)
+{
+    // Flag to indicate successful initialization
+    bool ok{true};
+
+    // Create a BaseVelocityRegularizationTask object for base velocity regularization
+    m_baseVelocityRegularizationTask = std::make_shared<BipedalLocomotion::IK::BaseVelocityTrackingTask>();
+
+    // Set the KinDyn object for the BaseVelocityRegularizationTask
+    ok = ok && m_baseVelocityRegularizationTask->setKinDyn(m_kinDyn);
+
+    // Initialize the BaseVelocityRegularizationTask object
+    ok = ok && m_baseVelocityRegularizationTask->initialize(taskHandler);
+
+    // Retrieve the weights parameter from the task handler
+    Eigen::Vector3d weightLinearVelocity;
+    if (!taskHandler->getParameter("weight_linear_velocity", weightLinearVelocity))
+    {
+        BiomechanicalAnalysis::log()->error("[HumanIK::initializeBaseVelocityRegularizationTask] "
+                                            "Parameter 'weight_linear_velocity' of the {} task is missing",
+                                            taskName);
+        return false;
+    }
+    Eigen::Vector3d weightAngularVelocity;
+    if (!taskHandler->getParameter("weight_angular_velocity", weightAngularVelocity))
+    {
+        BiomechanicalAnalysis::log()->error("[HumanIK::initializeBaseVelocityRegularizationTask] "
+                                            "Parameter 'weight_angular_velocity' of the {} task is missing",
+                                            taskName);
+        return false;
+    }
+
+    // Create a weight vector with constant values based on the weight parameter
+    Eigen::VectorXd weightVector(6);
+    weightVector.head<3>() = weightLinearVelocity;
+    weightVector.tail<3>() = weightAngularVelocity;
+
+    // Add the base velocity regularization task to the QP solver with the specified weight vector
+    ok = ok && m_qpIK.addTask(m_baseVelocityRegularizationTask, taskName, 1, weightVector);
 
     // Return true if initialization was successful, otherwise return false
     return ok;
