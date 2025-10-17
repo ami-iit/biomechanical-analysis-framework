@@ -209,8 +209,14 @@ private:
 
     std::shared_ptr<BipedalLocomotion::IK::JointVelocityLimitsTask> m_jointVelocityLimitsTask; /** Joint velocity limits task */
 
-    std::shared_ptr<BipedalLocomotion::IK::R3Task> m_baseVelocityRegularizationTask; /** Base velocity regularization task
-                                                                                      */
+    struct BaseVelocityRegularizationTaskStruct
+    {
+        std::shared_ptr<BipedalLocomotion::IK::R3Task> linearVelocityTask; /** Linear velocity task */
+        std::shared_ptr<BipedalLocomotion::IK::SO3Task> angularVelocityTask; /** Angular velocity task */
+    };
+    BaseVelocityRegularizationTaskStruct m_baseVelocityRegularizationTask; /** Struct containing the base
+                                                                                      velocity regularization
+                                                                                      tasks */
 
     manif::SO3d calib_W_R_link = manif::SO3d::Identity(); /** calibration matrix between the world
                                                            and the link */
