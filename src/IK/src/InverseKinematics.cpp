@@ -1281,13 +1281,10 @@ bool HumanIK::initializeBaseVelocityRegularizationTask(
     bool ok{true};
 
     // Create a BaseVelocityRegularizationTask object for base velocity regularization
-    m_baseVelocityRegularizationTask = std::make_shared<BipedalLocomotion::IK::BaseVelocityTrackingTask>();
+    m_baseVelocityRegularizationTask = std::make_shared<BipedalLocomotion::IK::R3Task>();
 
     // Set the KinDyn object for the BaseVelocityRegularizationTask
     ok = ok && m_baseVelocityRegularizationTask->setKinDyn(m_kinDyn);
-
-    // Initialize the BaseVelocityRegularizationTask object
-    ok = ok && m_baseVelocityRegularizationTask->initialize(taskHandler);
 
     // Retrieve the weights parameter from the task handler
     Eigen::Vector3d weightLinearVelocity;
@@ -1298,22 +1295,25 @@ bool HumanIK::initializeBaseVelocityRegularizationTask(
                                             taskName);
         return false;
     }
-    Eigen::Vector3d weightAngularVelocity;
-    if (!taskHandler->getParameter("weight_angular_velocity", weightAngularVelocity))
-    {
-        BiomechanicalAnalysis::log()->error("[HumanIK::initializeBaseVelocityRegularizationTask] "
-                                            "Parameter 'weight_angular_velocity' of the {} task is missing",
-                                            taskName);
-        return false;
-    }
 
-    // Create a weight vector with constant values based on the weight parameter
-    Eigen::VectorXd weightVector(6);
-    weightVector.head<3>() = weightLinearVelocity;
-    weightVector.tail<3>() = weightAngularVelocity;
+    // get base frame from kinDyn
+    auto baseFrameName = m_kinDyn->model().getDefaultBaseLink();
+    // get frame name from index
+    auto frameName = m_kinDyn->model().getFrameName(baseFrameName);
+    taskHandler->setParameter("frame_name", frameName);
+    // set the kp for the linear position to zero since this task is only for velocity regularization
+    taskHandler->setParameter("kp_linear", 0.0);
+
+    // Initialize the BaseVelocityRegularizationTask object
+    ok = ok && m_baseVelocityRegularizationTask->initialize(taskHandler);
+
+    Eigen::Vector3d zeroVector(3);
+    zeroVector.setZero();
+    // set the desired position and velocity to zero
+    ok = ok && m_baseVelocityRegularizationTask->setSetPoint(zeroVector, zeroVector);
 
     // Add the base velocity regularization task to the QP solver with the specified weight vector
-    ok = ok && m_qpIK.addTask(m_baseVelocityRegularizationTask, taskName, 1, weightVector);
+    ok = ok && m_qpIK.addTask(m_baseVelocityRegularizationTask, taskName, 1, weightLinearVelocity);
 
     // Return true if initialization was successful, otherwise return false
     return ok;
