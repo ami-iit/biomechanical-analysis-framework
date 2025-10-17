@@ -1322,8 +1322,7 @@ bool HumanIK::initializeBaseVelocityRegularizationTask(
     // Initialize angular velocity task
     ok = ok && m_baseVelocityRegularizationTask.angularVelocityTask->initialize(taskHandler);
 
-    Eigen::Vector3d zeroVector(3);
-    zeroVector.setZero();
+    Eigen::Vector3d zeroVector = Eigen::Vector3d::Zero();
     manif::SO3d identitySO3 = manif::SO3d::Identity();
     // set the desired position and velocity to zero
     ok = ok && m_baseVelocityRegularizationTask.linearVelocityTask->setSetPoint(zeroVector, zeroVector);
