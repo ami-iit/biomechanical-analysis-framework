@@ -19,7 +19,6 @@ constexpr size_t WRENCH_TORQUE_Z = 5;
 bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandler::IParametersHandler> handler,
                          std::shared_ptr<iDynTree::KinDynComputations> kinDyn)
 {
-    std::cout << "Initializing HumanIK..." << std::endl;
     // set priorities variables
     constexpr std::size_t highPriority = 0;
     constexpr std::size_t lowPriority = 1;
