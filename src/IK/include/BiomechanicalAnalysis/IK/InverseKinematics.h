@@ -20,7 +20,7 @@ namespace ContinuousDynamicalSystem
 {
 typedef FloatingBaseSystemKinematics FloatingBaseSystemVelocityKinematics;
 }
-}
+} // namespace BipedalLocomotion
 #endif
 #include <BipedalLocomotion/ContinuousDynamicalSystem/ForwardEuler.h>
 #include <BipedalLocomotion/IK/GravityTask.h>
@@ -110,6 +110,10 @@ private:
      */
     bool initializeJointVelocityLimitsTask(const std::string& taskName,
                                            const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
+
+    bool
+    initializeBaseVelocityRegularizationTask(const std::string& taskName,
+                                             const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
 
     std::chrono::nanoseconds m_dtIntegration; /** Integration time step in nanoseconds */
 
@@ -204,6 +208,15 @@ private:
                                                                                        task */
 
     std::shared_ptr<BipedalLocomotion::IK::JointVelocityLimitsTask> m_jointVelocityLimitsTask; /** Joint velocity limits task */
+
+    struct BaseVelocityRegularizationTaskStruct
+    {
+        std::shared_ptr<BipedalLocomotion::IK::R3Task> linearVelocityTask; /** Linear velocity task */
+        std::shared_ptr<BipedalLocomotion::IK::SO3Task> angularVelocityTask; /** Angular velocity task */
+    };
+    BaseVelocityRegularizationTaskStruct m_baseVelocityRegularizationTask; /** Struct containing the base
+                                                                                      velocity regularization
+                                                                                      tasks */
 
     manif::SO3d calib_W_R_link = manif::SO3d::Identity(); /** calibration matrix between the world
                                                            and the link */
@@ -547,8 +560,7 @@ public:
      * @return frame name
      */
     std::string getNodeFrameName(int node) const;
-
-};          
+};
 
 } // namespace IK
 } // namespace BiomechanicalAnalysis

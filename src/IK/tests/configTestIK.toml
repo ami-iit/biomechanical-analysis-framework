@@ -1,6 +1,7 @@
 tasks = [
     "PELVIS_TASK", "T8_TASK", "RIGHT_UPPER_ARM_TASK", "GRAVITY_TASK_1", 
-    "FLOOR_CONTACT_TASK_1", "JOINT_LIMITS_TASK", "JOINT_REG_TASK", "JOINT_VEL_LIMITS_TASK"
+    "FLOOR_CONTACT_TASK_1", "JOINT_LIMITS_TASK", "JOINT_REG_TASK", "JOINT_VEL_LIMITS_TASK",
+    "BASE_VEL_REG_TASK"
 ]
 
 [IK]
@@ -63,3 +64,9 @@ type = "JointVelocityLimitsTask"
 robot_velocity_variable_name = "robot_velocity"
 upper_limit = 5.0
 lower_limit = -5.0
+
+[BASE_VEL_REG_TASK]
+type = "BaseVelocityRegularizationTask"
+robot_velocity_variable_name = "robot_velocity"
+weight_linear_velocity = [0.01, 0.01, 0.01]
+weight_angular_velocity = [0.01, 0.01, 0.01]
