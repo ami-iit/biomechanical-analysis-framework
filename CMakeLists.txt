@@ -7,7 +7,7 @@ cmake_minimum_required(VERSION 3.16)
 
 ## MAIN project
 project(BiomechanicalAnalysisFramework
-  VERSION 0.2.2)
+  VERSION 0.2.3)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
