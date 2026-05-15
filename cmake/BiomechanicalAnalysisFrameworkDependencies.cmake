@@ -21,7 +21,22 @@ endif()
 find_package(Eigen3 REQUIRED)
 find_package(iDynTree REQUIRED)
 find_package(BipedalLocomotionFramework 0.19.0 REQUIRED)
-find_package(ResolveRoboticsURICpp REQUIRED)
+
+# Dependencies supported either directly of via FetchContent
+if(NOT DEFINED FRAMEWORK_USE_SYSTEM_ResolveRoboticsURICpp)
+  find_package(ResolveRoboticsURICpp QUIET)
+endif()
+option(FRAMEWORK_USE_SYSTEM_ResolveRoboticsURICpp "Use find_package to find ResolveRoboticsURICpp " ${ResolveRoboticsURICpp_FOUND})
+if(FRAMEWORK_USE_SYSTEM_ResolveRoboticsURICpp)
+  find_package(ResolveRoboticsURICpp REQUIRED)
+else()
+  FetchContent_Declare(
+    ResolveRoboticsURICpp
+    GIT_REPOSITORY https://github.com/ami-iit/resolve-robotics-uri-cpp
+    GIT_TAG        v0.0.3
+  )
+  FetchContent_MakeAvailable(ResolveRoboticsURICpp)
+endif()
 
 ########################## Optional dependencies  ##############################
 
