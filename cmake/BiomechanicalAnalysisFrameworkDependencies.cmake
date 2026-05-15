@@ -21,6 +21,7 @@ endif()
 find_package(Eigen3 REQUIRED)
 find_package(iDynTree REQUIRED)
 find_package(BipedalLocomotionFramework 0.19.0 REQUIRED)
+find_package(ResolveRoboticsURICpp REQUIRED)
 
 ########################## Optional dependencies  ##############################
 
