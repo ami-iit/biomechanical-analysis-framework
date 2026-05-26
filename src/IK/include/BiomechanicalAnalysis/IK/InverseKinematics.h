@@ -50,6 +50,24 @@ struct nodeData
     manif::SO3Tangentd I_omega_IMU = manif::SO3d::Tangent::Zero();
 };
 
+/**
+ * @brief Struct containing the desired position and linear velocity of a frame
+ */
+struct positionData
+{
+    Eigen::Vector3d I_p_frame;
+    Eigen::Vector3d I_v_frame = Eigen::Vector3d::Zero();
+};
+
+/**
+ * @brief Struct containing the desired pose and mixed 6D velocity of a frame
+ */
+struct poseData
+{
+    manif::SE3d I_H_frame = manif::SE3d::Identity();
+    manif::SE3d::Tangent I_v_frame = manif::SE3d::Tangent::Zero();
+};
+
 // clang-format off
 /**
  * @brief HumanIK class is a class in which the inverse kinematics problem is solved.
@@ -547,36 +565,32 @@ public:
     /**
      * Set the position set-point for a given position task node.
      * @param node node number
-     * @param position desired position of the frame origin in the inertial frame
-     * @param velocity desired linear velocity of the frame (default: zero)
+     * @param data desired position and linear velocity of the frame
      * @return true if the set-point is set correctly
      */
-    bool updatePositionTask(const int node,
-                            Eigen::Ref<const Eigen::Vector3d> position,
-                            Eigen::Ref<const Eigen::Vector3d> velocity = Eigen::Vector3d::Zero());
+    bool updatePositionTask(const int node, const positionData& data);
 
     /**
      * Set the position set-point for all position task nodes.
-     * @param positionMap unordered map from node number to desired position
+     * @param positionMap unordered map from node number to desired positionData
      * @return true if all set-points are set correctly
      */
-    bool updatePositionTasks(const std::unordered_map<int, Eigen::Vector3d>& positionMap);
+    bool updatePositionTasks(const std::unordered_map<int, positionData>& positionMap);
 
     /**
      * Set the pose set-point for a given pose task node.
      * @param node node number
-     * @param pose desired SE3 pose of the frame in the inertial frame
-     * @param velocity desired mixed 6D velocity (default: zero)
+     * @param data desired pose and mixed 6D velocity of the frame
      * @return true if the set-point is set correctly
      */
-    bool updatePoseTask(const int node, const manif::SE3d& pose, const manif::SE3d::Tangent& velocity = manif::SE3d::Tangent::Zero());
+    bool updatePoseTask(const int node, const poseData& data);
 
     /**
      * Set the pose set-point for all pose task nodes.
-     * @param poseMap unordered map from node number to desired SE3 pose
+     * @param poseMap unordered map from node number to desired poseData
      * @return true if all set-points are set correctly
      */
-    bool updatePoseTasks(const std::unordered_map<int, manif::SE3d>& poseMap);
+    bool updatePoseTasks(const std::unordered_map<int, poseData>& poseMap);
 
     /**
      * clear the calibration matrices W_R_WIMU and IMU_R_link of all the orientation and gravity tasks

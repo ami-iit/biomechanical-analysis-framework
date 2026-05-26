@@ -5,8 +5,8 @@
 #include <iDynTree/ModelExporter.h> // Add this include
 #include <iDynTree/ModelLoader.h>
 #include <iDynTree/ModelTestUtils.h>
-#include <manif/SO3.h>
 #include <manif/SE3.h>
+#include <manif/SO3.h>
 
 #include <BipedalLocomotion/ParametersHandler/IParametersHandler.h>
 #include <BipedalLocomotion/ParametersHandler/StdImplementation.h>
@@ -94,12 +94,13 @@ TEST_CASE("InverseKinematics test")
     REQUIRE(ik.updateJointRegularizationTask(jointPositionSetPoint));
 
     // Test PositionTask update
-    Eigen::Vector3d desiredPosition(0.3, 0.1, 1.0);
-    REQUIRE(ik.updatePositionTask(20, desiredPosition));
+    BiomechanicalAnalysis::IK::positionData posData;
+    posData.I_p_frame = Eigen::Vector3d(0.3, 0.1, 1.0);
+    REQUIRE(ik.updatePositionTask(20, posData));
 
     // Test PoseTask update
-    manif::SE3d desiredPose = manif::SE3d::Identity();
-    REQUIRE(ik.updatePoseTask(21, desiredPose));
+    BiomechanicalAnalysis::IK::poseData pData;
+    REQUIRE(ik.updatePoseTask(21, pData));
 
     REQUIRE(ik.calibrateWorldYaw(mapNodeData));
     REQUIRE(ik.calibrateAllWithWorld(mapNodeData, "link1"));

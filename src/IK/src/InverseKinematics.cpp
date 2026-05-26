@@ -1379,7 +1379,9 @@ bool HumanIK::initializePositionTask(const std::string& taskName,
     if (weight.size() != 3)
     {
         BiomechanicalAnalysis::log()->error("{} The size of the parameter weight of the {} task is {}, it should be 3",
-                                            logPrefix, taskName, weight.size());
+                                            logPrefix,
+                                            taskName,
+                                            weight.size());
         return false;
     }
     m_PositionTasks[nodeNumber].weight = Eigen::Map<Eigen::Vector3d>(weight.data());
@@ -1401,7 +1403,7 @@ bool HumanIK::initializePositionTask(const std::string& taskName,
 }
 
 bool HumanIK::initializePoseTask(const std::string& taskName,
-                                  const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler)
+                                 const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler)
 {
     constexpr auto logPrefix = "[HumanIK::initializePoseTask]";
     bool ok{true};
@@ -1428,7 +1430,9 @@ bool HumanIK::initializePoseTask(const std::string& taskName,
     if (weight.size() != 6)
     {
         BiomechanicalAnalysis::log()->error("{} The size of the parameter weight of the {} task is {}, it should be 6",
-                                            logPrefix, taskName, weight.size());
+                                            logPrefix,
+                                            taskName,
+                                            weight.size());
         return false;
     }
     m_PoseTasks[nodeNumber].weight = Eigen::Map<Eigen::Matrix<double, 6, 1>>(weight.data());
@@ -1449,24 +1453,22 @@ bool HumanIK::initializePoseTask(const std::string& taskName,
     return ok;
 }
 
-bool HumanIK::updatePositionTask(const int node,
-                                  Eigen::Ref<const Eigen::Vector3d> position,
-                                  Eigen::Ref<const Eigen::Vector3d> velocity)
+bool HumanIK::updatePositionTask(const int node, const positionData& data)
 {
     if (m_PositionTasks.find(node) == m_PositionTasks.end())
     {
         BiomechanicalAnalysis::log()->error("[HumanIK::updatePositionTask] Invalid node number {}.", node);
         return false;
     }
-    return m_PositionTasks[node].task->setSetPoint(position, velocity);
+    return m_PositionTasks[node].task->setSetPoint(data.I_p_frame, data.I_v_frame);
 }
 
-bool HumanIK::updatePositionTasks(const std::unordered_map<int, Eigen::Vector3d>& positionMap)
+bool HumanIK::updatePositionTasks(const std::unordered_map<int, positionData>& positionMap)
 {
     bool ok{true};
-    for (const auto& [node, position] : positionMap)
+    for (const auto& [node, data] : positionMap)
     {
-        if (!updatePositionTask(node, position))
+        if (!updatePositionTask(node, data))
         {
             BiomechanicalAnalysis::log()->error("[HumanIK::updatePositionTasks] Error updating position task for node {}.", node);
             ok = false;
@@ -1475,24 +1477,22 @@ bool HumanIK::updatePositionTasks(const std::unordered_map<int, Eigen::Vector3d>
     return ok;
 }
 
-bool HumanIK::updatePoseTask(const int node,
-                              const manif::SE3d& pose,
-                              const manif::SE3d::Tangent& velocity)
+bool HumanIK::updatePoseTask(const int node, const poseData& data)
 {
     if (m_PoseTasks.find(node) == m_PoseTasks.end())
     {
         BiomechanicalAnalysis::log()->error("[HumanIK::updatePoseTask] Invalid node number {}.", node);
         return false;
     }
-    return m_PoseTasks[node].task->setSetPoint(pose, velocity);
+    return m_PoseTasks[node].task->setSetPoint(data.I_H_frame, data.I_v_frame);
 }
 
-bool HumanIK::updatePoseTasks(const std::unordered_map<int, manif::SE3d>& poseMap)
+bool HumanIK::updatePoseTasks(const std::unordered_map<int, poseData>& poseMap)
 {
     bool ok{true};
-    for (const auto& [node, pose] : poseMap)
+    for (const auto& [node, data] : poseMap)
     {
-        if (!updatePoseTask(node, pose))
+        if (!updatePoseTask(node, data))
         {
             BiomechanicalAnalysis::log()->error("[HumanIK::updatePoseTasks] Error updating pose task for node {}.", node);
             ok = false;

@@ -35,23 +35,34 @@ void CreateInverseKinematics(pybind11::module& module)
         .def_readwrite("I_R_IMU", &nodeData::I_R_IMU)
         .def_readwrite("I_omega_IMU", &nodeData::I_omega_IMU);
 
+    py::class_<positionData>(module, "positionData")
+        .def(py::init<>())
+        .def_readwrite("I_p_frame", &positionData::I_p_frame)
+        .def_readwrite("I_v_frame", &positionData::I_v_frame);
+
+    py::class_<poseData>(module, "poseData")
+        .def(py::init<>())
+        .def_readwrite("I_H_frame", &poseData::I_H_frame)
+        .def_readwrite("I_v_frame", &poseData::I_v_frame);
+
     py::class_<HumanIK>(module, "HumanIK")
         .def(py::init())
-        .def("initialize",
-             [](HumanIK& ik, std::shared_ptr<const IParametersHandler> handler, py::object& obj) -> bool {
-                 std::shared_ptr<iDynTree::KinDynComputations>* cls
-                     = py::detail::swig_wrapped_pointer_to_pybind<std::shared_ptr<iDynTree::KinDynComputations>>(obj);
+        .def(
+            "initialize",
+            [](HumanIK& ik, std::shared_ptr<const IParametersHandler> handler, py::object& obj) -> bool {
+                std::shared_ptr<iDynTree::KinDynComputations>* cls
+                    = py::detail::swig_wrapped_pointer_to_pybind<std::shared_ptr<iDynTree::KinDynComputations>>(obj);
 
-                 if (cls == nullptr)
-                 {
-                     throw ::pybind11::value_error("Invalid input for the function. Please provide "
-                                                   "an iDynTree::KinDynComputations object.");
-                 }
+                if (cls == nullptr)
+                {
+                    throw ::pybind11::value_error("Invalid input for the function. Please provide "
+                                                  "an iDynTree::KinDynComputations object.");
+                }
 
-                 return ik.initialize(handler, *cls);
-             },
-             py::arg("param_handler"),
-             py::arg("kin_dyn"))
+                return ik.initialize(handler, *cls);
+            },
+            py::arg("param_handler"),
+            py::arg("kin_dyn"))
         .def("setDt", &HumanIK::setDt, py::arg("dt"))
         .def("getDt", &HumanIK::getDt)
         .def("getDoFsNumber", &HumanIK::getDoFsNumber)
@@ -69,16 +80,11 @@ void CreateInverseKinematics(pybind11::module& module)
              py::arg("jointPositionSetPoint"))
         .def("updateJointConstraintsTask", &HumanIK::updateJointConstraintsTask)
         .def("updatePositionTask",
-             py::overload_cast<const int, Eigen::Ref<const Eigen::Vector3d>, Eigen::Ref<const Eigen::Vector3d>>(&HumanIK::updatePositionTask),
+             py::overload_cast<const int, const positionData&>(&HumanIK::updatePositionTask),
              py::arg("node"),
-             py::arg("position"),
-             py::arg("velocity") = Eigen::Vector3d::Zero())
+             py::arg("data"))
         .def("updatePositionTasks", &HumanIK::updatePositionTasks, py::arg("positionMap"))
-        .def("updatePoseTask",
-             py::overload_cast<const int, const manif::SE3d&, const manif::SE3d::Tangent&>(&HumanIK::updatePoseTask),
-             py::arg("node"),
-             py::arg("pose"),
-             py::arg("velocity") = manif::SE3d::Tangent::Zero())
+        .def("updatePoseTask", py::overload_cast<const int, const poseData&>(&HumanIK::updatePoseTask), py::arg("node"), py::arg("data"))
         .def("updatePoseTasks", &HumanIK::updatePoseTasks, py::arg("poseMap"))
         .def("advance", &HumanIK::advance)
         .def("getJointPositions",
