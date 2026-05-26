@@ -29,6 +29,7 @@ typedef FloatingBaseSystemKinematics FloatingBaseSystemVelocityKinematics;
 #include <BipedalLocomotion/IK/JointVelocityLimitsTask.h>
 #include <BipedalLocomotion/IK/QPInverseKinematics.h>
 #include <BipedalLocomotion/IK/R3Task.h>
+#include <BipedalLocomotion/IK/SE3Task.h>
 #include <BipedalLocomotion/IK/SO3Task.h>
 #include <BipedalLocomotion/ParametersHandler/IParametersHandler.h>
 #include <BipedalLocomotion/ParametersHandler/StdImplementation.h>
@@ -115,6 +116,24 @@ private:
     initializeBaseVelocityRegularizationTask(const std::string& taskName,
                                              const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
 
+    /**
+     * Initialize the position task (R3Task).
+     * @param taskName name of the task
+     * @param taskHandler pointer to the parameters handler
+     * @return true if the position task is initialized correctly
+     */
+    bool initializePositionTask(const std::string& taskName,
+                                const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
+
+    /**
+     * Initialize the pose task (SE3Task).
+     * @param taskName name of the task
+     * @param taskHandler pointer to the parameters handler
+     * @return true if the pose task is initialized correctly
+     */
+    bool initializePoseTask(const std::string& taskName,
+                            const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
+
     std::chrono::nanoseconds m_dtIntegration; /** Integration time step in nanoseconds */
 
     /**
@@ -200,6 +219,30 @@ private:
         double verticalForceThreshold;
     };
 
+    /**
+     * Struct containing the R3 (position) task from BipedalLocomotion IK.
+     */
+    struct PositionTaskStruct
+    {
+        std::shared_ptr<BipedalLocomotion::IK::R3Task> task;
+        Eigen::Vector3d weight;
+        int nodeNumber;
+        std::string taskName;
+        std::string frameName;
+    };
+
+    /**
+     * Struct containing the SE3 (position + orientation) task from BipedalLocomotion IK.
+     */
+    struct PoseTaskStruct
+    {
+        std::shared_ptr<BipedalLocomotion::IK::SE3Task> task;
+        Eigen::Matrix<double, 6, 1> weight;
+        int nodeNumber;
+        std::string taskName;
+        std::string frameName;
+    };
+
     std::shared_ptr<BipedalLocomotion::IK::JointTrackingTask> m_jointRegularizationTask; /** Joint
                                                                                            regularization
                                                                                            task */
@@ -231,6 +274,9 @@ private:
 
     std::unordered_map<int, FloorContactTaskStruct> m_FloorContactTasks; /** unordered map of the
                                                                     floor contact tasks */
+
+    std::unordered_map<int, PositionTaskStruct> m_PositionTasks; /** unordered map of the position tasks */
+    std::unordered_map<int, PoseTaskStruct> m_PoseTasks; /** unordered map of the pose tasks */
 
     std::shared_ptr<iDynTree::KinDynComputations> m_kinDyn; /** pointer to the KinDynComputations
     object */
@@ -269,7 +315,9 @@ public:
      * For **each** task listed in the parameter `tasks` the user must specify all the parameters
      * required by the task itself but `robot_velocity_variable_name` since is already specified in
      * the `IK` group. Moreover, each task requires a parameter `type` that identifies the type of
-     * task. Up to now, only the "SO3Task" is implemented.
+     * task. The supported task types are: `SO3Task`, `GravityTask`, `FloorContactTask`,
+     * `JointRegularizationTask`, `JointConstraintTask`, `JointVelocityLimitsTask`,
+     * `BaseVelocityRegularizationTask`, `PositionTask`, `PoseTask`.
      * The "SO3Task" requires the following parameters:
      * |   Group   |         Parameter Name         |       Type      |                                       Description                                       | Mandatory |
      * |:---------:|:------------------------------:|:---------------:|:---------------------------------------------------------------------------------------:|:---------:|
@@ -322,6 +370,31 @@ public:
      * |`JointConstraintsTask`|        `joints_list`           |`vector<string>`| Vector containing the joints name to set the limits. Required `use_model_limits` is set to false.   |    No     |
      * |`JointConstraintsTask`|        `upper_limits`          |`vector<double>`| Vector containing the upper limits of the specified joints. Required `use_model_limits` is set to false.   |    No     |
      * |`JointConstraintsTask`|        `lower_limits`          |`vector<double>`| Vector containing the lower limits of the specified joints. Required `use_model_limits` is set to false.   |    No     |
+     *
+     * The "PositionTask" controls the 3D position of a frame using a proportional controller in R3.
+     * The set-point is provided at runtime via `updatePositionTask()`. No IMU calibration is involved.
+     * |      Group       |         Parameter Name         |       Type          |                                         Description                                          | Mandatory |
+     * |:----------------:|:------------------------------:|:-------------------:|:--------------------------------------------------------------------------------------------:|:---------:|
+     * | `PositionTask`   |           `type`               |     `string`        |                     Type of the task. The value to be set is `PositionTask`                  |    Yes    |
+     * | `PositionTask`   | `robot_velocity_variable_name` |     `string`        | Name of the variable contained in `VariablesHandler` describing the generalized robot velocity|    Yes    |
+     * | `PositionTask`   |        `node_number`           |      `int`          |                    Node number of the task. The node number must be unique.                  |    Yes    |
+     * | `PositionTask`   |         `frame_name`           |     `string`        |                          Name of the frame whose position is controlled.                     |    Yes    |
+     * | `PositionTask`   |         `kp_linear`            | `double` or `vector<double>` |              Gain of the proportional position controller.                          |    Yes    |
+     * | `PositionTask`   |           `weight`             |  `vector<double>`   |          Weight of the task (3 elements).                                                    |    Yes    |
+     * | `PositionTask`   |            `mask`              |  `vector<bool>`     |  Mask to control only a subset of axes, e.g. `[1,0,1]` for x and z only. Default `[1,1,1]` |    No     |
+     *
+     * The "PoseTask" controls both position and orientation of a frame using proportional controllers
+     * in R3 and SO3. The set-point is provided at runtime via `updatePoseTask()`. No IMU calibration is involved.
+     * |    Group    |         Parameter Name         |       Type          |                                         Description                                          | Mandatory |
+     * |:-----------:|:------------------------------:|:-------------------:|:--------------------------------------------------------------------------------------------:|:---------:|
+     * | `PoseTask`  |           `type`               |     `string`        |                       Type of the task. The value to be set is `PoseTask`                    |    Yes    |
+     * | `PoseTask`  | `robot_velocity_variable_name` |     `string`        | Name of the variable contained in `VariablesHandler` describing the generalized robot velocity|    Yes    |
+     * | `PoseTask`  |        `node_number`           |      `int`          |                    Node number of the task. The node number must be unique.                  |    Yes    |
+     * | `PoseTask`  |         `frame_name`           |     `string`        |                    Name of the frame whose pose (position + orientation) is controlled.      |    Yes    |
+     * | `PoseTask`  |         `kp_linear`            | `double` or `vector<double>` |              Gain of the proportional position controller.                          |    Yes    |
+     * | `PoseTask`  |        `kp_angular`            | `double` or `vector<double>` |              Gain of the proportional orientation controller.                       |    Yes    |
+     * | `PoseTask`  |           `weight`             |  `vector<double>`   |          Weight of the task (6 elements: 3 linear + 3 angular).                              |    Yes    |
+     * | `PoseTask`  |            `mask`              |  `vector<bool>`     |  Mask to control only a subset of linear axes. Default `[1,1,1]`. Angular part is always controlled. |    No     |
      * @note The following `ini` file presents an example of the configuration that can be used to
      * build the HumanIK class.
      *  ~~~~~{.ini}
@@ -470,6 +543,40 @@ public:
      * @return true if the calibration matrix is set correctly
      */
     bool updateFloorContactTasks(const std::unordered_map<int, Eigen::Matrix<double, 6, 1>>& wrenchMap, const double linkHeight = 0.0);
+
+    /**
+     * Set the position set-point for a given position task node.
+     * @param node node number
+     * @param position desired position of the frame origin in the inertial frame
+     * @param velocity desired linear velocity of the frame (default: zero)
+     * @return true if the set-point is set correctly
+     */
+    bool updatePositionTask(const int node,
+                            Eigen::Ref<const Eigen::Vector3d> position,
+                            Eigen::Ref<const Eigen::Vector3d> velocity = Eigen::Vector3d::Zero());
+
+    /**
+     * Set the position set-point for all position task nodes.
+     * @param positionMap unordered map from node number to desired position
+     * @return true if all set-points are set correctly
+     */
+    bool updatePositionTasks(const std::unordered_map<int, Eigen::Vector3d>& positionMap);
+
+    /**
+     * Set the pose set-point for a given pose task node.
+     * @param node node number
+     * @param pose desired SE3 pose of the frame in the inertial frame
+     * @param velocity desired mixed 6D velocity (default: zero)
+     * @return true if the set-point is set correctly
+     */
+    bool updatePoseTask(const int node, const manif::SE3d& pose, const manif::SE3d::Tangent& velocity = manif::SE3d::Tangent::Zero());
+
+    /**
+     * Set the pose set-point for all pose task nodes.
+     * @param poseMap unordered map from node number to desired SE3 pose
+     * @return true if all set-points are set correctly
+     */
+    bool updatePoseTasks(const std::unordered_map<int, manif::SE3d>& poseMap);
 
     /**
      * clear the calibration matrices W_R_WIMU and IMU_R_link of all the orientation and gravity tasks

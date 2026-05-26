@@ -6,6 +6,7 @@
 #include <iDynTree/ModelLoader.h>
 #include <iDynTree/ModelTestUtils.h>
 #include <manif/SO3.h>
+#include <manif/SE3.h>
 
 #include <BipedalLocomotion/ParametersHandler/IParametersHandler.h>
 #include <BipedalLocomotion/ParametersHandler/StdImplementation.h>
@@ -91,6 +92,15 @@ TEST_CASE("InverseKinematics test")
     REQUIRE(ik.updateJointConstraintsTask());
     Eigen::VectorXd jointPositionSetPoint = ik.getJointPositionSetPoint();
     REQUIRE(ik.updateJointRegularizationTask(jointPositionSetPoint));
+
+    // Test PositionTask update
+    Eigen::Vector3d desiredPosition(0.3, 0.1, 1.0);
+    REQUIRE(ik.updatePositionTask(20, desiredPosition));
+
+    // Test PoseTask update
+    manif::SE3d desiredPose = manif::SE3d::Identity();
+    REQUIRE(ik.updatePoseTask(21, desiredPose));
+
     REQUIRE(ik.calibrateWorldYaw(mapNodeData));
     REQUIRE(ik.calibrateAllWithWorld(mapNodeData, "link1"));
     REQUIRE(ik.advance());

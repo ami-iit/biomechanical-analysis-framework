@@ -172,6 +172,22 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
                 BiomechanicalAnalysis::log()->error("{} Error in the initialization of the {} task", logPrefix, task);
                 return false;
             }
+            // Initialize PositionTask
+        } else if (taskType == "PositionTask")
+        {
+            if (!initializePositionTask(task, taskHandler))
+            {
+                BiomechanicalAnalysis::log()->error("{} Error in the initialization of the {} task", logPrefix, task);
+                return false;
+            }
+            // Initialize PoseTask
+        } else if (taskType == "PoseTask")
+        {
+            if (!initializePoseTask(task, taskHandler))
+            {
+                BiomechanicalAnalysis::log()->error("{} Error in the initialization of the {} task", logPrefix, task);
+                return false;
+            }
         } else
         {
             BiomechanicalAnalysis::log()->error("{} Invalid task type {}", logPrefix, taskType);
@@ -1332,5 +1348,155 @@ bool HumanIK::initializeBaseVelocityRegularizationTask(
     ok = ok && m_qpIK.addTask(m_baseVelocityRegularizationTask.angularVelocityTask, taskName + "_ANGULAR", 1, weightAngularVelocity);
 
     // Return true if initialization was successful, otherwise return false
+    return ok;
+}
+
+bool HumanIK::initializePositionTask(const std::string& taskName,
+                                     const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler)
+{
+    constexpr auto logPrefix = "[HumanIK::initializePositionTask]";
+    bool ok{true};
+
+    int nodeNumber;
+    if (!taskHandler->getParameter("node_number", nodeNumber))
+    {
+        BiomechanicalAnalysis::log()->error("{} Parameter node_number of the {} task is missing", logPrefix, taskName);
+        return false;
+    }
+
+    if (!taskHandler->getParameter("frame_name", m_PositionTasks[nodeNumber].frameName))
+    {
+        BiomechanicalAnalysis::log()->error("{} Parameter frame_name of the {} task is missing", logPrefix, taskName);
+        return false;
+    }
+
+    std::vector<double> weight;
+    if (!taskHandler->getParameter("weight", weight))
+    {
+        BiomechanicalAnalysis::log()->error("{} Parameter weight of the {} task is missing", logPrefix, taskName);
+        return false;
+    }
+    if (weight.size() != 3)
+    {
+        BiomechanicalAnalysis::log()->error("{} The size of the parameter weight of the {} task is {}, it should be 3",
+                                            logPrefix, taskName, weight.size());
+        return false;
+    }
+    m_PositionTasks[nodeNumber].weight = Eigen::Map<Eigen::Vector3d>(weight.data());
+    m_PositionTasks[nodeNumber].nodeNumber = nodeNumber;
+    m_PositionTasks[nodeNumber].taskName = taskName;
+
+    m_PositionTasks[nodeNumber].task = std::make_shared<BipedalLocomotion::IK::R3Task>();
+    ok = ok && m_PositionTasks[nodeNumber].task->setKinDyn(m_kinDyn);
+    ok = ok && m_PositionTasks[nodeNumber].task->initialize(taskHandler);
+    ok = ok && m_qpIK.addTask(m_PositionTasks[nodeNumber].task, taskName, 1, m_PositionTasks[nodeNumber].weight);
+
+    if (!ok)
+    {
+        BiomechanicalAnalysis::log()->error("{} Error in the initialization of the {} task", logPrefix, taskName);
+        return false;
+    }
+
+    return ok;
+}
+
+bool HumanIK::initializePoseTask(const std::string& taskName,
+                                  const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler)
+{
+    constexpr auto logPrefix = "[HumanIK::initializePoseTask]";
+    bool ok{true};
+
+    int nodeNumber;
+    if (!taskHandler->getParameter("node_number", nodeNumber))
+    {
+        BiomechanicalAnalysis::log()->error("{} Parameter node_number of the {} task is missing", logPrefix, taskName);
+        return false;
+    }
+
+    if (!taskHandler->getParameter("frame_name", m_PoseTasks[nodeNumber].frameName))
+    {
+        BiomechanicalAnalysis::log()->error("{} Parameter frame_name of the {} task is missing", logPrefix, taskName);
+        return false;
+    }
+
+    std::vector<double> weight;
+    if (!taskHandler->getParameter("weight", weight))
+    {
+        BiomechanicalAnalysis::log()->error("{} Parameter weight of the {} task is missing", logPrefix, taskName);
+        return false;
+    }
+    if (weight.size() != 6)
+    {
+        BiomechanicalAnalysis::log()->error("{} The size of the parameter weight of the {} task is {}, it should be 6",
+                                            logPrefix, taskName, weight.size());
+        return false;
+    }
+    m_PoseTasks[nodeNumber].weight = Eigen::Map<Eigen::Matrix<double, 6, 1>>(weight.data());
+    m_PoseTasks[nodeNumber].nodeNumber = nodeNumber;
+    m_PoseTasks[nodeNumber].taskName = taskName;
+
+    m_PoseTasks[nodeNumber].task = std::make_shared<BipedalLocomotion::IK::SE3Task>();
+    ok = ok && m_PoseTasks[nodeNumber].task->setKinDyn(m_kinDyn);
+    ok = ok && m_PoseTasks[nodeNumber].task->initialize(taskHandler);
+    ok = ok && m_qpIK.addTask(m_PoseTasks[nodeNumber].task, taskName, 1, m_PoseTasks[nodeNumber].weight);
+
+    if (!ok)
+    {
+        BiomechanicalAnalysis::log()->error("{} Error in the initialization of the {} task", logPrefix, taskName);
+        return false;
+    }
+
+    return ok;
+}
+
+bool HumanIK::updatePositionTask(const int node,
+                                  Eigen::Ref<const Eigen::Vector3d> position,
+                                  Eigen::Ref<const Eigen::Vector3d> velocity)
+{
+    if (m_PositionTasks.find(node) == m_PositionTasks.end())
+    {
+        BiomechanicalAnalysis::log()->error("[HumanIK::updatePositionTask] Invalid node number {}.", node);
+        return false;
+    }
+    return m_PositionTasks[node].task->setSetPoint(position, velocity);
+}
+
+bool HumanIK::updatePositionTasks(const std::unordered_map<int, Eigen::Vector3d>& positionMap)
+{
+    bool ok{true};
+    for (const auto& [node, position] : positionMap)
+    {
+        if (!updatePositionTask(node, position))
+        {
+            BiomechanicalAnalysis::log()->error("[HumanIK::updatePositionTasks] Error updating position task for node {}.", node);
+            ok = false;
+        }
+    }
+    return ok;
+}
+
+bool HumanIK::updatePoseTask(const int node,
+                              const manif::SE3d& pose,
+                              const manif::SE3d::Tangent& velocity)
+{
+    if (m_PoseTasks.find(node) == m_PoseTasks.end())
+    {
+        BiomechanicalAnalysis::log()->error("[HumanIK::updatePoseTask] Invalid node number {}.", node);
+        return false;
+    }
+    return m_PoseTasks[node].task->setSetPoint(pose, velocity);
+}
+
+bool HumanIK::updatePoseTasks(const std::unordered_map<int, manif::SE3d>& poseMap)
+{
+    bool ok{true};
+    for (const auto& [node, pose] : poseMap)
+    {
+        if (!updatePoseTask(node, pose))
+        {
+            BiomechanicalAnalysis::log()->error("[HumanIK::updatePoseTasks] Error updating pose task for node {}.", node);
+            ok = false;
+        }
+    }
     return ok;
 }

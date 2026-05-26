@@ -10,6 +10,8 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
+#include <manif/manif.h>
+
 #include <BiomechanicalAnalysis/IK/InverseKinematics.h>
 #include <BiomechanicalAnalysis/bindings/type_caster/swig.h>
 #include <BipedalLocomotion/ParametersHandler/IParametersHandler.h>
@@ -66,6 +68,18 @@ void CreateInverseKinematics(pybind11::module& module)
              py::overload_cast<const Eigen::VectorXd&>(&HumanIK::updateJointRegularizationTask),
              py::arg("jointPositionSetPoint"))
         .def("updateJointConstraintsTask", &HumanIK::updateJointConstraintsTask)
+        .def("updatePositionTask",
+             py::overload_cast<const int, Eigen::Ref<const Eigen::Vector3d>, Eigen::Ref<const Eigen::Vector3d>>(&HumanIK::updatePositionTask),
+             py::arg("node"),
+             py::arg("position"),
+             py::arg("velocity") = Eigen::Vector3d::Zero())
+        .def("updatePositionTasks", &HumanIK::updatePositionTasks, py::arg("positionMap"))
+        .def("updatePoseTask",
+             py::overload_cast<const int, const manif::SE3d&, const manif::SE3d::Tangent&>(&HumanIK::updatePoseTask),
+             py::arg("node"),
+             py::arg("pose"),
+             py::arg("velocity") = manif::SE3d::Tangent::Zero())
+        .def("updatePoseTasks", &HumanIK::updatePoseTasks, py::arg("poseMap"))
         .def("advance", &HumanIK::advance)
         .def("getJointPositions",
              [](HumanIK& ik) {
