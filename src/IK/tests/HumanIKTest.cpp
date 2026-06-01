@@ -5,8 +5,6 @@
 #include <iDynTree/ModelExporter.h> // Add this include
 #include <iDynTree/ModelLoader.h>
 #include <iDynTree/ModelTestUtils.h>
-#include <manif/SE3.h>
-#include <manif/SO3.h>
 
 #include <BipedalLocomotion/ParametersHandler/IParametersHandler.h>
 #include <BipedalLocomotion/ParametersHandler/StdImplementation.h>

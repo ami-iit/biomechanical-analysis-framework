@@ -10,8 +10,6 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include <manif/manif.h>
-
 #include <BiomechanicalAnalysis/IK/InverseKinematics.h>
 #include <BiomechanicalAnalysis/bindings/type_caster/swig.h>
 #include <BipedalLocomotion/ParametersHandler/IParametersHandler.h>
