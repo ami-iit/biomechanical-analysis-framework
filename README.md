@@ -85,4 +85,4 @@ For detailed instructions on how to install and use the Python package, as well 
 
 ## Maintainers
 
-- **@RiccardoGrieco** - Code owner and maintainer
+- RiccardoGrieco ([@RiccardoGrieco](https://github.com/RiccardoGrieco))
