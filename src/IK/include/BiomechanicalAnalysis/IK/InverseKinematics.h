@@ -260,8 +260,17 @@ private:
         int nodeNumber;
         std::string taskName;
         std::string frameName;
-        manif::SE3d calibrationMatrix = manif::SE3d::Identity(); // Full rigid transform calibration from IMU world to robot world
-                                                                 // (W_H_WIMU)
+        manif::SE3d calibrationMatrix = manif::SE3d::Identity(); // Combined calibration transform W_H_WIMU:
+                                                                 //   rotation:    W_R_WIMU (dynamic, set by calibrateWorldYaw /
+                                                                 //                calibrateAllWithWorld, reset to identity by
+                                                                 //                clearCalibrationMatrices)
+                                                                 //   translation: world-frame position offset (static, from config
+                                                                 //                position_offset; preserved by clearCalibrationMatrices)
+        manif::SE3d calibrationMatrix_init = manif::SE3d::Identity(); // Config-specified initial value of calibrationMatrix:
+                                                                      //   rotation = sensor-axes alignment, translation = world-frame
+                                                                      //   offset. Restored in full by clearCalibrationMatrices().
+        manif::SO3d W_R_calib = manif::SO3d::Identity(); // Mirror of the rotation part of calibrationMatrix as SO3;
+                                                         // kept in sync for use by getCalibratedIMURotation().
     };
 
     /**
@@ -276,8 +285,16 @@ private:
         std::string frameName;
         manif::SO3d IMU_R_link; // Rotation matrix from the sensor frame to the related link
         manif::SO3d IMU_R_link_init; // Initial value set through config file
-        manif::SE3d calibrationMatrix = manif::SE3d::Identity(); // Full rigid transform calibration from IMU world to robot world
-                                                                 // (W_H_WIMU)
+        manif::SE3d calibrationMatrix = manif::SE3d::Identity(); // Combined calibration transform W_H_WIMU:
+                                                                 //   rotation:    W_R_WIMU (dynamic, set by calibrateWorldYaw /
+                                                                 //                calibrateAllWithWorld; reset to identity by
+                                                                 //                clearCalibrationMatrices)
+                                                                 //   translation: world-frame position offset (static, from config
+                                                                 //                position_offset; preserved by clearCalibrationMatrices)
+        Eigen::Vector3d position_offset_init = Eigen::Vector3d::Zero(); // World-frame position offset from config (position_offset
+                                                                        // expressed in sensor frame, rotated by IMU_R_link_init).
+                                                                        // Restored as calibrationMatrix.translation() by
+                                                                        // clearCalibrationMatrices().
         manif::SO3d W_R_link; // Calibrated orientation of the link in the inertial frame
     };
 

@@ -401,12 +401,15 @@ bool HumanIK::clearCalibrationMatrices()
     }
     for (auto& [node, data] : m_PoseTasks)
     {
-        data.calibrationMatrix = manif::SE3d::Identity();
+        // Reset W_R_WIMU to identity, but preserve the config position offset
+        data.calibrationMatrix = manif::SE3d(m_PoseTasks[node].position_offset_init, manif::SO3d::Identity().quat());
         data.IMU_R_link = m_PoseTasks[node].IMU_R_link_init;
     }
     for (auto& [node, data] : m_PositionTasks)
     {
-        data.calibrationMatrix = manif::SE3d::Identity();
+        // Restore the full config-specified calibration (both axes alignment and position offset)
+        data.calibrationMatrix = data.calibrationMatrix_init;
+        data.W_R_calib = manif::SO3d(data.calibrationMatrix_init.quat());
     }
     return true;
 }
@@ -427,9 +430,8 @@ bool HumanIK::calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct)
     for (const auto& [node, data] : nodeStruct)
     {
         // check if the node number is valid
-        if (m_OrientationTasks.find(node) == m_OrientationTasks.end()
-            && m_GravityTasks.find(node) == m_GravityTasks.end()
-            && m_PoseTasks.find(node) == m_PoseTasks.end())
+        if (m_OrientationTasks.find(node) == m_OrientationTasks.end() && m_GravityTasks.find(node) == m_GravityTasks.end()
+            && m_PoseTasks.find(node) == m_PoseTasks.end() && m_PositionTasks.find(node) == m_PositionTasks.end())
         {
             BiomechanicalAnalysis::log()->error("[HumanIK::calibrateWorldYaw] Invalid node number.");
             return false;
@@ -452,7 +454,7 @@ bool HumanIK::calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct)
                                            * ((data.I_R_IMU * m_GravityTasks[node].IMU_R_link).inverse()).rotation();
             // set the calibration matrix of the orientation task to the offset in yaw
             m_GravityTasks[node].calibrationMatrix = manif::SO3d(0, 0, rpyOffset.asRPY()(2));
-        } else
+        } else if (m_PoseTasks.find(node) != m_PoseTasks.end())
         {
             // compute the offset between the world and the IMU world as:
             // W_R_WIMU = W_R_link * (WIMU_R_IMU * IMU_R_link)^{T}
@@ -461,6 +463,16 @@ bool HumanIK::calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct)
             // set the calibration matrix of the pose task to the offset in yaw (rotation only, preserve translation)
             const manif::SO3d yawRot(0, 0, rpyOffset.asRPY()(2));
             m_PoseTasks[node].calibrationMatrix = manif::SE3d(m_PoseTasks[node].calibrationMatrix.translation(), yawRot.quat());
+        } else
+        {
+            // compute the offset between the world and the sensor world as:
+            // W_R_WIMU = W_R_frame * (I_R_IMU)^{T}  (no IMU_R_link for position tasks)
+            iDynTree::toEigen(rpyOffset) = iDynTree::toEigen(m_kinDyn->getWorldTransform(m_PositionTasks[node].frameName).getRotation())
+                                           * data.I_R_IMU.inverse().rotation();
+            // set the calibration matrix of the position task to the offset in yaw (rotation only, preserve translation)
+            const manif::SO3d yawRot(0, 0, rpyOffset.asRPY()(2));
+            m_PositionTasks[node].calibrationMatrix = manif::SE3d(m_PositionTasks[node].calibrationMatrix.translation(), yawRot.quat());
+            m_PositionTasks[node].W_R_calib = yawRot;
         }
     }
     return true;
@@ -490,9 +502,8 @@ bool HumanIK::calibrateAllWithWorld(std::unordered_map<int, nodeData> nodeStruct
     for (const auto& [node, data] : nodeStruct)
     {
         // check if the node number is valid
-        if (m_OrientationTasks.find(node) == m_OrientationTasks.end()
-            && m_GravityTasks.find(node) == m_GravityTasks.end()
-            && m_PoseTasks.find(node) == m_PoseTasks.end())
+        if (m_OrientationTasks.find(node) == m_OrientationTasks.end() && m_GravityTasks.find(node) == m_GravityTasks.end()
+            && m_PoseTasks.find(node) == m_PoseTasks.end() && m_PositionTasks.find(node) == m_PositionTasks.end())
         {
             BiomechanicalAnalysis::log()->error("[HumanIK::calibrateAllWithWorld] Invalid node number.");
             return false;
@@ -514,7 +525,7 @@ bool HumanIK::calibrateAllWithWorld(std::unordered_map<int, nodeData> nodeStruct
                                          * iDynTree::toEigen(m_kinDyn->getWorldTransform(m_GravityTasks[node].frameName).getRotation());
             m_GravityTasks[node].IMU_R_link = BipedalLocomotion::Conversions::toManifRot(IMU_R_link);
             m_GravityTasks[node].calibrationMatrix = secondaryCalib * m_GravityTasks[node].calibrationMatrix;
-        } else
+        } else if (m_PoseTasks.find(node) != m_PoseTasks.end())
         {
             // compute the rotation matrix from the sensor to the link frame as:
             // IMU_R_link = (W_R_WIMU * WIMU_R_IMU)^{T} * W_R_link
@@ -525,6 +536,14 @@ bool HumanIK::calibrateAllWithWorld(std::unordered_map<int, nodeData> nodeStruct
             // Update rotation part of SE3d calibration, preserve translation
             const manif::SO3d newRot = secondaryCalib * calib_R;
             m_PoseTasks[node].calibrationMatrix = manif::SE3d(m_PoseTasks[node].calibrationMatrix.translation(), newRot.quat());
+        } else
+        {
+            // position tasks: no IMU_R_link, only update the rotation part of the calibration
+            // W_R_WIMU = secondaryCalib * W_R_WIMU_prev
+            const manif::SO3d calib_R(m_PositionTasks[node].calibrationMatrix.quat());
+            const manif::SO3d newRot = secondaryCalib * calib_R;
+            m_PositionTasks[node].calibrationMatrix = manif::SE3d(m_PositionTasks[node].calibrationMatrix.translation(), newRot.quat());
+            m_PositionTasks[node].W_R_calib = newRot;
         }
     }
     // set the flag to true to reset the integration
@@ -669,6 +688,12 @@ const manif::SO3d& HumanIK::getCalibratedIMURotation(int node) const
     else if (m_PoseTasks.find(node) != m_PoseTasks.end())
     {
         return m_PoseTasks.at(node).W_R_link;
+    }
+    // Check if the node exists in the position tasks
+    else if (m_PositionTasks.find(node) != m_PositionTasks.end())
+    {
+        // Position tasks track no link orientation; return the world-alignment rotation W_R_WIMU
+        return m_PositionTasks.at(node).W_R_calib;
     } else
     {
         // If the node is not defined in any of the tasks, generate an error
@@ -693,6 +718,11 @@ std::string HumanIK::getNodeFrameName(int node) const
     else if (m_PoseTasks.find(node) != m_PoseTasks.end())
     {
         return m_PoseTasks.at(node).frameName;
+    }
+    // Check if the node exists in the position tasks
+    else if (m_PositionTasks.find(node) != m_PositionTasks.end())
+    {
+        return m_PositionTasks.at(node).frameName;
     } else
     {
         // If the node is not defined in any of the tasks, generate an error
@@ -1470,6 +1500,44 @@ bool HumanIK::initializePositionTask(const std::string& taskName,
     m_PositionTasks[nodeNumber].nodeNumber = nodeNumber;
     m_PositionTasks[nodeNumber].taskName = taskName;
 
+    // Read optional rotation_matrix (sensor-to-world axes alignment)
+    std::vector<double> rotation_matrix;
+    manif::SO3d R_init = manif::SO3d::Identity();
+    if (taskHandler->getParameter("rotation_matrix", rotation_matrix))
+    {
+        R_init
+            = BipedalLocomotion::Conversions::toManifRot(Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(rotation_matrix.data()));
+    } else
+    {
+        BiomechanicalAnalysis::log()->warn("{} Parameter rotation_matrix of the {} task is missing, "
+                                           "setting the rotation matrix to identity",
+                                           logPrefix,
+                                           taskName);
+    }
+
+    // Read optional position_offset (sensor frame, converted to world frame)
+    std::vector<double> position_offset;
+    Eigen::Vector3d t_world = Eigen::Vector3d::Zero();
+    if (taskHandler->getParameter("position_offset", position_offset))
+    {
+        if (position_offset.size() != 3)
+        {
+            BiomechanicalAnalysis::log()->error("{} Parameter position_offset of the {} task has wrong size {}, expected 3",
+                                                logPrefix,
+                                                taskName,
+                                                position_offset.size());
+            return false;
+        }
+        // position_offset is expressed in sensor frame; rotate to world frame
+        t_world = R_init.rotation() * Eigen::Map<Eigen::Vector3d>(position_offset.data());
+    }
+
+    m_PositionTasks[nodeNumber].calibrationMatrix = manif::SE3d(t_world, R_init.quat());
+    // Save the config-specified initial value so clearCalibrationMatrices() can restore it
+    m_PositionTasks[nodeNumber].calibrationMatrix_init = m_PositionTasks[nodeNumber].calibrationMatrix;
+    // Keep the SO3 mirror in sync from the start
+    m_PositionTasks[nodeNumber].W_R_calib = R_init;
+
     m_PositionTasks[nodeNumber].task = std::make_shared<BipedalLocomotion::IK::R3Task>();
     ok = ok && m_PositionTasks[nodeNumber].task->setKinDyn(m_kinDyn);
     ok = ok && m_PositionTasks[nodeNumber].task->initialize(taskHandler);
@@ -1545,6 +1613,24 @@ bool HumanIK::initializePoseTask(const std::string& taskName,
     }
     m_PoseTasks[nodeNumber].IMU_R_link = m_PoseTasks[nodeNumber].IMU_R_link_init;
 
+    // Read optional position_offset (expressed in sensor frame; rotated to world frame via IMU_R_link_init)
+    std::vector<double> position_offset;
+    if (taskHandler->getParameter("position_offset", position_offset))
+    {
+        if (position_offset.size() != 3)
+        {
+            BiomechanicalAnalysis::log()->error("{} Parameter position_offset of the {} task has wrong size {}, expected 3",
+                                                logPrefix,
+                                                taskName,
+                                                position_offset.size());
+            return false;
+        }
+        m_PoseTasks[nodeNumber].position_offset_init
+            = m_PoseTasks[nodeNumber].IMU_R_link_init.rotation() * Eigen::Map<Eigen::Vector3d>(position_offset.data());
+    }
+    // Initialize calibrationMatrix: rotation = identity (W_R_WIMU not yet known), translation = config offset
+    m_PoseTasks[nodeNumber].calibrationMatrix = manif::SE3d(m_PoseTasks[nodeNumber].position_offset_init, manif::SO3d::Identity().quat());
+
     m_PoseTasks[nodeNumber].task = std::make_shared<BipedalLocomotion::IK::SE3Task>();
     ok = ok && m_PoseTasks[nodeNumber].task->setKinDyn(m_kinDyn);
     ok = ok && m_PoseTasks[nodeNumber].task->initialize(taskHandler);
@@ -1599,9 +1685,7 @@ bool HumanIK::updatePoseTask(const int node, const poseData& data)
     // Extract rotation part of the SE3 calibration as SO3 for manifold composition
     const manif::SO3d calib_R(m_PoseTasks[node].calibrationMatrix.quat());
     // W_R_link = R_calib * I_R_IMU * IMU_R_link
-    m_PoseTasks[node].W_R_link = calib_R
-                                  * manif::SO3d(data.I_H_frame.quat())
-                                  * m_PoseTasks[node].IMU_R_link;
+    m_PoseTasks[node].W_R_link = calib_R * manif::SO3d(data.I_H_frame.quat()) * m_PoseTasks[node].IMU_R_link;
     // W_p = R_calib * I_p + t_calib  (full SE3 act)
     const Eigen::Vector3d W_p_frame = m_PoseTasks[node].calibrationMatrix.act(data.I_H_frame.translation());
     const manif::SE3d W_H_frame(W_p_frame, m_PoseTasks[node].W_R_link.quat());
