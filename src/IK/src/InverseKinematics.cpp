@@ -98,6 +98,9 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
         m_calibrationJointPositions.setZero();
     }
 
+    // Set to track all used node numbers across all task types
+    std::unordered_set<int> usedNodeNumbers;
+
     // Cycle on the tasks to be initialized
     for (const auto& task : tasks)
     {
@@ -121,7 +124,7 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
         // Initialize SO3 task
         if (taskType == "SO3Task")
         {
-            if (!initializeOrientationTask(task, taskHandler))
+            if (!initializeOrientationTask(task, taskHandler, usedNodeNumbers))
             {
                 BiomechanicalAnalysis::log()->error("{} Error in the initialization of the {} task", logPrefix, task);
                 return false;
@@ -129,7 +132,7 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
             // Initialize GravityTask
         } else if (taskType == "GravityTask")
         {
-            if (!initializeGravityTask(task, taskHandler))
+            if (!initializeGravityTask(task, taskHandler, usedNodeNumbers))
             {
                 BiomechanicalAnalysis::log()->error("{} Error in the initialization of the {} task", logPrefix, task);
                 return false;
@@ -137,7 +140,7 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
             // Initialize FloorContactTask
         } else if (taskType == "FloorContactTask")
         {
-            if (!initializeFloorContactTask(task, taskHandler))
+            if (!initializeFloorContactTask(task, taskHandler, usedNodeNumbers))
             {
                 BiomechanicalAnalysis::log()->error("{} Error in the initialization of the {} task", logPrefix, task);
                 return false;
@@ -175,7 +178,7 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
             // Initialize PositionTask
         } else if (taskType == "PositionTask")
         {
-            if (!initializePositionTask(task, taskHandler))
+            if (!initializePositionTask(task, taskHandler, usedNodeNumbers))
             {
                 BiomechanicalAnalysis::log()->error("{} Error in the initialization of the {} task", logPrefix, task);
                 return false;
@@ -183,7 +186,7 @@ bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandle
             // Initialize PoseTask
         } else if (taskType == "PoseTask")
         {
-            if (!initializePoseTask(task, taskHandler))
+            if (!initializePoseTask(task, taskHandler, usedNodeNumbers))
             {
                 BiomechanicalAnalysis::log()->error("{} Error in the initialization of the {} task", logPrefix, task);
                 return false;
@@ -656,7 +659,8 @@ std::string HumanIK::getNodeFrameName(int node) const
 }
 
 bool HumanIK::initializeOrientationTask(const std::string& taskName,
-                                        const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler)
+                                        const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler,
+                                        std::unordered_set<int>& usedNodeNumbers)
 {
     // Log prefix for error messages
     constexpr auto logPrefix = "[HumanIK::initializeOrientationTask]";
@@ -670,6 +674,12 @@ bool HumanIK::initializeOrientationTask(const std::string& taskName,
     if (!taskHandler->getParameter("node_number", nodeNumber))
     {
         BiomechanicalAnalysis::log()->error("{} Parameter node_number of the {} task is missing", logPrefix, taskName);
+        return false;
+    }
+
+    if (usedNodeNumbers.count(nodeNumber) > 0)
+    {
+        BiomechanicalAnalysis::log()->error("{} node_number {} is already used by another task", logPrefix, nodeNumber);
         return false;
     }
 
@@ -748,11 +758,13 @@ bool HumanIK::initializeOrientationTask(const std::string& taskName,
         return false;
     }
 
+    usedNodeNumbers.insert(nodeNumber);
     return ok;
 }
 
 bool HumanIK::initializeGravityTask(const std::string& taskName,
-                                    const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler)
+                                    const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler,
+                                    std::unordered_set<int>& usedNodeNumbers)
 {
     // Log prefix for error messages
     constexpr auto logPrefix = "[HumanIK::initializeGravityTask]";
@@ -770,6 +782,12 @@ bool HumanIK::initializeGravityTask(const std::string& taskName,
     if (!taskHandler->getParameter("node_number", nodeNumber))
     {
         BiomechanicalAnalysis::log()->error("{} Parameter node_number of the {} task is missing", logPrefix, taskName);
+        return false;
+    }
+
+    if (usedNodeNumbers.count(nodeNumber) > 0)
+    {
+        BiomechanicalAnalysis::log()->error("{} node_number {} is already used by another task", logPrefix, nodeNumber);
         return false;
     }
 
@@ -844,11 +862,18 @@ bool HumanIK::initializeGravityTask(const std::string& taskName,
     ok = ok && m_qpIK.addTask(m_GravityTasks[nodeNumber].task, taskName, 1, m_GravityTasks[nodeNumber].weight);
 
     // Check if initialization was successful
+    if (!ok)
+    {
+        return false;
+    }
+
+    usedNodeNumbers.insert(nodeNumber);
     return ok;
 }
 
 bool HumanIK::initializeFloorContactTask(const std::string& taskName,
-                                         const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler)
+                                         const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler,
+                                         std::unordered_set<int>& usedNodeNumbers)
 {
     // Log prefix for error messages
     constexpr auto logPrefix = "[HumanIK::initializeFloorContactTask]";
@@ -875,6 +900,13 @@ bool HumanIK::initializeFloorContactTask(const std::string& taskName,
         BiomechanicalAnalysis::log()->error("{} Parameter floor_contact_task of the {} task is missing", logPrefix, taskName);
         return false;
     }
+
+    if (usedNodeNumbers.count(taskNumber) > 0)
+    {
+        BiomechanicalAnalysis::log()->error("{} node_number {} is already used by another task", logPrefix, taskNumber);
+        return false;
+    }
+    usedNodeNumbers.insert(taskNumber);
 
     // Retrieve frame name parameter from the task handler and assign it to the corresponding
     // FloorContactTask
@@ -1352,7 +1384,8 @@ bool HumanIK::initializeBaseVelocityRegularizationTask(
 }
 
 bool HumanIK::initializePositionTask(const std::string& taskName,
-                                     const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler)
+                                     const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler,
+                                     std::unordered_set<int>& usedNodeNumbers)
 {
     constexpr auto logPrefix = "[HumanIK::initializePositionTask]";
     bool ok{true};
@@ -1361,6 +1394,12 @@ bool HumanIK::initializePositionTask(const std::string& taskName,
     if (!taskHandler->getParameter("node_number", nodeNumber))
     {
         BiomechanicalAnalysis::log()->error("{} Parameter node_number of the {} task is missing", logPrefix, taskName);
+        return false;
+    }
+
+    if (usedNodeNumbers.count(nodeNumber) > 0)
+    {
+        BiomechanicalAnalysis::log()->error("{} node_number {} is already used by another task", logPrefix, nodeNumber);
         return false;
     }
 
@@ -1399,11 +1438,13 @@ bool HumanIK::initializePositionTask(const std::string& taskName,
         return false;
     }
 
+    usedNodeNumbers.insert(nodeNumber);
     return ok;
 }
 
 bool HumanIK::initializePoseTask(const std::string& taskName,
-                                 const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler)
+                                 const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler,
+                                 std::unordered_set<int>& usedNodeNumbers)
 {
     constexpr auto logPrefix = "[HumanIK::initializePoseTask]";
     bool ok{true};
@@ -1412,6 +1453,12 @@ bool HumanIK::initializePoseTask(const std::string& taskName,
     if (!taskHandler->getParameter("node_number", nodeNumber))
     {
         BiomechanicalAnalysis::log()->error("{} Parameter node_number of the {} task is missing", logPrefix, taskName);
+        return false;
+    }
+
+    if (usedNodeNumbers.count(nodeNumber) > 0)
+    {
+        BiomechanicalAnalysis::log()->error("{} node_number {} is already used by another task", logPrefix, nodeNumber);
         return false;
     }
 
@@ -1450,6 +1497,7 @@ bool HumanIK::initializePoseTask(const std::string& taskName,
         return false;
     }
 
+    usedNodeNumbers.insert(nodeNumber);
     return ok;
 }
 

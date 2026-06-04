@@ -84,7 +84,7 @@ TEST_CASE("InverseKinematics test")
     REQUIRE(ik.initialize(paramHandler, kinDyn));
     REQUIRE(ik.setDt(0.1));
     REQUIRE(ik.updateOrientationTask(3, I_R_IMU, I_omega_IMU));
-    REQUIRE(ik.updateFloorContactTask(10, 11.0));
+    REQUIRE(ik.updateFloorContactTask(11, 11.0));
     REQUIRE(ik.updateGravityTask(10, I_R_IMU));
     REQUIRE(ik.updateOrientationAndGravityTasks(mapNodeData));
     REQUIRE(ik.updateJointConstraintsTask());

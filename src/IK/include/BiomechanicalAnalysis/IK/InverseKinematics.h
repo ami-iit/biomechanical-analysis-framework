@@ -9,6 +9,9 @@
 // iDynTree
 #include <iDynTree/KinDynComputations.h>
 
+// std
+#include <unordered_set>
+
 // BipedalLocomotion
 #if __has_include(<BipedalLocomotion/ContinuousDynamicalSystem/FloatingBaseSystemVelocityKinematics.h>)
 #include <BipedalLocomotion/ContinuousDynamicalSystem/FloatingBaseSystemVelocityKinematics.h>
@@ -79,29 +82,35 @@ private:
     /**
      * initialize the SO3 task
      * @param taskName name of the task
-     * @param handler pointer to the parameters handler
+     * @param taskHandler pointer to the parameters handler
+     * @param usedNodeNumbers set of node numbers already assigned to a task, updated on success
      * @return true if the SO3 task is initialized correctly
      */
     bool initializeOrientationTask(const std::string& taskName,
-                                   const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
+                                   const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler,
+                                   std::unordered_set<int>& usedNodeNumbers);
 
     /**
      * initialize the gravity task
      * @param taskName name of the task
-     * @param handler pointer to the parameters handler
+     * @param taskHandler pointer to the parameters handler
+     * @param usedNodeNumbers set of node numbers already assigned to a task, updated on success
      * @return true if the gravity task is initialized correctly
      */
     bool initializeGravityTask(const std::string& taskName,
-                               const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
+                               const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler,
+                               std::unordered_set<int>& usedNodeNumbers);
 
     /**
-     * initialize the R3 task
+     * initialize the floor contact task (R3Task)
      * @param taskName name of the task
-     * @param handler pointer to the parameters handler
-     * @return true if the R3 task is initialized correctly
+     * @param taskHandler pointer to the parameters handler
+     * @param usedNodeNumbers set of node numbers already assigned to a task, updated on success
+     * @return true if the floor contact task is initialized correctly
      */
     bool initializeFloorContactTask(const std::string& taskName,
-                                    const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
+                                    const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler,
+                                    std::unordered_set<int>& usedNodeNumbers);
 
     /**
      * Initialize the joint regularization task.
@@ -138,19 +147,23 @@ private:
      * Initialize the position task (R3Task).
      * @param taskName name of the task
      * @param taskHandler pointer to the parameters handler
+     * @param usedNodeNumbers set of node numbers already assigned to a task, updated on success
      * @return true if the position task is initialized correctly
      */
     bool initializePositionTask(const std::string& taskName,
-                                const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
+                                const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler,
+                                std::unordered_set<int>& usedNodeNumbers);
 
     /**
      * Initialize the pose task (SE3Task).
      * @param taskName name of the task
      * @param taskHandler pointer to the parameters handler
+     * @param usedNodeNumbers set of node numbers already assigned to a task, updated on success
      * @return true if the pose task is initialized correctly
      */
     bool initializePoseTask(const std::string& taskName,
-                            const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
+                            const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler,
+                            std::unordered_set<int>& usedNodeNumbers);
 
     std::chrono::nanoseconds m_dtIntegration; /** Integration time step in nanoseconds */
 
