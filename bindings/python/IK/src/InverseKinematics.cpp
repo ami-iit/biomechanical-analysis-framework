@@ -119,7 +119,38 @@ void CreateInverseKinematics(pybind11::module& module)
             Eigen::Vector3d baseAngularVelocity;
             bool ok = ik.getBaseAngularVelocity(baseAngularVelocity);
             return std::make_tuple(ok, baseAngularVelocity);
-        });
+        })
+        .def("getOrientationTaskSetPoint",
+             [](HumanIK& ik, int node) {
+                 manif::SO3d W_R_link;
+                 Eigen::Vector3d W_omega_link;
+                 bool ok = ik.getOrientationTaskSetPoint(node, W_R_link, W_omega_link);
+                 return std::make_tuple(ok, W_R_link, W_omega_link);
+             },
+             py::arg("node"))
+        .def("getGravityTaskSetPoint",
+             [](HumanIK& ik, int node) {
+                 Eigen::Vector3d gravityDirection;
+                 bool ok = ik.getGravityTaskSetPoint(node, gravityDirection);
+                 return std::make_tuple(ok, gravityDirection);
+             },
+             py::arg("node"))
+        .def("getPositionTaskSetPoint",
+             [](HumanIK& ik, int node) {
+                 Eigen::Vector3d W_p_frame;
+                 Eigen::Vector3d W_v_frame;
+                 bool ok = ik.getPositionTaskSetPoint(node, W_p_frame, W_v_frame);
+                 return std::make_tuple(ok, W_p_frame, W_v_frame);
+             },
+             py::arg("node"))
+        .def("getPoseTaskSetPoint",
+             [](HumanIK& ik, int node) {
+                 manif::SE3d W_H_frame;
+                 manif::SE3d::Tangent W_v_frame;
+                 bool ok = ik.getPoseTaskSetPoint(node, W_H_frame, W_v_frame);
+                 return std::make_tuple(ok, W_H_frame, W_v_frame);
+             },
+             py::arg("node"));
 }
 
 } // namespace IK

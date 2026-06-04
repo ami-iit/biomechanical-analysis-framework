@@ -212,6 +212,9 @@ private:
                                                                  // will be calibrated using Tpose
                                                                  // script
         manif::SO3d W_R_link; // Calibrated orientation of the link in the inertial frame
+        manif::SO3d W_R_link_setPoint = manif::SO3d::Identity(); // Last orientation setpoint passed to the SO3 task
+        Eigen::Vector3d W_omega_link_setPoint = Eigen::Vector3d::Zero(); // Last angular velocity setpoint passed to the SO3 task
+        bool hasSetPoint{false}; // True once updateOrientationTask() has passed a setpoint to the solver
         Eigen::Vector3d weight; // Weight of the task
         std::string frameName; // Name of the frame in which the task is expressed
     };
@@ -228,6 +231,8 @@ private:
                                      // file
         manif::SO3d calibrationMatrix = manif::SO3d::Identity();
         manif::SO3d W_R_link; // Calibrated orientation of the link in the inertial frame
+        Eigen::Vector3d gravityDirectionSetPoint = Eigen::Vector3d::Zero(); // Last direction setpoint passed to the gravity task
+        bool hasSetPoint{false}; // True once updateGravityTask() has passed a setpoint to the solver
         Eigen::Vector2d weight;
         int nodeNumber;
         std::string taskName;
@@ -271,6 +276,9 @@ private:
                                                                       //   offset. Restored in full by clearCalibrationMatrices().
         manif::SO3d W_R_calib = manif::SO3d::Identity(); // Mirror of the rotation part of calibrationMatrix as SO3;
                                                          // kept in sync for use by getCalibratedIMURotation().
+        Eigen::Vector3d W_p_frame_setPoint = Eigen::Vector3d::Zero(); // Last position setpoint passed to the R3 task
+        Eigen::Vector3d W_v_frame_setPoint = Eigen::Vector3d::Zero(); // Last linear velocity setpoint passed to the R3 task
+        bool hasSetPoint{false}; // True once updatePositionTask() has passed a setpoint to the solver
     };
 
     /**
@@ -296,6 +304,9 @@ private:
                                                                         // Restored as calibrationMatrix.translation() by
                                                                         // clearCalibrationMatrices().
         manif::SO3d W_R_link; // Calibrated orientation of the link in the inertial frame
+        manif::SE3d W_H_frame_setPoint = manif::SE3d::Identity(); // Last pose setpoint passed to the SE3 task
+        manif::SE3d::Tangent W_v_frame_setPoint = manif::SE3d::Tangent::Zero(); // Last mixed velocity setpoint passed to the SE3 task
+        bool hasSetPoint{false}; // True once updatePoseTask() has passed a setpoint to the solver
     };
 
     std::shared_ptr<BipedalLocomotion::IK::JointTrackingTask> m_jointRegularizationTask; /** Joint
@@ -718,6 +729,41 @@ public:
      * @return frame name
      */
     std::string getNodeFrameName(int node) const;
+
+    /**
+     * Get the last setpoint passed to a SO3 orientation task.
+     * @param node node number
+     * @param W_R_link orientation setpoint passed to the solver
+     * @param W_omega_link angular velocity setpoint passed to the solver
+     * @return true if a setpoint is available and copied in output parameters
+     */
+    bool getOrientationTaskSetPoint(int node, manif::SO3d& W_R_link, Eigen::Vector3d& W_omega_link) const;
+
+    /**
+     * Get the last setpoint passed to a gravity task.
+     * @param node node number
+     * @param gravityDirection direction setpoint passed to the solver
+     * @return true if a setpoint is available and copied in output parameters
+     */
+    bool getGravityTaskSetPoint(int node, Eigen::Vector3d& gravityDirection) const;
+
+    /**
+     * Get the last setpoint passed to a R3 position task.
+     * @param node node number
+     * @param W_p_frame position setpoint passed to the solver
+     * @param W_v_frame linear velocity setpoint passed to the solver
+     * @return true if a setpoint is available and copied in output parameters
+     */
+    bool getPositionTaskSetPoint(int node, Eigen::Vector3d& W_p_frame, Eigen::Vector3d& W_v_frame) const;
+
+    /**
+     * Get the last setpoint passed to a SE3 pose task.
+     * @param node node number
+     * @param W_H_frame pose setpoint passed to the solver
+     * @param W_v_frame mixed velocity setpoint passed to the solver
+     * @return true if a setpoint is available and copied in output parameters
+     */
+    bool getPoseTaskSetPoint(int node, manif::SE3d& W_H_frame, manif::SE3d::Tangent& W_v_frame) const;
 };
 
 } // namespace IK

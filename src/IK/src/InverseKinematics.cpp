@@ -237,9 +237,13 @@ bool HumanIK::updateOrientationTask(const int node, const manif::SO3d& I_R_IMU, 
     // W_R_link = W_R_WIMU * WIMU_R_IMU * IMU_R_link
     m_OrientationTasks[node].W_R_link = m_OrientationTasks[node].calibrationMatrix * I_R_IMU * m_OrientationTasks[node].IMU_R_link;
 
+    const Eigen::Vector3d W_omega_link = m_OrientationTasks[node].calibrationMatrix.rotation() * I_omega_IMU.coeffs();
+    m_OrientationTasks[node].W_R_link_setPoint = m_OrientationTasks[node].W_R_link;
+    m_OrientationTasks[node].W_omega_link_setPoint = W_omega_link;
+    m_OrientationTasks[node].hasSetPoint = true;
+
     // Set the setpoint for the orientation task of the node
-    return m_OrientationTasks[node].task->setSetPoint(m_OrientationTasks[node].W_R_link,
-                                                      m_OrientationTasks[node].calibrationMatrix.rotation() * I_omega_IMU.coeffs());
+    return m_OrientationTasks[node].task->setSetPoint(m_OrientationTasks[node].W_R_link, W_omega_link);
 }
 
 bool HumanIK::updateGravityTask(const int node, const manif::SO3d& I_R_IMU)
@@ -255,9 +259,13 @@ bool HumanIK::updateGravityTask(const int node, const manif::SO3d& I_R_IMU)
     // W_R_link = W_R_WIMU * WIMU_R_IMU * IMU_R_link
     m_GravityTasks[node].W_R_link = m_GravityTasks[node].calibrationMatrix * I_R_IMU * m_GravityTasks[node].IMU_R_link;
 
+    const Eigen::Vector3d gravityDirection = m_GravityTasks[node].W_R_link.rotation().transpose().rightCols(1);
+    m_GravityTasks[node].gravityDirectionSetPoint = gravityDirection;
+    m_GravityTasks[node].hasSetPoint = true;
+
     // set the set point of the gravity task choosing the z direction of the link_R_W rotation
     // matrix
-    return m_GravityTasks[node].task->setSetPoint((m_GravityTasks[node].W_R_link.rotation().transpose().rightCols(1)));
+    return m_GravityTasks[node].task->setSetPoint(gravityDirection);
 }
 
 bool HumanIK::updateFloorContactTask(const int node, const double verticalForce, const double linkHeight)
@@ -700,6 +708,57 @@ const manif::SO3d& HumanIK::getCalibratedIMURotation(int node) const
         BiomechanicalAnalysis::log()->error("[HumanIK::getCalibratedIMURotationMatrix] Invalid node number {}.", node);
         throw std::out_of_range("Invalid node number");
     }
+}
+
+bool HumanIK::getOrientationTaskSetPoint(int node, manif::SO3d& W_R_link, Eigen::Vector3d& W_omega_link) const
+{
+    const auto it = m_OrientationTasks.find(node);
+    if (it == m_OrientationTasks.end() || !it->second.hasSetPoint)
+    {
+        return false;
+    }
+
+    W_R_link = it->second.W_R_link_setPoint;
+    W_omega_link = it->second.W_omega_link_setPoint;
+    return true;
+}
+
+bool HumanIK::getGravityTaskSetPoint(int node, Eigen::Vector3d& gravityDirection) const
+{
+    const auto it = m_GravityTasks.find(node);
+    if (it == m_GravityTasks.end() || !it->second.hasSetPoint)
+    {
+        return false;
+    }
+
+    gravityDirection = it->second.gravityDirectionSetPoint;
+    return true;
+}
+
+bool HumanIK::getPositionTaskSetPoint(int node, Eigen::Vector3d& W_p_frame, Eigen::Vector3d& W_v_frame) const
+{
+    const auto it = m_PositionTasks.find(node);
+    if (it == m_PositionTasks.end() || !it->second.hasSetPoint)
+    {
+        return false;
+    }
+
+    W_p_frame = it->second.W_p_frame_setPoint;
+    W_v_frame = it->second.W_v_frame_setPoint;
+    return true;
+}
+
+bool HumanIK::getPoseTaskSetPoint(int node, manif::SE3d& W_H_frame, manif::SE3d::Tangent& W_v_frame) const
+{
+    const auto it = m_PoseTasks.find(node);
+    if (it == m_PoseTasks.end() || !it->second.hasSetPoint)
+    {
+        return false;
+    }
+
+    W_H_frame = it->second.W_H_frame_setPoint;
+    W_v_frame = it->second.W_v_frame_setPoint;
+    return true;
 }
 
 std::string HumanIK::getNodeFrameName(int node) const
@@ -1658,6 +1717,11 @@ bool HumanIK::updatePositionTask(const int node, const positionData& data)
     // Rotate linear velocity into robot world frame
     const Eigen::Matrix3d R_mat = m_PositionTasks[node].calibrationMatrix.rotation();
     const Eigen::Vector3d W_v_frame = R_mat * data.I_v_frame;
+
+    m_PositionTasks[node].W_p_frame_setPoint = W_p_frame;
+    m_PositionTasks[node].W_v_frame_setPoint = W_v_frame;
+    m_PositionTasks[node].hasSetPoint = true;
+
     return m_PositionTasks[node].task->setSetPoint(W_p_frame, W_v_frame);
 }
 
@@ -1697,6 +1761,11 @@ bool HumanIK::updatePoseTask(const int node, const poseData& data)
     manif::SE3d::Tangent W_v_frame;
     W_v_frame.ang() = R_mat * data.I_v_frame.ang();
     W_v_frame.lin() = R_mat * data.I_v_frame.lin() + t.cross(W_v_frame.ang());
+
+    m_PoseTasks[node].W_H_frame_setPoint = W_H_frame;
+    m_PoseTasks[node].W_v_frame_setPoint = W_v_frame;
+    m_PoseTasks[node].hasSetPoint = true;
+
     return m_PoseTasks[node].task->setSetPoint(W_H_frame, W_v_frame);
 }
 

@@ -91,14 +91,32 @@ TEST_CASE("InverseKinematics test")
     Eigen::VectorXd jointPositionSetPoint = ik.getJointPositionSetPoint();
     REQUIRE(ik.updateJointRegularizationTask(jointPositionSetPoint));
 
+    manif::SO3d orientationSetPoint;
+    Eigen::Vector3d orientationOmegaSetPoint;
+    REQUIRE(ik.getOrientationTaskSetPoint(3, orientationSetPoint, orientationOmegaSetPoint));
+
+    Eigen::Vector3d gravitySetPoint;
+    REQUIRE(ik.getGravityTaskSetPoint(10, gravitySetPoint));
+    REQUIRE(gravitySetPoint.norm() > 0.0);
+
     // Test PositionTask update
     BiomechanicalAnalysis::IK::positionData posData;
     posData.I_p_frame = Eigen::Vector3d(0.3, 0.1, 1.0);
     REQUIRE(ik.updatePositionTask(20, posData));
 
+    Eigen::Vector3d positionSetPoint;
+    Eigen::Vector3d positionVelSetPoint;
+    REQUIRE(ik.getPositionTaskSetPoint(20, positionSetPoint, positionVelSetPoint));
+    REQUIRE(positionVelSetPoint.isApprox(Eigen::Vector3d::Zero()));
+
     // Test PoseTask update
     BiomechanicalAnalysis::IK::poseData pData;
     REQUIRE(ik.updatePoseTask(21, pData));
+
+    manif::SE3d poseSetPoint;
+    manif::SE3d::Tangent poseVelSetPoint;
+    REQUIRE(ik.getPoseTaskSetPoint(21, poseSetPoint, poseVelSetPoint));
+    REQUIRE(poseVelSetPoint.coeffs().isApprox(manif::SE3d::Tangent::Zero().coeffs()));
 
     REQUIRE(ik.calibrateWorldYaw(mapNodeData));
     REQUIRE(ik.calibrateAllWithWorld(mapNodeData, "link1"));
