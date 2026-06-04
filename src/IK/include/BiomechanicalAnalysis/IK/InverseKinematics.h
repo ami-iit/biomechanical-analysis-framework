@@ -260,6 +260,8 @@ private:
         int nodeNumber;
         std::string taskName;
         std::string frameName;
+        manif::SE3d calibrationMatrix = manif::SE3d::Identity(); // Full rigid transform calibration from IMU world to robot world
+                                                                 // (W_H_WIMU)
     };
 
     /**
@@ -272,6 +274,11 @@ private:
         int nodeNumber;
         std::string taskName;
         std::string frameName;
+        manif::SO3d IMU_R_link; // Rotation matrix from the sensor frame to the related link
+        manif::SO3d IMU_R_link_init; // Initial value set through config file
+        manif::SE3d calibrationMatrix = manif::SE3d::Identity(); // Full rigid transform calibration from IMU world to robot world
+                                                                 // (W_H_WIMU)
+        manif::SO3d W_R_link; // Calibrated orientation of the link in the inertial frame
     };
 
     std::shared_ptr<BipedalLocomotion::IK::JointTrackingTask> m_jointRegularizationTask; /** Joint
@@ -606,7 +613,7 @@ public:
     bool updatePoseTasks(const std::unordered_map<int, poseData>& poseMap);
 
     /**
-     * clear the calibration matrices W_R_WIMU and IMU_R_link of all the orientation and gravity tasks
+     * clear the calibration matrices W_R_WIMU and IMU_R_link of all the orientation, gravity, and pose tasks
      * @return true if the calibration matrices are cleared correctly
      */
     bool clearCalibrationMatrices();
@@ -689,7 +696,7 @@ public:
     const manif::SO3d& getCalibratedIMURotation(int node) const;
 
     /**
-     * get the frame name of the orientation task
+     * get the frame name of a node
      * @param node node number
      * @return frame name
      */
