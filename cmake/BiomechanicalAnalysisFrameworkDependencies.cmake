@@ -30,6 +30,7 @@ option(FRAMEWORK_USE_SYSTEM_ResolveRoboticsURICpp "Use find_package to find Reso
 if(FRAMEWORK_USE_SYSTEM_ResolveRoboticsURICpp)
   find_package(ResolveRoboticsURICpp REQUIRED)
 else()
+  include(FetchContent)
   FetchContent_Declare(
     ResolveRoboticsURICpp
     GIT_REPOSITORY https://github.com/ami-iit/resolve-robotics-uri-cpp
