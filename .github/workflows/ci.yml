@@ -3,9 +3,13 @@ name: C++ CI Workflow
 # template derived from https://github.com/robotology/human-dynamics-estimation/blob/master/.github/workflows/ci.yml
 
 on:
-    push:
-    pull_request:
-    schedule:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  schedule:
     # run a cron job for a nightly build
     # * is a special character in YAML so you have to quote this string
     # Execute a "nightly" build at 2 AM UTC
