@@ -419,8 +419,26 @@ bool HumanIK::clearCalibrationMatrices()
     return true;
 }
 
+void HumanIK::updateWorldAnchorTranslationFromCurrentBaseXY()
+{
+    Eigen::Matrix4d currentBasePose;
+    Eigen::VectorXd currentJointPositions(this->getDoFsNumber());
+    Eigen::VectorXd currentJointVelocities(this->getDoFsNumber());
+    Eigen::VectorXd currentBaseVelocity(6);
+    Eigen::Vector3d currentGravity;
+    if (m_kinDyn->getRobotState(currentBasePose, currentJointPositions, currentBaseVelocity, currentJointVelocities, currentGravity))
+    {
+        // Subtract the current base xy so that absolute sensor measurements (S_p_M) get
+        // re-centred around the new IK world origin after the base state is reset to zero.
+        m_worldAnchorTranslation.head<2>() -= currentBasePose.topRightCorner<2, 1>();
+    }
+}
+
 bool HumanIK::calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct)
 {
+    // Preserve the current world placement before resetting the base state.
+    updateWorldAnchorTranslationFromCurrentBaseXY();
+
     // reset the robot state
     Eigen::VectorXd jointVelocities;
     jointVelocities.resize(this->getDoFsNumber());
@@ -473,6 +491,9 @@ bool HumanIK::calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct)
 
 bool HumanIK::calibrateAllWithWorld(std::unordered_map<int, nodeData> nodeStruct, std::string refFrame)
 {
+    // Preserve the current world placement before resetting the base state.
+    updateWorldAnchorTranslationFromCurrentBaseXY();
+
     // reset the robot state
     Eigen::VectorXd jointVelocities;
     jointVelocities.resize(this->getDoFsNumber());
@@ -731,6 +752,12 @@ bool HumanIK::getPoseTaskSetPoint(int node, manif::SE3d& W_H_frame, manif::SE3d:
 
     W_H_frame = it->second.W_H_frame_setPoint;
     W_v_frame = it->second.W_v_frame_setPoint;
+    return true;
+}
+
+bool HumanIK::getWorldAnchorTranslation(Eigen::Ref<Eigen::Vector3d> worldAnchorTranslation) const
+{
+    worldAnchorTranslation = m_worldAnchorTranslation;
     return true;
 }
 
@@ -1677,7 +1704,7 @@ bool HumanIK::updatePositionTask(const int node, const positionData& data)
         return false;
     }
     const Eigen::Vector3d S_p_L = data.S_p_M + m_PositionTasks[node].S_R_M.rotation() * m_PositionTasks[node].M_p_L;
-    const Eigen::Vector3d W_p_frame = m_PositionTasks[node].W_R_S.rotation() * S_p_L;
+    const Eigen::Vector3d W_p_frame = m_PositionTasks[node].W_R_S.rotation() * S_p_L + m_worldAnchorTranslation;
     const Eigen::Vector3d W_v_frame = m_PositionTasks[node].W_R_S.rotation() * data.S_v_M;
 
     m_PositionTasks[node].W_p_frame_setPoint = W_p_frame;
@@ -1711,7 +1738,7 @@ bool HumanIK::updatePoseTask(const int node, const poseData& data)
     const manif::SO3d S_R_M(data.S_H_M.quat());
     m_PoseTasks[node].W_R_link = m_PoseTasks[node].W_R_S * S_R_M * m_PoseTasks[node].M_R_L;
     const Eigen::Vector3d S_p_L = data.S_H_M.translation() + S_R_M.rotation() * m_PoseTasks[node].M_p_L;
-    const Eigen::Vector3d W_p_frame = m_PoseTasks[node].W_R_S.rotation() * S_p_L;
+    const Eigen::Vector3d W_p_frame = m_PoseTasks[node].W_R_S.rotation() * S_p_L + m_worldAnchorTranslation;
     const manif::SE3d W_H_frame(W_p_frame, m_PoseTasks[node].W_R_link.quat());
     manif::SE3d::Tangent W_v_frame;
     const Eigen::Vector3d S_omega_M = data.S_v_M.ang();

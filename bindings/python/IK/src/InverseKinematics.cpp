@@ -155,7 +155,12 @@ void CreateInverseKinematics(pybind11::module& module)
                 bool ok = ik.getPoseTaskSetPoint(node, W_H_frame, W_v_frame);
                 return std::make_tuple(ok, W_H_frame, W_v_frame);
             },
-            py::arg("node"));
+            py::arg("node"))
+        .def("getWorldAnchorTranslation", [](HumanIK& ik) {
+            Eigen::Vector3d worldAnchor = Eigen::Vector3d::Zero();
+            bool ok = ik.getWorldAnchorTranslation(worldAnchor);
+            return std::make_tuple(ok, worldAnchor);
+        });
 }
 
 } // namespace IK

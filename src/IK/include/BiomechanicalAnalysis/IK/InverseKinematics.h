@@ -172,6 +172,11 @@ private:
                             const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler,
                             std::unordered_set<int>& usedNodeNumbers);
 
+    /**
+     * Accumulate the current base xy translation in the world anchor used by pose/position tasks.
+     */
+    void updateWorldAnchorTranslationFromCurrentBaseXY();
+
     std::chrono::nanoseconds m_dtIntegration; /** Integration time step in nanoseconds */
 
     /**
@@ -343,6 +348,10 @@ private:
 
     int m_nrDoFs; /** Number of Joint Degrees of Freedom */
     bool m_tPose{false}; /** Flag for resetting the integrator state */
+    Eigen::Vector3d m_worldAnchorTranslation = Eigen::Vector3d::Zero(); /** World translation
+                                                                          anchor applied to pose
+                                                                          and position task
+                                                                          setpoints. */
 
     BipedalLocomotion::IK::QPInverseKinematics m_qpIK; /** QP Inverse Kinematics solver */
     BipedalLocomotion::System::VariablesHandler m_variableHandler; /** Variables handler */
@@ -765,6 +774,13 @@ public:
      * @return true if a setpoint is available and copied in output parameters
      */
     bool getPoseTaskSetPoint(int node, manif::SE3d& W_H_frame, manif::SE3d::Tangent& W_v_frame) const;
+
+    /**
+     * Get the current world anchor translation used to re-anchor pose/position setpoints.
+     * @param worldAnchorTranslation anchor translation currently applied in world frame
+     * @return true if the anchor is retrieved correctly
+     */
+    bool getWorldAnchorTranslation(Eigen::Ref<Eigen::Vector3d> worldAnchorTranslation) const;
 };
 
 } // namespace IK
