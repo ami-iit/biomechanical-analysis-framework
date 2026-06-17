@@ -414,6 +414,12 @@ bool HumanIK::resetWorldAnchorTranslation()
     return true;
 }
 
+bool HumanIK::recenterWorldAnchor()
+{
+    updateWorldAnchorTranslationFromCurrentBaseXY();
+    return true;
+}
+
 void HumanIK::resetFloorContactTasksAfterCalibration()
 {
     for (auto& [node, data] : m_FloorContactTasks)

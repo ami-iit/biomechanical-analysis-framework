@@ -160,6 +160,25 @@ TEST_CASE("InverseKinematics test")
     REQUIRE(ik.getPoseTaskSetPoint(21, poseSetPoint, poseVelSetPoint));
     REQUIRE(poseSetPoint.translation().isApprox(Eigen::Vector3d(0.6, -0.3, 0.7)));
 
+    Eigen::Matrix4d recenterBasePose = Eigen::Matrix4d::Identity();
+    recenterBasePose(0, 3) = 0.25;
+    recenterBasePose(1, 3) = -0.15;
+    REQUIRE(kinDyn->setRobotState(recenterBasePose, currentJointPositions, currentBaseVelocity, currentJointVelocities, currentGravity));
+    REQUIRE(ik.recenterWorldAnchor());
+    REQUIRE(ik.getWorldAnchorTranslation(worldAnchorTranslation));
+
+    const Eigen::Vector3d expectedPositionAfterRecenter = Eigen::Vector3d(0.4, -0.1, 1.3) + worldAnchorTranslation;
+    const Eigen::Vector3d expectedPoseAfterRecenter = Eigen::Vector3d(0.6, -0.3, 0.7) + worldAnchorTranslation;
+
+    REQUIRE(ik.updatePositionTask(20, posData));
+    REQUIRE(ik.getPositionTaskSetPoint(20, positionSetPoint, positionVelSetPoint));
+    REQUIRE(positionSetPoint.isApprox(expectedPositionAfterRecenter));
+    REQUIRE(positionVelSetPoint.isApprox(Eigen::Vector3d::Zero()));
+    REQUIRE(ik.updatePoseTask(21, pData));
+    REQUIRE(ik.getPoseTaskSetPoint(21, poseSetPoint, poseVelSetPoint));
+    REQUIRE(poseSetPoint.translation().isApprox(expectedPoseAfterRecenter));
+    REQUIRE(poseVelSetPoint.coeffs().isApprox(manif::SE3d::Tangent::Zero().coeffs()));
+
     REQUIRE(ik.advance());
     REQUIRE(ik.getJointPositions(JointPositions));
     REQUIRE(ik.getJointVelocities(JointVelocities));

@@ -673,6 +673,13 @@ public:
     bool resetWorldAnchorTranslation();
 
     /**
+     * Recenter pose/position targets by accumulating the current base xy into the world anchor.
+     * @note This operation only updates the anchor translation.
+     * @return true if the anchor is updated correctly
+     */
+    bool recenterWorldAnchor();
+
+    /**
      * remove the offset on the yaw of the IMUs world
      * @param nodeStruct unordered map containing the struct node data (see
      * https://github.com/ami-iit/biomechanical-analysis-framework/blob/338129086dca24989552a20ecc1c9dec0492806a/src/IK/include/BiomechanicalAnalysis/IK/InverseKinematics.h#L32)
