@@ -101,25 +101,35 @@ TEST_CASE("InverseKinematics test")
 
     // Test PositionTask update
     BiomechanicalAnalysis::IK::positionData posData;
-    posData.I_p_frame = Eigen::Vector3d(0.3, 0.1, 1.0);
+    posData.S_p_M = Eigen::Vector3d(0.3, 0.1, 1.0);
     REQUIRE(ik.updatePositionTask(20, posData));
 
     Eigen::Vector3d positionSetPoint;
     Eigen::Vector3d positionVelSetPoint;
     REQUIRE(ik.getPositionTaskSetPoint(20, positionSetPoint, positionVelSetPoint));
+    REQUIRE(positionSetPoint.isApprox(Eigen::Vector3d(0.4, -0.1, 1.3)));
     REQUIRE(positionVelSetPoint.isApprox(Eigen::Vector3d::Zero()));
 
     // Test PoseTask update
     BiomechanicalAnalysis::IK::poseData pData;
+    pData.S_H_M = manif::SE3d(Eigen::Vector3d(0.2, -0.3, 0.8), manif::SO3d::Identity().quat());
     REQUIRE(ik.updatePoseTask(21, pData));
 
     manif::SE3d poseSetPoint;
     manif::SE3d::Tangent poseVelSetPoint;
     REQUIRE(ik.getPoseTaskSetPoint(21, poseSetPoint, poseVelSetPoint));
+    REQUIRE(poseSetPoint.translation().isApprox(Eigen::Vector3d(0.6, -0.3, 0.7)));
     REQUIRE(poseVelSetPoint.coeffs().isApprox(manif::SE3d::Tangent::Zero().coeffs()));
 
     REQUIRE(ik.calibrateWorldYaw(mapNodeData));
     REQUIRE(ik.calibrateAllWithWorld(mapNodeData, "link1"));
+    REQUIRE(ik.clearCalibrationMatrices());
+    REQUIRE(ik.updatePositionTask(20, posData));
+    REQUIRE(ik.getPositionTaskSetPoint(20, positionSetPoint, positionVelSetPoint));
+    REQUIRE(positionSetPoint.isApprox(Eigen::Vector3d(0.4, -0.1, 1.3)));
+    REQUIRE(ik.updatePoseTask(21, pData));
+    REQUIRE(ik.getPoseTaskSetPoint(21, poseSetPoint, poseVelSetPoint));
+    REQUIRE(poseSetPoint.translation().isApprox(Eigen::Vector3d(0.6, -0.3, 0.7)));
     REQUIRE(ik.advance());
     REQUIRE(ik.getJointPositions(JointPositions));
     REQUIRE(ik.getJointVelocities(JointVelocities));

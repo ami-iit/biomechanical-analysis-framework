@@ -54,21 +54,28 @@ struct nodeData
 };
 
 /**
- * @brief Struct containing the desired position and linear velocity of a frame
+ * @brief Struct containing the raw measured position and linear velocity of a frame M in the
+ * sensor world S.
+ * @note The IK computes the target link/task point by applying the calibrated world alignment and
+ * the fixed translational extrinsic configured for the task.
  */
 struct positionData
 {
-    Eigen::Vector3d I_p_frame;
-    Eigen::Vector3d I_v_frame = Eigen::Vector3d::Zero();
+    Eigen::Vector3d S_p_M;
+    Eigen::Vector3d S_v_M = Eigen::Vector3d::Zero();
 };
 
 /**
- * @brief Struct containing the desired pose and mixed 6D velocity of a frame
+ * @brief Struct containing the raw measured pose and mixed 6D velocity of a frame M in the sensor
+ * world S.
+ * @note The IK computes the target link pose as W_H_L = W_H_S * S_H_M * M_H_L, with runtime
+ * calibration updating only W_R_S while the translational part of M_H_L stays fixed from
+ * initialization.
  */
 struct poseData
 {
-    manif::SE3d I_H_frame = manif::SE3d::Identity();
-    manif::SE3d::Tangent I_v_frame = manif::SE3d::Tangent::Zero();
+    manif::SE3d S_H_M = manif::SE3d::Identity();
+    manif::SE3d::Tangent S_v_M = manif::SE3d::Tangent::Zero();
 };
 
 // clang-format off
@@ -265,17 +272,11 @@ private:
         int nodeNumber;
         std::string taskName;
         std::string frameName;
-        manif::SE3d calibrationMatrix = manif::SE3d::Identity(); // Combined calibration transform W_H_WIMU:
-                                                                 //   rotation:    W_R_WIMU (dynamic, set by calibrateWorldYaw /
-                                                                 //                calibrateAllWithWorld, reset to identity by
-                                                                 //                clearCalibrationMatrices)
-                                                                 //   translation: world-frame position offset (static, from config
-                                                                 //                position_offset; preserved by clearCalibrationMatrices)
-        manif::SE3d calibrationMatrix_init = manif::SE3d::Identity(); // Config-specified initial value of calibrationMatrix:
-                                                                      //   rotation = sensor-axes alignment, translation = world-frame
-                                                                      //   offset. Restored in full by clearCalibrationMatrices().
-        manif::SO3d W_R_calib = manif::SO3d::Identity(); // Mirror of the rotation part of calibrationMatrix as SO3;
-                                                         // kept in sync for use by getCalibratedIMURotation().
+        manif::SO3d W_R_S = manif::SO3d::Identity(); // World alignment rotation applied on the left.
+        manif::SO3d S_R_M = manif::SO3d::Identity(); // Fixed orientation of the measured frame M in sensor world S,
+                                                     // initialized from config and not recalibrated online.
+        Eigen::Vector3d M_p_L = Eigen::Vector3d::Zero(); // Fixed translational extrinsic from the measured frame M to the
+                                                         // task/link point L, expressed in M and loaded from config.
         Eigen::Vector3d W_p_frame_setPoint = Eigen::Vector3d::Zero(); // Last position setpoint passed to the R3 task
         Eigen::Vector3d W_v_frame_setPoint = Eigen::Vector3d::Zero(); // Last linear velocity setpoint passed to the R3 task
         bool hasSetPoint{false}; // True once updatePositionTask() has passed a setpoint to the solver
@@ -291,18 +292,11 @@ private:
         int nodeNumber;
         std::string taskName;
         std::string frameName;
-        manif::SO3d IMU_R_link; // Rotation matrix from the sensor frame to the related link
-        manif::SO3d IMU_R_link_init; // Initial value set through config file
-        manif::SE3d calibrationMatrix = manif::SE3d::Identity(); // Combined calibration transform W_H_WIMU:
-                                                                 //   rotation:    W_R_WIMU (dynamic, set by calibrateWorldYaw /
-                                                                 //                calibrateAllWithWorld; reset to identity by
-                                                                 //                clearCalibrationMatrices)
-                                                                 //   translation: world-frame position offset (static, from config
-                                                                 //                position_offset; preserved by clearCalibrationMatrices)
-        Eigen::Vector3d position_offset_init = Eigen::Vector3d::Zero(); // World-frame position offset from config (position_offset
-                                                                        // expressed in sensor frame, rotated by IMU_R_link_init).
-                                                                        // Restored as calibrationMatrix.translation() by
-                                                                        // clearCalibrationMatrices().
+        manif::SO3d M_R_L; // Fixed rotational extrinsic from the measured frame M to the related link L
+        manif::SO3d M_R_L_init; // Initial value set through config file
+        Eigen::Vector3d M_p_L = Eigen::Vector3d::Zero(); // Fixed translational extrinsic from the measured frame M to the link
+                                                         // origin L, expressed in M and loaded from config.
+        manif::SO3d W_R_S = manif::SO3d::Identity(); // Dynamic world alignment rotation updated by calibration.
         manif::SO3d W_R_link; // Calibrated orientation of the link in the inertial frame
         manif::SE3d W_H_frame_setPoint = manif::SE3d::Identity(); // Last pose setpoint passed to the SE3 task
         manif::SE3d::Tangent W_v_frame_setPoint = manif::SE3d::Tangent::Zero(); // Last mixed velocity setpoint passed to the SE3 task
@@ -438,25 +432,32 @@ public:
      * |`JointConstraintsTask`|        `lower_limits`          |`vector<double>`| Vector containing the lower limits of the specified joints. Required `use_model_limits` is set to false.   |    No     |
      *
      * The "PositionTask" controls the 3D position of a frame using a proportional controller in R3.
-     * The set-point is provided at runtime via `updatePositionTask()`. No IMU calibration is involved.
+        * The set-point is provided at runtime via `updatePositionTask()` as a raw measured position of
+        * frame M in sensor world S. The task applies the fixed extrinsic from M to the controlled point.
      * |      Group       |         Parameter Name         |       Type          |                                         Description                                          | Mandatory |
      * |:----------------:|:------------------------------:|:-------------------:|:--------------------------------------------------------------------------------------------:|:---------:|
      * | `PositionTask`   |           `type`               |     `string`        |                     Type of the task. The value to be set is `PositionTask`                  |    Yes    |
      * | `PositionTask`   | `robot_velocity_variable_name` |     `string`        | Name of the variable contained in `VariablesHandler` describing the generalized robot velocity|    Yes    |
      * | `PositionTask`   |        `node_number`           |      `int`          |                    Node number of the task. The node number must be unique.                  |    Yes    |
      * | `PositionTask`   |         `frame_name`           |     `string`        |                          Name of the frame whose position is controlled.                     |    Yes    |
+        * | `PositionTask`   |      `rotation_matrix`         | `vector<double>`    | Fixed orientation of measured frame M in sensor world S. Default is identity.               |    No     |
+        * | `PositionTask`   |      `position_offset`         | `vector<double>`    | Fixed translation from measured frame M to the controlled point, expressed in M.            |    No     |
      * | `PositionTask`   |         `kp_linear`            | `double` or `vector<double>` |              Gain of the proportional position controller.                          |    Yes    |
      * | `PositionTask`   |           `weight`             |  `vector<double>`   |          Weight of the task (3 elements).                                                    |    Yes    |
      * | `PositionTask`   |            `mask`              |  `vector<bool>`     |  Mask to control only a subset of axes, e.g. `[1,0,1]` for x and z only. Default `[1,1,1]` |    No     |
      *
      * The "PoseTask" controls both position and orientation of a frame using proportional controllers
-     * in R3 and SO3. The set-point is provided at runtime via `updatePoseTask()`. No IMU calibration is involved.
+    * in R3 and SO3. The set-point is provided at runtime via `updatePoseTask()` as a raw measured
+    * pose S_H_M. Runtime calibration updates only W_R_S, while the full extrinsic M_H_L stays fixed
+    * from initialization.
      * |    Group    |         Parameter Name         |       Type          |                                         Description                                          | Mandatory |
      * |:-----------:|:------------------------------:|:-------------------:|:--------------------------------------------------------------------------------------------:|:---------:|
      * | `PoseTask`  |           `type`               |     `string`        |                       Type of the task. The value to be set is `PoseTask`                    |    Yes    |
      * | `PoseTask`  | `robot_velocity_variable_name` |     `string`        | Name of the variable contained in `VariablesHandler` describing the generalized robot velocity|    Yes    |
      * | `PoseTask`  |        `node_number`           |      `int`          |                    Node number of the task. The node number must be unique.                  |    Yes    |
      * | `PoseTask`  |         `frame_name`           |     `string`        |                    Name of the frame whose pose (position + orientation) is controlled.      |    Yes    |
+    * | `PoseTask`  |      `rotation_matrix`         | `vector<double>`    | Fixed rotational extrinsic from measured frame M to controlled frame L. Default is identity. |    No     |
+    * | `PoseTask`  |      `position_offset`         | `vector<double>`    | Fixed translation from measured frame M to controlled frame L, expressed in M.              |    No     |
      * | `PoseTask`  |         `kp_linear`            | `double` or `vector<double>` |              Gain of the proportional position controller.                          |    Yes    |
      * | `PoseTask`  |        `kp_angular`            | `double` or `vector<double>` |              Gain of the proportional orientation controller.                       |    Yes    |
      * | `PoseTask`  |           `weight`             |  `vector<double>`   |          Weight of the task (6 elements: 3 linear + 3 angular).                              |    Yes    |
@@ -613,7 +614,7 @@ public:
     /**
      * Set the position set-point for a given position task node.
      * @param node node number
-     * @param data desired position and linear velocity of the frame
+     * @param data raw measured position and linear velocity of frame M in sensor world S
      * @return true if the set-point is set correctly
      */
     bool updatePositionTask(const int node, const positionData& data);
@@ -628,7 +629,7 @@ public:
     /**
      * Set the pose set-point for a given pose task node.
      * @param node node number
-     * @param data desired pose and mixed 6D velocity of the frame
+     * @param data raw measured pose and mixed 6D velocity of frame M in sensor world S
      * @return true if the set-point is set correctly
      */
     bool updatePoseTask(const int node, const poseData& data);
@@ -641,7 +642,7 @@ public:
     bool updatePoseTasks(const std::unordered_map<int, poseData>& poseMap);
 
     /**
-     * clear the calibration matrices W_R_WIMU and IMU_R_link of all the orientation, gravity, and pose tasks
+     * clear the calibration rotations and fixed extrinsics of all tasks to their initialized values
      * @return true if the calibration matrices are cleared correctly
      */
     bool clearCalibrationMatrices();

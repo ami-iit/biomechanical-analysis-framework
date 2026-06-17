@@ -78,6 +78,7 @@ frame_name = "RightHand"
 kp_linear = 5.0
 node_number = 20
 weight = [1.0, 1.0, 1.0]
+position_offset = [0.1, -0.2, 0.3]
 
 [POSE_TASK_1]
 type = "PoseTask"
@@ -87,3 +88,4 @@ kp_linear = 5.0
 kp_angular = 5.0
 node_number = 21
 weight = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+position_offset = [0.4, 0.0, -0.1]
