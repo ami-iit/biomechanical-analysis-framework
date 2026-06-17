@@ -408,6 +408,12 @@ bool HumanIK::clearCalibrationMatrices()
     return true;
 }
 
+bool HumanIK::resetWorldAnchorTranslation()
+{
+    m_worldAnchorTranslation.setZero();
+    return true;
+}
+
 void HumanIK::resetFloorContactTasksAfterCalibration()
 {
     for (auto& [node, data] : m_FloorContactTasks)

@@ -667,6 +667,12 @@ public:
     bool clearCalibrationMatrices();
 
     /**
+     * Reset the world anchor translation used to shift pose/position task setpoints.
+     * @return true if the anchor is reset correctly
+     */
+    bool resetWorldAnchorTranslation();
+
+    /**
      * remove the offset on the yaw of the IMUs world
      * @param nodeStruct unordered map containing the struct node data (see
      * https://github.com/ami-iit/biomechanical-analysis-framework/blob/338129086dca24989552a20ecc1c9dec0492806a/src/IK/include/BiomechanicalAnalysis/IK/InverseKinematics.h#L32)
