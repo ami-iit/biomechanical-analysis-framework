@@ -177,6 +177,11 @@ private:
      */
     void updateWorldAnchorTranslationFromCurrentBaseXY();
 
+    /**
+     * Reset floor-contact internal state after calibration/reset events.
+     */
+    void resetFloorContactTasksAfterCalibration();
+
     std::chrono::nanoseconds m_dtIntegration; /** Integration time step in nanoseconds */
 
     /**
@@ -348,10 +353,15 @@ private:
 
     int m_nrDoFs; /** Number of Joint Degrees of Freedom */
     bool m_tPose{false}; /** Flag for resetting the integrator state */
-    Eigen::Vector3d m_worldAnchorTranslation = Eigen::Vector3d::Zero(); /** World translation
-                                                                          anchor applied to pose
-                                                                          and position task
-                                                                          setpoints. */
+    Eigen::Vector3d m_worldAnchorTranslation = Eigen::Vector3d::Zero(); /** Translation offset
+                                                                          added to pose and
+                                                                          position setpoints to
+                                                                          re-centre absolute sensor
+                                                                          measurements around the
+                                                                          IK world origin after
+                                                                          each calibration reset.
+                                                                          Accumulates as
+                                                                          -base_xy_pre_reset. */
 
     BipedalLocomotion::IK::QPInverseKinematics m_qpIK; /** QP Inverse Kinematics solver */
     BipedalLocomotion::System::VariablesHandler m_variableHandler; /** Variables handler */

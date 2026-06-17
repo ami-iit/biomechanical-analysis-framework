@@ -277,19 +277,6 @@ bool HumanIK::updateFloorContactTask(const int node, const double verticalForce,
         BiomechanicalAnalysis::log()->error("[HumanIK::updateFloorContactTask] Invalid node number.");
         return false;
     }
-    if (m_tPose == true)
-    {
-        m_FloorContactTasks[node].footInContact = false;
-        Eigen::VectorXd jointPositions;
-        jointPositions.resize(this->getDoFsNumber());
-        jointPositions.setZero();
-        Eigen::Matrix4d basePose;
-        basePose.setIdentity();
-        Eigen::VectorXd baseVelocity;
-        baseVelocity.resize(6);
-        baseVelocity.setZero();
-        m_kinDyn->setRobotState(basePose, jointPositions, baseVelocity, m_jointVelocities, m_gravity);
-    }
 
     // if the vertical force is greater than the threshold and if the foot is not yet in contact,
     // set the weight of the associated task to the weight of the task and set the set point of the
@@ -416,7 +403,18 @@ bool HumanIK::clearCalibrationMatrices()
     {
         data.W_R_S = manif::SO3d::Identity();
     }
+
+    resetFloorContactTasksAfterCalibration();
     return true;
+}
+
+void HumanIK::resetFloorContactTasksAfterCalibration()
+{
+    for (auto& [node, data] : m_FloorContactTasks)
+    {
+        data.footInContact = false;
+        m_qpIK.setTaskWeight(data.taskName, Eigen::Vector3d::Zero());
+    }
 }
 
 void HumanIK::updateWorldAnchorTranslationFromCurrentBaseXY()
@@ -486,6 +484,8 @@ bool HumanIK::calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct)
             m_PoseTasks[node].W_R_S = manif::SO3d(0, 0, rpyOffset.asRPY()(2));
         }
     }
+
+    resetFloorContactTasksAfterCalibration();
     return true;
 }
 
@@ -549,6 +549,8 @@ bool HumanIK::calibrateAllWithWorld(std::unordered_map<int, nodeData> nodeStruct
             m_PoseTasks[node].W_R_S = secondaryCalib * m_PoseTasks[node].W_R_S;
         }
     }
+    resetFloorContactTasksAfterCalibration();
+
     // set the flag to true to reset the integration
     m_tPose = true;
 
