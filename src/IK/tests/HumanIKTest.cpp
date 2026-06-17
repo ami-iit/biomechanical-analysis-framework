@@ -140,15 +140,15 @@ TEST_CASE("InverseKinematics test")
 
     Eigen::Vector3d worldAnchorTranslation;
     REQUIRE(ik.getWorldAnchorTranslation(worldAnchorTranslation));
-    REQUIRE(worldAnchorTranslation.isApprox(Eigen::Vector3d(1.0, -0.5, 0.0)));
+    REQUIRE(worldAnchorTranslation.isApprox(Eigen::Vector3d(-1.0, 0.5, 0.0)));
 
     REQUIRE(ik.clearCalibrationMatrices());
     REQUIRE(ik.updatePositionTask(20, posData));
     REQUIRE(ik.getPositionTaskSetPoint(20, positionSetPoint, positionVelSetPoint));
-    REQUIRE(positionSetPoint.isApprox(Eigen::Vector3d(1.4, -0.6, 1.3)));
+    REQUIRE(positionSetPoint.isApprox(Eigen::Vector3d(-0.6, 0.4, 1.3)));
     REQUIRE(ik.updatePoseTask(21, pData));
     REQUIRE(ik.getPoseTaskSetPoint(21, poseSetPoint, poseVelSetPoint));
-    REQUIRE(poseSetPoint.translation().isApprox(Eigen::Vector3d(1.6, -0.8, 0.7)));
+    REQUIRE(poseSetPoint.translation().isApprox(Eigen::Vector3d(-0.4, 0.2, 0.7)));
 
     REQUIRE(ik.resetWorldAnchorTranslation());
     REQUIRE(ik.getWorldAnchorTranslation(worldAnchorTranslation));
