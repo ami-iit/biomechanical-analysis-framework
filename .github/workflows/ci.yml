@@ -99,7 +99,7 @@ jobs:
           run: |
             mkdir -p build
             cd build
-            cmake -G"Visual Studio 17 2022" .. \
+            cmake -G"Visual Studio 18 2026" .. \
                   -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX/Library \
                   -DCMAKE_PREFIX_PATH=${GITHUB_WORKSPACE}/install/deps \
                   -DCMAKE_BUILD_TYPE=${{matrix.build_type}} \
