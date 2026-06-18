@@ -178,7 +178,7 @@ private:
     void updateWorldAnchorTranslationFromCurrentBaseXY();
 
     /**
-     * Reset floor-contact internal state after calibration/reset events.
+     * Refresh floor-contact setpoints after calibration/reset events while preserving contact mode.
      */
     void resetFloorContactTasksAfterCalibration();
 

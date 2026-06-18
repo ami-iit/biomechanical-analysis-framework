@@ -455,8 +455,15 @@ void HumanIK::resetFloorContactTasksAfterCalibration()
 {
     for (auto& [node, data] : m_FloorContactTasks)
     {
-        data.footInContact = false;
-        m_qpIK.setTaskWeight(data.taskName, Eigen::Vector3d::Zero());
+        // Preserve contact latch and weight mode, but refresh setpoint on the new calibrated state.
+        data.setPointPosition = iDynTree::toEigen(m_kinDyn->getWorldTransform(data.frameName).getPosition());
+
+        if (!data.task->setSetPoint(data.setPointPosition))
+        {
+            BiomechanicalAnalysis::log()->warn("[HumanIK::resetFloorContactTasksAfterCalibration] "
+                                               "Failed to refresh floor-contact setpoint for node {}.",
+                                               node);
+        }
     }
 }
 
