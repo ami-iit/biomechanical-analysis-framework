@@ -414,6 +414,19 @@ bool HumanIK::resetWorldAnchorTranslation()
     return true;
 }
 
+bool HumanIK::resetJointState()
+{
+    m_jointPositions = m_calibrationJointPositions;
+    m_jointVelocities.setZero();
+    m_baseVelocity.setZero();
+
+    bool ok = m_kinDyn->setRobotState(m_basePose, m_jointPositions, m_baseVelocity, m_jointVelocities, m_gravity);
+    m_system.dynamics->setState({m_basePose.topRightCorner<3, 1>(), toManifRot(m_basePose.topLeftCorner<3, 3>()), m_jointPositions});
+    m_tPose = false;
+
+    return ok;
+}
+
 bool HumanIK::recenterWorldAnchor()
 {
     updateWorldAnchorTranslationFromCurrentBaseXY();

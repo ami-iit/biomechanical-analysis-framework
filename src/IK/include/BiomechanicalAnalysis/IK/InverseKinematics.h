@@ -673,6 +673,12 @@ public:
     bool resetWorldAnchorTranslation();
 
     /**
+     * Instantly reset the joint state.
+     * @return true if the state reset is applied correctly
+     */
+    bool resetJointState();
+
+    /**
      * Recenter pose/position targets by accumulating the current base xy into the world anchor.
      * @note This operation only updates the anchor translation.
      * @return true if the anchor is updated correctly

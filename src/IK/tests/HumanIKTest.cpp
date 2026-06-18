@@ -179,6 +179,22 @@ TEST_CASE("InverseKinematics test")
     REQUIRE(poseSetPoint.translation().isApprox(expectedPoseAfterRecenter));
     REQUIRE(poseVelSetPoint.coeffs().isApprox(manif::SE3d::Tangent::Zero().coeffs()));
 
+    Eigen::Vector3d worldAnchorBeforeJointReset = worldAnchorTranslation;
+    REQUIRE(ik.resetJointState());
+
+    Eigen::VectorXd jointPositionsAfterReset(ik.getDoFsNumber());
+    Eigen::VectorXd jointVelocitiesAfterReset(ik.getDoFsNumber());
+    Eigen::Vector3d baseLinearVelocityAfterReset;
+    REQUIRE(ik.getJointPositions(jointPositionsAfterReset));
+    REQUIRE(ik.getJointVelocities(jointVelocitiesAfterReset));
+    REQUIRE(ik.getBaseLinearVelocity(baseLinearVelocityAfterReset));
+    REQUIRE(jointPositionsAfterReset.isApprox(Eigen::VectorXd::Zero(ik.getDoFsNumber())));
+    REQUIRE(jointVelocitiesAfterReset.isApprox(Eigen::VectorXd::Zero(ik.getDoFsNumber())));
+    REQUIRE(baseLinearVelocityAfterReset.isApprox(Eigen::Vector3d::Zero()));
+
+    REQUIRE(ik.getWorldAnchorTranslation(worldAnchorTranslation));
+    REQUIRE(worldAnchorTranslation.isApprox(worldAnchorBeforeJointReset));
+
     REQUIRE(ik.advance());
     REQUIRE(ik.getJointPositions(JointPositions));
     REQUIRE(ik.getJointVelocities(JointVelocities));
