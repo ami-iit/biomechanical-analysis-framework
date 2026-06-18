@@ -414,15 +414,33 @@ bool HumanIK::resetWorldAnchorTranslation()
     return true;
 }
 
+bool HumanIK::setInternalState(const Eigen::Matrix4d& basePose,
+                               const Eigen::VectorXd& jointPositions,
+                               const Eigen::VectorXd& baseVelocity,
+                               const Eigen::VectorXd& jointVelocities)
+{
+    // Update internal member variables
+    m_basePose = basePose;
+    m_jointPositions = jointPositions;
+    m_baseVelocity = baseVelocity;
+    m_jointVelocities = jointVelocities;
+
+    // Synchronize KinDyn model (read-only query engine for tasks)
+    bool ok = m_kinDyn->setRobotState(m_basePose, m_jointPositions, m_baseVelocity, m_jointVelocities, m_gravity);
+
+    // Synchronize dynamics integrator state
+    m_system.dynamics->setState({m_basePose.topRightCorner<3, 1>(), toManifRot(m_basePose.topLeftCorner<3, 3>()), m_jointPositions});
+
+    return ok;
+}
+
 bool HumanIK::resetJointState()
 {
-    m_jointPositions = m_calibrationJointPositions;
-    m_jointVelocities.setZero();
-    m_baseVelocity.setZero();
+    const Eigen::VectorXd zeroJointVelocities = Eigen::VectorXd::Zero(this->getDoFsNumber());
+    const Eigen::VectorXd zeroBaseVelocity = Eigen::VectorXd::Zero(6);
 
-    bool ok = m_kinDyn->setRobotState(m_basePose, m_jointPositions, m_baseVelocity, m_jointVelocities, m_gravity);
-    m_system.dynamics->setState({m_basePose.topRightCorner<3, 1>(), toManifRot(m_basePose.topLeftCorner<3, 3>()), m_jointPositions});
-    m_tPose = false;
+    // Atomically sync both internal state and integrator to reset condition
+    bool ok = setInternalState(m_basePose, m_calibrationJointPositions, zeroBaseVelocity, zeroJointVelocities);
 
     return ok;
 }
@@ -462,16 +480,12 @@ bool HumanIK::calibrateWorldYaw(std::unordered_map<int, nodeData> nodeStruct)
     // Preserve the current world placement before resetting the base state.
     updateWorldAnchorTranslationFromCurrentBaseXY();
 
-    // reset the robot state
-    Eigen::VectorXd jointVelocities;
-    jointVelocities.resize(this->getDoFsNumber());
-    jointVelocities.setZero();
-    Eigen::Matrix4d basePose;
-    basePose.setIdentity();
-    Eigen::VectorXd baseVelocity;
-    baseVelocity.resize(6);
-    baseVelocity.setZero();
-    m_kinDyn->setRobotState(basePose, m_calibrationJointPositions, baseVelocity, jointVelocities, m_gravity);
+    const Eigen::Matrix4d basePose = Eigen::Matrix4d::Identity();
+    const Eigen::VectorXd baseVelocity = Eigen::VectorXd::Zero(6);
+    const Eigen::VectorXd jointVelocities = Eigen::VectorXd::Zero(this->getDoFsNumber());
+
+    setInternalState(basePose, m_calibrationJointPositions, baseVelocity, jointVelocities);
+
     // Update the orientation and gravity tasks
     for (const auto& [node, data] : nodeStruct)
     {
@@ -519,16 +533,11 @@ bool HumanIK::calibrateAllWithWorld(std::unordered_map<int, nodeData> nodeStruct
     // Preserve the current world placement before resetting the base state.
     updateWorldAnchorTranslationFromCurrentBaseXY();
 
-    // reset the robot state
-    Eigen::VectorXd jointVelocities;
-    jointVelocities.resize(this->getDoFsNumber());
-    jointVelocities.setZero();
-    Eigen::Matrix4d basePose;
-    basePose.setIdentity();
-    Eigen::VectorXd baseVelocity;
-    baseVelocity.resize(6);
-    baseVelocity.setZero();
-    m_kinDyn->setRobotState(basePose, m_calibrationJointPositions, baseVelocity, jointVelocities, m_gravity);
+    const Eigen::Matrix4d basePose = Eigen::Matrix4d::Identity();
+    const Eigen::VectorXd baseVelocity = Eigen::VectorXd::Zero(6);
+    const Eigen::VectorXd jointVelocities = Eigen::VectorXd::Zero(this->getDoFsNumber());
+
+    setInternalState(basePose, m_calibrationJointPositions, baseVelocity, jointVelocities);
 
     manif::SO3d secondaryCalib = manif::SO3d::Identity();
     // if a reference frame is provided, compute the world rotation matrix of the reference frame
@@ -576,9 +585,6 @@ bool HumanIK::calibrateAllWithWorld(std::unordered_map<int, nodeData> nodeStruct
     }
     resetFloorContactTasksAfterCalibration();
 
-    // set the flag to true to reset the integration
-    m_tPose = true;
-
     return true;
 }
 
@@ -613,16 +619,6 @@ bool HumanIK::advance()
     {
         BiomechanicalAnalysis::log()->error("[HumanIK::advance] Error in the integration.");
         return false;
-    }
-
-    if (m_tPose)
-    {
-        Eigen::Matrix4d basePose; // Pose of the base
-        Eigen::VectorXd initialJointPositions; // Initial positions of the joints
-        basePose.setIdentity(); // Set the base pose to the identity matrix
-        m_system.dynamics->setState(
-            {basePose.topRightCorner<3, 1>(), toManifRot(basePose.topLeftCorner<3, 3>()), m_calibrationJointPositions});
-        m_tPose = false;
     }
 
     // Get the solution (base position, base rotation, joint positions) from the integrator

@@ -182,6 +182,20 @@ private:
      */
     void resetFloorContactTasksAfterCalibration();
 
+    /**
+     * Atomically synchronize internal state with both KinDyn and dynamics integrator.
+     * This ensures m_kinDyn and m_system.dynamics remain in sync to prevent state divergence.
+     * @param basePose the desired base pose (4x4 homogeneous transformation)
+     * @param jointPositions the desired joint positions
+     * @param baseVelocity the desired base velocity (mixed representation: linear and angular)
+     * @param jointVelocities the desired joint velocities
+     * @return true if state synchronization succeeds
+     */
+    bool setInternalState(const Eigen::Matrix4d& basePose,
+                          const Eigen::VectorXd& jointPositions,
+                          const Eigen::VectorXd& baseVelocity,
+                          const Eigen::VectorXd& jointVelocities);
+
     std::chrono::nanoseconds m_dtIntegration; /** Integration time step in nanoseconds */
 
     /**
@@ -352,7 +366,6 @@ private:
     object */
 
     int m_nrDoFs; /** Number of Joint Degrees of Freedom */
-    bool m_tPose{false}; /** Flag for resetting the integrator state */
     Eigen::Vector3d m_worldAnchorTranslation = Eigen::Vector3d::Zero(); /** Translation offset
                                                                           added to pose and
                                                                           position setpoints to
