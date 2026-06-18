@@ -410,8 +410,17 @@ bool HumanIK::clearCalibrationMatrices()
 
 bool HumanIK::resetWorldAnchorTranslation()
 {
+    const Eigen::Vector3d removedAnchorTranslation = m_worldAnchorTranslation;
+
+    Eigen::Matrix4d shiftedBasePose = m_basePose;
+    shiftedBasePose.topRightCorner<3, 1>() -= removedAnchorTranslation;
+
     m_worldAnchorTranslation.setZero();
-    return true;
+
+    const bool ok = setInternalState(shiftedBasePose, m_jointPositions, m_baseVelocity, m_jointVelocities);
+    resetFloorContactTasksAfterCalibration();
+
+    return ok;
 }
 
 bool HumanIK::setInternalState(const Eigen::Matrix4d& basePose,
@@ -441,6 +450,7 @@ bool HumanIK::resetJointState()
 
     // Atomically sync both internal state and integrator to reset condition
     bool ok = setInternalState(m_basePose, m_calibrationJointPositions, zeroBaseVelocity, zeroJointVelocities);
+    resetFloorContactTasksAfterCalibration();
 
     return ok;
 }
@@ -448,7 +458,14 @@ bool HumanIK::resetJointState()
 bool HumanIK::recenterWorldAnchor()
 {
     updateWorldAnchorTranslationFromCurrentBaseXY();
-    return true;
+
+    Eigen::Matrix4d recenteredBasePose = m_basePose;
+    recenteredBasePose.topRightCorner<2, 1>().setZero();
+
+    const bool ok = setInternalState(recenteredBasePose, m_jointPositions, m_baseVelocity, m_jointVelocities);
+    resetFloorContactTasksAfterCalibration();
+
+    return ok;
 }
 
 void HumanIK::resetFloorContactTasksAfterCalibration()

@@ -693,8 +693,7 @@ public:
 
     /**
      * Recenter pose/position targets by accumulating the current base xy into the world anchor.
-     * @note This operation only updates the anchor translation.
-     * @return true if the anchor is updated correctly
+     * @return true if operation was successful
      */
     bool recenterWorldAnchor();
 
