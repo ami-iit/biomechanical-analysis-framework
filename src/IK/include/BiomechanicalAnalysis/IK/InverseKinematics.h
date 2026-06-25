@@ -284,6 +284,7 @@ private:
         std::string taskName;
         std::string frameName;
         double verticalForceThreshold;
+        manif::SO3d M_R_L = manif::SO3d::Identity(); // Fixed rotation from force measurement frame M to link/task frame L.
     };
 
     /**
@@ -442,6 +443,7 @@ public:
      * |`FloorContactTask`|          `kp_linear`           |  `double`  |                          Gain of the distance controller                                |  Yes  |
      * |`FloorContactTask`|         `frame_name`           |  `string`  |                 Name of the frame to which apply the floor contact task                 |  Yes  |
      * |`FloorContactTask`|   `vertical_force_threshold`   |  `double`  |                 Threshold of the vertical force to consider the foot in contact         |  Yes  |
+     * |`FloorContactTask`|      `rotation_matrix`         |`vector<double>`|    Fixed rotation from force measurement frame to link frame. Default identity.     |  No   |
      * |`FloorContactTask`|           `weight`             |  `vector<double>`  |                           Weight of the task                                    |  Yes  |
      *
      * The "JointRegularizationTask" requires the following parameters:

@@ -371,7 +371,17 @@ bool HumanIK::updateFloorContactTasks(const std::unordered_map<int, Eigen::Matri
 {
     for (const auto& [node, data] : wrenchMap)
     {
-        if (!updateFloorContactTask(node, data(WRENCH_FORCE_Z), linkHeight))
+        auto floorContactTask = m_FloorContactTasks.find(node);
+        if (floorContactTask == m_FloorContactTasks.end())
+        {
+            BiomechanicalAnalysis::log()->error("[HumanIK::updateFloorContactTasks] Invalid node number {}.", node);
+            return false;
+        }
+
+        const Eigen::Vector3d forceInMeasurementFrame = data.segment<3>(WRENCH_FORCE_X);
+        const Eigen::Vector3d forceInLinkFrame = floorContactTask->second.M_R_L.rotation() * forceInMeasurementFrame;
+
+        if (!updateFloorContactTask(node, forceInLinkFrame(WRENCH_FORCE_Z), linkHeight))
         {
             BiomechanicalAnalysis::log()->error("[HumanIK::updateFloorContactTasks] Error in updating "
                                                 "the floor contact task of node {}",
@@ -1123,6 +1133,22 @@ bool HumanIK::initializeFloorContactTask(const std::string& taskName,
                                             logPrefix,
                                             taskName);
         return false;
+    }
+
+    std::vector<double> rotationMatrix;
+    if (taskHandler->getParameter("rotation_matrix", rotationMatrix))
+    {
+        if (rotationMatrix.size() != 9)
+        {
+            BiomechanicalAnalysis::log()->error("{} The size of the parameter rotation_matrix of "
+                                                "the {} task is {}, it should be 9",
+                                                logPrefix,
+                                                taskName,
+                                                rotationMatrix.size());
+            return false;
+        }
+
+        m_FloorContactTasks[taskNumber].M_R_L = toManifRot(Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(rotationMatrix.data()));
     }
 
     // Map weight vector to Eigen::Vector3d and assign it to the corresponding FloorContactTask
