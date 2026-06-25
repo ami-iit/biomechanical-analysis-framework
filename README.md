@@ -83,6 +83,10 @@ This repository also contains Python code for computing Key Performance Indicato
 
 For detailed instructions on how to install and use the Python package, as well as information on the KPIs we compute, please refer to the [`README`](.baf_kpi/README.md) in the `baf_kpi` directory.
 
+## Inverse Kinematics Documentation
+
+For practical guidance on HumanIK calibration, world alignment, pose and position task behavior, and the typical calibrate-update-advance loop, see [docs/ik-calibration-and-runtime.md](docs/ik-calibration-and-runtime.md).
+
 ## Maintainers
 
 - RiccardoGrieco ([@RiccardoGrieco](https://github.com/RiccardoGrieco))
