@@ -76,6 +76,10 @@ include(AddBiomechanicalAnalysisLibrary)
 
 add_subdirectory(src)
 
+if(FRAMEWORK_COMPILE_YarpImplementation)
+  add_subdirectory(devices)
+endif()
+
 #Creates the interface target BiomechanicalAnalysis::Framework that depends on all the targets.
 #By including the file "BiomechanicalAnalysis/Framework.h" it is possible to include all the headers automatically.
 include(AddBiomechanicalAnalysisFrameworkTarget)
