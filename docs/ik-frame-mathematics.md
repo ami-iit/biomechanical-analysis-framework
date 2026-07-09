@@ -88,7 +88,7 @@ $$^S\mathbf{p}_L = {^S\mathbf{p}_M} + {^S R_M} \cdot {^M\mathbf{p}_L}$$
 
 **World-anchored target position:**
 
-$$^{WA}\mathbf{p}_L = \mathrm{position}\!\left({^{WA}H_W} \cdot {^W\hat{H}_S} \cdot {^S H_M} \cdot {^M H_L}\right)$$
+$$^{WA}\mathbf{p}_L = \mathrm{position}\left({^{WA}H_W} \cdot {^W\hat{H}_S} \cdot {^S H_M} \cdot {^M H_L}\right)$$
 
 **Linear velocity setpoint:**
 
@@ -104,11 +104,11 @@ The world anchor does not contribute to velocity because $^{WA}H_W$ has identity
 
 **Computation (per task node):**
 
-$$\text{raw offset} = {^W R_L} \cdot \mathrm{rotation}\!\left({^S H_M} \cdot {^M H_L}\right)^T$$
+$$\text{raw offset} = {^W R_L} \cdot \mathrm{rotation}\left({^S H_M} \cdot {^M H_L}\right)^T$$
 
 Extract and retain only the yaw component:
 
-$$^W\hat{R}_{S,\,\mathrm{yaw}} = SO3\!\left(0,\, 0,\, \mathrm{yaw}(\text{raw offset})\right)$$
+$$^W\hat{R}_{S,\,\mathrm{yaw}} = SO3\left(0,\, 0,\, \mathrm{yaw}(\text{raw offset})\right)$$
 
 **State updated:**
 
