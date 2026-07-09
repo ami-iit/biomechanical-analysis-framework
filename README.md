@@ -89,7 +89,7 @@ For practical guidance on HumanIK calibration, world alignment, pose and positio
 
 ## Devices
 
-This repository also provides yarp devices in the `devices` folder. See the [`README`](devices/README.md) in the `devices` directory for build, installation, and configuration instructions.
+This repository also provides yarp devices in the `devices` folder, enabled by the CMake option `FRAMEWORK_COMPILE_YarpDevices`. See the [`README`](devices/README.md) in the `devices` directory for build, installation, and configuration instructions.
 
 ## Maintainers
 
