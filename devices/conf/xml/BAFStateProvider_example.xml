@@ -2,6 +2,22 @@
 <!DOCTYPE robot PUBLIC "-//YARP//DTD yarprobotinterface 3.0//EN" "http://www.yarp.it/DTD/yarprobotinterfaceV3.0.dtd">
 <robot name="BAFStateProvider-Example" build=0 portprefix="">
 
+    <!--
+      This configuration file sets up the BAF human state estimation pipeline. Main sections:
+        - TransformClient / IFrameTransformToIWear / WearableRemapper: acquire frame transforms
+          (e.g. from a motion capture / tracking system) and expose them as wearable data sources.
+        - StateProvider (baf_state_provider): runs the BAF inverse kinematics (IK) solver.
+          * "tasks": list of IK tasks to enable, each mapped to a <group> defining its parameters.
+          * Per-link tasks (e.g. CHEST_TASK, L_UPPER_ARM_TASK, ROOT_LINK_TASK, ...): SO3Task/PoseTask
+            groups constraining specific model frames to tracked orientations/poses.
+          * Regularization/constraint tasks (JOINT_LIMITS_TASK, JOINT_REG_TASK,
+            JOINT_VEL_LIMITS_TASK, BASE_VEL_REG_TASK): keep the solution within joint/velocity
+            bounds and regularize the robot base and joint configuration.
+          * TASK_TO_SENSORS: maps each task name to the wearable sensor/source providing its target.
+        - HumanState_nws_yarp / WearableTargets_nws_yarp: optional YARP network wrapper servers
+          that stream the estimated human state and wearable targets on YARP ports.
+    -->
+
     <device type="frameTransformClient" name="TransformClient">
         <param name="period">0.01</param>
         <param name="filexml_option">ftc_yarp_only.xml</param>
@@ -12,12 +28,11 @@
 
     <device type="iframetransform_to_iwear" name="IFrameTransformToIWear">
         <param name="wearableName">WearableTransforms</param>
-        <param extern-name="rootFrame" name="rootFrameID">openxr_origin_raw</param>
+        <param extern-name="rootFrame" name="rootFrameID">world_origin</param>
         <param name="wearableSensorType">PoseSensor</param>
-        <param extern-name="frames" name="frameIDs">(root_link_desired
-                                                     openxr_head
-                                                     right_glove
-                                                     left_glove)</param>
+        <param extern-name="frames" name="frameIDs">(head
+                                                     right_hand
+                                                     left_hand)</param>
         <action phase="startup" level="5" type="attach">
             <paramlist name="networks">
                 <elem name="IFrameTransformToIWearLabel">TransformClient</elem>
@@ -42,8 +57,8 @@
         <param name="rpcPortPrefix">stateProvider</param>
 
         <!-- BAF IK configuration: list the available tasks and map each one to a wearable sensor source. -->
-        <param name="tasks">(chest l_upper_arm l_forearm r_upper_arm r_forearm
-                             root_link r_hand_palm l_hand_palm head
+        <param name="tasks">(CHEST_TASK L_UPPER_ARM_TASK L_FOREARM_TASK R_UPPER_ARM_TASK R_FOREARM_TASK
+                             ROOT_LINK_TASK R_HAND_PALM_TASK L_HAND_PALM_TASK HEAD_TASK
                              JOINT_LIMITS_TASK JOINT_REG_TASK
                              JOINT_VEL_LIMITS_TASK BASE_VEL_REG_TASK)</param>
 
@@ -52,7 +67,7 @@
             <param name="verbosity">false</param>
         </group>
 
-        <group name="chest">
+        <group name="CHEST_TASK">
             <param name="type">SO3Task</param>
             <param name="robot_velocity_variable_name">robot_velocity</param>
             <param name="frame_name">chest</param>
@@ -62,7 +77,7 @@
             <param name="rotation_matrix">(0.0 1.0 0.0  0.0 0.0 -1.0  -1.0 0.0 0.0)</param>
         </group>
 
-        <group name="l_upper_arm">
+        <group name="L_UPPER_ARM_TASK">
             <param name="type">SO3Task</param>
             <param name="robot_velocity_variable_name">robot_velocity</param>
             <param name="frame_name">l_upper_arm</param>
@@ -72,7 +87,7 @@
             <param name="rotation_matrix">(-1.0 0.0 0.0  0.0 1.0 0.0  0.0 0.0 -1.0)</param>
         </group>
 
-        <group name="l_forearm">
+        <group name="L_FOREARM_TASK">
             <param name="type">SO3Task</param>
             <param name="robot_velocity_variable_name">robot_velocity</param>
             <param name="frame_name">l_forearm</param>
@@ -82,7 +97,7 @@
             <param name="rotation_matrix">(-1.0 0.0 0.0  0.0 1.0 0.0  0.0 0.0 -1.0)</param>
         </group>
 
-        <group name="r_upper_arm">
+        <group name="R_UPPER_ARM_TASK">
             <param name="type">SO3Task</param>
             <param name="robot_velocity_variable_name">robot_velocity</param>
             <param name="frame_name">r_upper_arm</param>
@@ -92,7 +107,7 @@
             <param name="rotation_matrix">(-1.0 0.0 0.0  0.0 1.0 0.0  0.0 0.0 -1.0)</param>
         </group>
 
-        <group name="r_forearm">
+        <group name="R_FOREARM_TASK">
             <param name="type">SO3Task</param>
             <param name="robot_velocity_variable_name">robot_velocity</param>
             <param name="frame_name">r_forearm</param>
@@ -102,7 +117,7 @@
             <param name="rotation_matrix">(-1.0 0.0 0.0  0.0 1.0 0.0  0.0 0.0 -1.0)</param>
         </group>
 
-        <group name="root_link">
+        <group name="ROOT_LINK_TASK">
             <param name="type">PoseTask</param>
             <param name="robot_velocity_variable_name">robot_velocity</param>
             <param name="frame_name">root_link</param>
@@ -112,7 +127,7 @@
             <param name="weight">(1.0 1.0 1.0 1.0 1.0 1.0)</param>
         </group>
 
-        <group name="r_hand_palm">
+        <group name="R_HAND_PALM_TASK">
             <param name="type">PoseTask</param>
             <param name="robot_velocity_variable_name">robot_velocity</param>
             <param name="frame_name">r_hand_palm</param>
@@ -122,7 +137,7 @@
             <param name="weight">(1.0 1.0 1.0 1.0 1.0 1.0)</param>
         </group>
 
-        <group name="l_hand_palm">
+        <group name="L_HAND_PALM_TASK">
             <param name="type">PoseTask</param>
             <param name="robot_velocity_variable_name">robot_velocity</param>
             <param name="frame_name">l_hand_palm</param>
@@ -132,7 +147,7 @@
             <param name="weight">(1.0 1.0 1.0 1.0 1.0 1.0)</param>
         </group>
 
-        <group name="head">
+        <group name="HEAD_TASK">
             <param name="type">PoseTask</param>
             <param name="robot_velocity_variable_name">robot_velocity</param>
             <param name="frame_name">head</param>
@@ -190,15 +205,15 @@
         </group>
 
         <group name="TASK_TO_SENSORS">
-            <param name="root_link">WearableTransforms::pose::root_link</param>
-            <param name="chest">WearableSuit::vLink::chest</param>
-            <param name="r_hand_palm">WearableTransforms::pose::right_hand</param>
-            <param name="l_hand_palm">WearableTransforms::pose::left_hand</param>
-            <param name="head">WearableTransforms::pose::head</param>
-            <param name="l_upper_arm">WearableSuit::vLink::left_upper_arm</param>
-            <param name="l_forearm">WearableSuit::vLink::left_forearm</param>
-            <param name="r_upper_arm">WearableSuit::vLink::right_upper_arm</param>
-            <param name="r_forearm">WearableSuit::vLink::right_forearm</param>
+            <param name="ROOT_LINK_TASK">WearableTransforms::pose::root_link</param>
+            <param name="CHEST_TASK">WearableSuit::vLink::chest</param>
+            <param name="R_HAND_PALM_TASK">WearableTransforms::pose::right_hand</param>
+            <param name="L_HAND_PALM_TASK">WearableTransforms::pose::left_hand</param>
+            <param name="HEAD_TASK">WearableTransforms::pose::head</param>
+            <param name="L_UPPER_ARM_TASK">WearableSuit::vLink::left_upper_arm</param>
+            <param name="L_FOREARM_TASK">WearableSuit::vLink::left_forearm</param>
+            <param name="R_UPPER_ARM_TASK">WearableSuit::vLink::right_upper_arm</param>
+            <param name="R_FOREARM_TASK">WearableSuit::vLink::right_forearm</param>
         </group>
 
         <action phase="startup" level="5" type="attach">
