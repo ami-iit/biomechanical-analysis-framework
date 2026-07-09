@@ -17,7 +17,9 @@ For a practical usage guide covering the calibration workflow and runtime loop, 
 
 Each $H$ matrix is a $4 \times 4$ homogeneous transformation:
 
+```math
 $$^A H_B = \begin{bmatrix} ^A R_B & ^A \mathbf{p}_B \\ \mathbf{0} & 1 \end{bmatrix}$$
+```
 
 where $^A R_B \in SO(3)$ is the rotation block and $^A \mathbf{p}_B \in \mathbb{R}^3$ is the translation.
 
@@ -42,7 +44,7 @@ where:
 
 **Setpoint (rotation only):**
 
-$$^{WA}\hat{R}_L = \mathrm{rotation}\!\left({^W\hat{H}_S} \cdot {^S H_M} \cdot {^M\hat{H}_L}\right)$$
+$$^{WA}\hat{R}_L = \mathrm{rotation}\left({^W\hat{H}_S} \cdot {^S H_M} \cdot {^M\hat{H}_L}\right)$$
 
 where $\mathrm{rotation}(\cdot)$ extracts the $3 \times 3$ upper-left block.
 
@@ -140,7 +142,9 @@ where $^{\mathrm{ref}}H_W = \left({^W H_{\mathrm{ref}}}\right)^{-1}$ and `ref` i
 
 The world anchor $^{WA}H_W$ has identity rotation and a translation-only update rule:
 
+```math
 $$^{WA}H_W = \begin{bmatrix} I & ^{WA}\mathbf{p}_W \\ \mathbf{0} & 1 \end{bmatrix}$$
+```
 
 **Accumulation during calibration or base reset:**
 
