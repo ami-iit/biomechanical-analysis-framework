@@ -9,6 +9,9 @@
 // iDynTree
 #include <iDynTree/KinDynComputations.h>
 
+// std
+#include <unordered_set>
+
 // BipedalLocomotion
 #if __has_include(<BipedalLocomotion/ContinuousDynamicalSystem/FloatingBaseSystemVelocityKinematics.h>)
 #include <BipedalLocomotion/ContinuousDynamicalSystem/FloatingBaseSystemVelocityKinematics.h>
@@ -29,6 +32,7 @@ typedef FloatingBaseSystemKinematics FloatingBaseSystemVelocityKinematics;
 #include <BipedalLocomotion/IK/JointVelocityLimitsTask.h>
 #include <BipedalLocomotion/IK/QPInverseKinematics.h>
 #include <BipedalLocomotion/IK/R3Task.h>
+#include <BipedalLocomotion/IK/SE3Task.h>
 #include <BipedalLocomotion/IK/SO3Task.h>
 #include <BipedalLocomotion/ParametersHandler/IParametersHandler.h>
 #include <BipedalLocomotion/ParametersHandler/StdImplementation.h>
@@ -49,6 +53,31 @@ struct nodeData
     manif::SO3Tangentd I_omega_IMU = manif::SO3d::Tangent::Zero();
 };
 
+/**
+ * @brief Struct containing the raw measured position and linear velocity of a frame M in the
+ * sensor world S.
+ * @note The IK computes the target link/task point by applying the calibrated world alignment and
+ * the fixed translational extrinsic configured for the task.
+ */
+struct positionData
+{
+    Eigen::Vector3d S_p_M;
+    Eigen::Vector3d S_v_M = Eigen::Vector3d::Zero();
+};
+
+/**
+ * @brief Struct containing the raw measured pose and mixed 6D velocity of a frame M in the sensor
+ * world S.
+ * @note The IK computes the target link pose as W_H_L = W_H_S * S_H_M * M_H_L, with runtime
+ * calibration updating only W_R_S while the translational part of M_H_L stays fixed from
+ * initialization.
+ */
+struct poseData
+{
+    manif::SE3d S_H_M = manif::SE3d::Identity();
+    manif::SE3d::Tangent S_v_M = manif::SE3d::Tangent::Zero();
+};
+
 // clang-format off
 /**
  * @brief HumanIK class is a class in which the inverse kinematics problem is solved.
@@ -60,29 +89,35 @@ private:
     /**
      * initialize the SO3 task
      * @param taskName name of the task
-     * @param handler pointer to the parameters handler
+     * @param taskHandler pointer to the parameters handler
+     * @param usedNodeNumbers set of node numbers already assigned to a task, updated on success
      * @return true if the SO3 task is initialized correctly
      */
     bool initializeOrientationTask(const std::string& taskName,
-                                   const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
+                                   const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler,
+                                   std::unordered_set<int>& usedNodeNumbers);
 
     /**
      * initialize the gravity task
      * @param taskName name of the task
-     * @param handler pointer to the parameters handler
+     * @param taskHandler pointer to the parameters handler
+     * @param usedNodeNumbers set of node numbers already assigned to a task, updated on success
      * @return true if the gravity task is initialized correctly
      */
     bool initializeGravityTask(const std::string& taskName,
-                               const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
+                               const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler,
+                               std::unordered_set<int>& usedNodeNumbers);
 
     /**
-     * initialize the R3 task
+     * initialize the floor contact task (R3Task)
      * @param taskName name of the task
-     * @param handler pointer to the parameters handler
-     * @return true if the R3 task is initialized correctly
+     * @param taskHandler pointer to the parameters handler
+     * @param usedNodeNumbers set of node numbers already assigned to a task, updated on success
+     * @return true if the floor contact task is initialized correctly
      */
     bool initializeFloorContactTask(const std::string& taskName,
-                                    const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
+                                    const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler,
+                                    std::unordered_set<int>& usedNodeNumbers);
 
     /**
      * Initialize the joint regularization task.
@@ -114,6 +149,52 @@ private:
     bool
     initializeBaseVelocityRegularizationTask(const std::string& taskName,
                                              const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler);
+
+    /**
+     * Initialize the position task (R3Task).
+     * @param taskName name of the task
+     * @param taskHandler pointer to the parameters handler
+     * @param usedNodeNumbers set of node numbers already assigned to a task, updated on success
+     * @return true if the position task is initialized correctly
+     */
+    bool initializePositionTask(const std::string& taskName,
+                                const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler,
+                                std::unordered_set<int>& usedNodeNumbers);
+
+    /**
+     * Initialize the pose task (SE3Task).
+     * @param taskName name of the task
+     * @param taskHandler pointer to the parameters handler
+     * @param usedNodeNumbers set of node numbers already assigned to a task, updated on success
+     * @return true if the pose task is initialized correctly
+     */
+    bool initializePoseTask(const std::string& taskName,
+                            const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler> taskHandler,
+                            std::unordered_set<int>& usedNodeNumbers);
+
+    /**
+     * Accumulate the current base xy translation in the world anchor used by pose/position tasks.
+     */
+    void updateWorldAnchorTranslationFromCurrentBaseXY();
+
+    /**
+     * Refresh floor-contact setpoints after calibration/reset events while preserving contact mode.
+     */
+    void resetFloorContactTasksAfterCalibration();
+
+    /**
+     * Atomically synchronize internal state with both KinDyn and dynamics integrator.
+     * This ensures m_kinDyn and m_system.dynamics remain in sync to prevent state divergence.
+     * @param basePose the desired base pose (4x4 homogeneous transformation)
+     * @param jointPositions the desired joint positions
+     * @param baseVelocity the desired base velocity (mixed representation: linear and angular)
+     * @param jointVelocities the desired joint velocities
+     * @return true if state synchronization succeeds
+     */
+    bool setInternalState(const Eigen::Matrix4d& basePose,
+                          const Eigen::VectorXd& jointPositions,
+                          const Eigen::VectorXd& baseVelocity,
+                          const Eigen::VectorXd& jointVelocities);
 
     std::chrono::nanoseconds m_dtIntegration; /** Integration time step in nanoseconds */
 
@@ -162,6 +243,9 @@ private:
                                                                  // will be calibrated using Tpose
                                                                  // script
         manif::SO3d W_R_link; // Calibrated orientation of the link in the inertial frame
+        manif::SO3d W_R_link_setPoint = manif::SO3d::Identity(); // Last orientation setpoint passed to the SO3 task
+        Eigen::Vector3d W_omega_link_setPoint = Eigen::Vector3d::Zero(); // Last angular velocity setpoint passed to the SO3 task
+        bool hasSetPoint{false}; // True once updateOrientationTask() has passed a setpoint to the solver
         Eigen::Vector3d weight; // Weight of the task
         std::string frameName; // Name of the frame in which the task is expressed
     };
@@ -178,6 +262,8 @@ private:
                                      // file
         manif::SO3d calibrationMatrix = manif::SO3d::Identity();
         manif::SO3d W_R_link; // Calibrated orientation of the link in the inertial frame
+        Eigen::Vector3d gravityDirectionSetPoint = Eigen::Vector3d::Zero(); // Last direction setpoint passed to the gravity task
+        bool hasSetPoint{false}; // True once updateGravityTask() has passed a setpoint to the solver
         Eigen::Vector2d weight;
         int nodeNumber;
         std::string taskName;
@@ -198,6 +284,48 @@ private:
         std::string taskName;
         std::string frameName;
         double verticalForceThreshold;
+        manif::SO3d M_R_L = manif::SO3d::Identity(); // Fixed rotation from force measurement frame M to link/task frame L.
+    };
+
+    /**
+     * Struct containing the R3 (position) task from BipedalLocomotion IK.
+     */
+    struct PositionTaskStruct
+    {
+        std::shared_ptr<BipedalLocomotion::IK::R3Task> task;
+        Eigen::Vector3d weight;
+        int nodeNumber;
+        std::string taskName;
+        std::string frameName;
+        manif::SO3d W_R_S = manif::SO3d::Identity(); // World alignment rotation applied on the left.
+        manif::SO3d S_R_M = manif::SO3d::Identity(); // Fixed orientation of the measured frame M in sensor world S,
+                                                     // initialized from config and not recalibrated online.
+        Eigen::Vector3d M_p_L = Eigen::Vector3d::Zero(); // Fixed translational extrinsic from the measured frame M to the
+                                                         // task/link point L, expressed in M and loaded from config.
+        Eigen::Vector3d W_p_frame_setPoint = Eigen::Vector3d::Zero(); // Last position setpoint passed to the R3 task
+        Eigen::Vector3d W_v_frame_setPoint = Eigen::Vector3d::Zero(); // Last linear velocity setpoint passed to the R3 task
+        bool hasSetPoint{false}; // True once updatePositionTask() has passed a setpoint to the solver
+    };
+
+    /**
+     * Struct containing the SE3 (position + orientation) task from BipedalLocomotion IK.
+     */
+    struct PoseTaskStruct
+    {
+        std::shared_ptr<BipedalLocomotion::IK::SE3Task> task;
+        Eigen::Matrix<double, 6, 1> weight;
+        int nodeNumber;
+        std::string taskName;
+        std::string frameName;
+        manif::SO3d M_R_L; // Fixed rotational extrinsic from the measured frame M to the related link L
+        manif::SO3d M_R_L_init; // Initial value set through config file
+        Eigen::Vector3d M_p_L = Eigen::Vector3d::Zero(); // Fixed translational extrinsic from the measured frame M to the link
+                                                         // origin L, expressed in M and loaded from config.
+        manif::SO3d W_R_S = manif::SO3d::Identity(); // Dynamic world alignment rotation updated by calibration.
+        manif::SO3d W_R_link; // Calibrated orientation of the link in the inertial frame
+        manif::SE3d W_H_frame_setPoint = manif::SE3d::Identity(); // Last pose setpoint passed to the SE3 task
+        manif::SE3d::Tangent W_v_frame_setPoint = manif::SE3d::Tangent::Zero(); // Last mixed velocity setpoint passed to the SE3 task
+        bool hasSetPoint{false}; // True once updatePoseTask() has passed a setpoint to the solver
     };
 
     std::shared_ptr<BipedalLocomotion::IK::JointTrackingTask> m_jointRegularizationTask; /** Joint
@@ -232,11 +360,22 @@ private:
     std::unordered_map<int, FloorContactTaskStruct> m_FloorContactTasks; /** unordered map of the
                                                                     floor contact tasks */
 
+    std::unordered_map<int, PositionTaskStruct> m_PositionTasks; /** unordered map of the position tasks */
+    std::unordered_map<int, PoseTaskStruct> m_PoseTasks; /** unordered map of the pose tasks */
+
     std::shared_ptr<iDynTree::KinDynComputations> m_kinDyn; /** pointer to the KinDynComputations
     object */
 
     int m_nrDoFs; /** Number of Joint Degrees of Freedom */
-    bool m_tPose{false}; /** Flag for resetting the integrator state */
+    Eigen::Vector3d m_worldAnchorTranslation = Eigen::Vector3d::Zero(); /** Translation offset
+                                                                          added to pose and
+                                                                          position setpoints to
+                                                                          re-centre absolute sensor
+                                                                          measurements around the
+                                                                          IK world origin after
+                                                                          each calibration reset.
+                                                                          Accumulates as
+                                                                          -base_xy_pre_reset. */
 
     BipedalLocomotion::IK::QPInverseKinematics m_qpIK; /** QP Inverse Kinematics solver */
     BipedalLocomotion::System::VariablesHandler m_variableHandler; /** Variables handler */
@@ -269,7 +408,9 @@ public:
      * For **each** task listed in the parameter `tasks` the user must specify all the parameters
      * required by the task itself but `robot_velocity_variable_name` since is already specified in
      * the `IK` group. Moreover, each task requires a parameter `type` that identifies the type of
-     * task. Up to now, only the "SO3Task" is implemented.
+     * task. The supported task types are: `SO3Task`, `GravityTask`, `FloorContactTask`,
+     * `JointRegularizationTask`, `JointConstraintTask`, `JointVelocityLimitsTask`,
+     * `BaseVelocityRegularizationTask`, `PositionTask`, `PoseTask`.
      * The "SO3Task" requires the following parameters:
      * |   Group   |         Parameter Name         |       Type      |                                       Description                                       | Mandatory |
      * |:---------:|:------------------------------:|:---------------:|:---------------------------------------------------------------------------------------:|:---------:|
@@ -302,6 +443,7 @@ public:
      * |`FloorContactTask`|          `kp_linear`           |  `double`  |                          Gain of the distance controller                                |  Yes  |
      * |`FloorContactTask`|         `frame_name`           |  `string`  |                 Name of the frame to which apply the floor contact task                 |  Yes  |
      * |`FloorContactTask`|   `vertical_force_threshold`   |  `double`  |                 Threshold of the vertical force to consider the foot in contact         |  Yes  |
+     * |`FloorContactTask`|      `rotation_matrix`         |`vector<double>`|    Fixed rotation from force measurement frame to link frame. Default identity.     |  No   |
      * |`FloorContactTask`|           `weight`             |  `vector<double>`  |                           Weight of the task                                    |  Yes  |
      *
      * The "JointRegularizationTask" requires the following parameters:
@@ -322,6 +464,38 @@ public:
      * |`JointConstraintsTask`|        `joints_list`           |`vector<string>`| Vector containing the joints name to set the limits. Required `use_model_limits` is set to false.   |    No     |
      * |`JointConstraintsTask`|        `upper_limits`          |`vector<double>`| Vector containing the upper limits of the specified joints. Required `use_model_limits` is set to false.   |    No     |
      * |`JointConstraintsTask`|        `lower_limits`          |`vector<double>`| Vector containing the lower limits of the specified joints. Required `use_model_limits` is set to false.   |    No     |
+     *
+     * The "PositionTask" controls the 3D position of a frame using a proportional controller in R3.
+        * The set-point is provided at runtime via `updatePositionTask()` as a raw measured position of
+        * frame M in sensor world S. The task applies the fixed extrinsic from M to the controlled point.
+     * |      Group       |         Parameter Name         |       Type          |                                         Description                                          | Mandatory |
+     * |:----------------:|:------------------------------:|:-------------------:|:--------------------------------------------------------------------------------------------:|:---------:|
+     * | `PositionTask`   |           `type`               |     `string`        |                     Type of the task. The value to be set is `PositionTask`                  |    Yes    |
+     * | `PositionTask`   | `robot_velocity_variable_name` |     `string`        | Name of the variable contained in `VariablesHandler` describing the generalized robot velocity|    Yes    |
+     * | `PositionTask`   |        `node_number`           |      `int`          |                    Node number of the task. The node number must be unique.                  |    Yes    |
+     * | `PositionTask`   |         `frame_name`           |     `string`        |                          Name of the frame whose position is controlled.                     |    Yes    |
+        * | `PositionTask`   |      `rotation_matrix`         | `vector<double>`    | Fixed orientation of measured frame M in sensor world S. Default is identity.               |    No     |
+        * | `PositionTask`   |      `position_offset`         | `vector<double>`    | Fixed translation from measured frame M to the controlled point, expressed in M.            |    No     |
+     * | `PositionTask`   |         `kp_linear`            | `double` or `vector<double>` |              Gain of the proportional position controller.                          |    Yes    |
+     * | `PositionTask`   |           `weight`             |  `vector<double>`   |          Weight of the task (3 elements).                                                    |    Yes    |
+     * | `PositionTask`   |            `mask`              |  `vector<bool>`     |  Mask to control only a subset of axes, e.g. `[1,0,1]` for x and z only. Default `[1,1,1]` |    No     |
+     *
+     * The "PoseTask" controls both position and orientation of a frame using proportional controllers
+    * in R3 and SO3. The set-point is provided at runtime via `updatePoseTask()` as a raw measured
+    * pose S_H_M. Runtime calibration updates only W_R_S, while the full extrinsic M_H_L stays fixed
+    * from initialization.
+     * |    Group    |         Parameter Name         |       Type          |                                         Description                                          | Mandatory |
+     * |:-----------:|:------------------------------:|:-------------------:|:--------------------------------------------------------------------------------------------:|:---------:|
+     * | `PoseTask`  |           `type`               |     `string`        |                       Type of the task. The value to be set is `PoseTask`                    |    Yes    |
+     * | `PoseTask`  | `robot_velocity_variable_name` |     `string`        | Name of the variable contained in `VariablesHandler` describing the generalized robot velocity|    Yes    |
+     * | `PoseTask`  |        `node_number`           |      `int`          |                    Node number of the task. The node number must be unique.                  |    Yes    |
+     * | `PoseTask`  |         `frame_name`           |     `string`        |                    Name of the frame whose pose (position + orientation) is controlled.      |    Yes    |
+    * | `PoseTask`  |      `rotation_matrix`         | `vector<double>`    | Fixed rotational extrinsic from measured frame M to controlled frame L. Default is identity. |    No     |
+    * | `PoseTask`  |      `position_offset`         | `vector<double>`    | Fixed translation from measured frame M to controlled frame L, expressed in M.              |    No     |
+     * | `PoseTask`  |         `kp_linear`            | `double` or `vector<double>` |              Gain of the proportional position controller.                          |    Yes    |
+     * | `PoseTask`  |        `kp_angular`            | `double` or `vector<double>` |              Gain of the proportional orientation controller.                       |    Yes    |
+     * | `PoseTask`  |           `weight`             |  `vector<double>`   |          Weight of the task (6 elements: 3 linear + 3 angular).                              |    Yes    |
+     * | `PoseTask`  |            `mask`              |  `vector<bool>`     |  Mask to control only a subset of linear axes. Default `[1,1,1]`. Angular part is always controlled. |    No     |
      * @note The following `ini` file presents an example of the configuration that can be used to
      * build the HumanIK class.
      *  ~~~~~{.ini}
@@ -472,10 +646,58 @@ public:
     bool updateFloorContactTasks(const std::unordered_map<int, Eigen::Matrix<double, 6, 1>>& wrenchMap, const double linkHeight = 0.0);
 
     /**
-     * clear the calibration matrices W_R_WIMU and IMU_R_link of all the orientation and gravity tasks
+     * Set the position set-point for a given position task node.
+     * @param node node number
+     * @param data raw measured position and linear velocity of frame M in sensor world S
+     * @return true if the set-point is set correctly
+     */
+    bool updatePositionTask(const int node, const positionData& data);
+
+    /**
+     * Set the position set-point for all position task nodes.
+     * @param positionMap unordered map from node number to desired positionData
+     * @return true if all set-points are set correctly
+     */
+    bool updatePositionTasks(const std::unordered_map<int, positionData>& positionMap);
+
+    /**
+     * Set the pose set-point for a given pose task node.
+     * @param node node number
+     * @param data raw measured pose and mixed 6D velocity of frame M in sensor world S
+     * @return true if the set-point is set correctly
+     */
+    bool updatePoseTask(const int node, const poseData& data);
+
+    /**
+     * Set the pose set-point for all pose task nodes.
+     * @param poseMap unordered map from node number to desired poseData
+     * @return true if all set-points are set correctly
+     */
+    bool updatePoseTasks(const std::unordered_map<int, poseData>& poseMap);
+
+    /**
+     * clear the calibration rotations and fixed extrinsics of all tasks to their initialized values
      * @return true if the calibration matrices are cleared correctly
      */
     bool clearCalibrationMatrices();
+
+    /**
+     * Reset the world anchor translation used to shift pose/position task setpoints.
+     * @return true if the anchor is reset correctly
+     */
+    bool resetWorldAnchorTranslation();
+
+    /**
+     * Instantly reset the joint state.
+     * @return true if the state reset is applied correctly
+     */
+    bool resetJointState();
+
+    /**
+     * Recenter pose/position targets by accumulating the current base xy into the world anchor.
+     * @return true if operation was successful
+     */
+    bool recenterWorldAnchor();
 
     /**
      * remove the offset on the yaw of the IMUs world
@@ -555,11 +777,53 @@ public:
     const manif::SO3d& getCalibratedIMURotation(int node) const;
 
     /**
-     * get the frame name of the orientation task
+     * get the frame name of a node
      * @param node node number
      * @return frame name
      */
     std::string getNodeFrameName(int node) const;
+
+    /**
+     * Get the last setpoint passed to a SO3 orientation task.
+     * @param node node number
+     * @param W_R_link orientation setpoint passed to the solver
+     * @param W_omega_link angular velocity setpoint passed to the solver
+     * @return true if a setpoint is available and copied in output parameters
+     */
+    bool getOrientationTaskSetPoint(int node, manif::SO3d& W_R_link, Eigen::Vector3d& W_omega_link) const;
+
+    /**
+     * Get the last setpoint passed to a gravity task.
+     * @param node node number
+     * @param gravityDirection direction setpoint passed to the solver
+     * @return true if a setpoint is available and copied in output parameters
+     */
+    bool getGravityTaskSetPoint(int node, Eigen::Vector3d& gravityDirection) const;
+
+    /**
+     * Get the last setpoint passed to a R3 position task.
+     * @param node node number
+     * @param W_p_frame position setpoint passed to the solver
+     * @param W_v_frame linear velocity setpoint passed to the solver
+     * @return true if a setpoint is available and copied in output parameters
+     */
+    bool getPositionTaskSetPoint(int node, Eigen::Vector3d& W_p_frame, Eigen::Vector3d& W_v_frame) const;
+
+    /**
+     * Get the last setpoint passed to a SE3 pose task.
+     * @param node node number
+     * @param W_H_frame pose setpoint passed to the solver
+     * @param W_v_frame mixed velocity setpoint passed to the solver
+     * @return true if a setpoint is available and copied in output parameters
+     */
+    bool getPoseTaskSetPoint(int node, manif::SE3d& W_H_frame, manif::SE3d::Tangent& W_v_frame) const;
+
+    /**
+     * Get the current world anchor translation used to re-anchor pose/position setpoints.
+     * @param worldAnchorTranslation anchor translation currently applied in world frame
+     * @return true if the anchor is retrieved correctly
+     */
+    bool getWorldAnchorTranslation(Eigen::Ref<Eigen::Vector3d> worldAnchorTranslation) const;
 };
 
 } // namespace IK

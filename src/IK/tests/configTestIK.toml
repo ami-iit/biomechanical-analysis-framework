@@ -1,7 +1,7 @@
 tasks = [
     "PELVIS_TASK", "T8_TASK", "RIGHT_UPPER_ARM_TASK", "GRAVITY_TASK_1", 
     "FLOOR_CONTACT_TASK_1", "JOINT_LIMITS_TASK", "JOINT_REG_TASK", "JOINT_VEL_LIMITS_TASK",
-    "BASE_VEL_REG_TASK"
+    "BASE_VEL_REG_TASK", "POSITION_TASK_1", "POSE_TASK_1"
 ]
 
 [IK]
@@ -45,7 +45,7 @@ type = "FloorContactTask"
 robot_velocity_variable_name = "robot_velocity"
 frame_name = "LeftFoot"
 kp_linear = 1.0
-floor_contact_task = 10
+floor_contact_task = 11
 weight = [10.0, 10.0, 10.0]
 vertical_force_threshold = 60.0
 
@@ -70,3 +70,22 @@ type = "BaseVelocityRegularizationTask"
 robot_velocity_variable_name = "robot_velocity"
 weight_linear_velocity = [0.01, 0.01, 0.01]
 weight_angular_velocity = [0.01, 0.01, 0.01]
+
+[POSITION_TASK_1]
+type = "PositionTask"
+robot_velocity_variable_name = "robot_velocity"
+frame_name = "RightHand"
+kp_linear = 5.0
+node_number = 20
+weight = [1.0, 1.0, 1.0]
+position_offset = [0.1, -0.2, 0.3]
+
+[POSE_TASK_1]
+type = "PoseTask"
+robot_velocity_variable_name = "robot_velocity"
+frame_name = "LeftHand"
+kp_linear = 5.0
+kp_angular = 5.0
+node_number = 21
+weight = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+position_offset = [0.4, 0.0, -0.1]
