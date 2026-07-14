@@ -87,6 +87,10 @@ For detailed instructions on how to install and use the Python package, as well 
 
 For practical guidance on HumanIK calibration, world alignment, pose and position task behavior, and the typical calibrate-update-advance loop, see [docs/ik-calibration-and-runtime.md](docs/ik-calibration-and-runtime.md).
 
+## Devices
+
+This repository also provides yarp devices in the `devices` folder, enabled by the CMake option `FRAMEWORK_COMPILE_YarpDevices`. See the [`README`](devices/README.md) in the `devices` directory for build, installation, and configuration instructions.
+
 ## Maintainers
 
 - RiccardoGrieco ([@RiccardoGrieco](https://github.com/RiccardoGrieco))

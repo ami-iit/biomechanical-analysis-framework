@@ -21,6 +21,8 @@ option(BUILD_EXAMPLES "Compile examples of the implemented classes" OFF)
 # Check BiomechanicalAnalysisFramework dependencies, find necessary libraries.
 include(BiomechanicalAnalysisFrameworkDependencies)
 
+option(FRAMEWORK_COMPILE_YarpDevices "Compile the YARP device plugins in the devices folder" OFF)
+
 #set default build type to "Release" in single-config generators
 if(NOT CMAKE_CONFIGURATION_TYPES)
     if(NOT CMAKE_BUILD_TYPE)
@@ -75,6 +77,13 @@ include(AddBiomechanicalAnalysisUnitTest)
 include(AddBiomechanicalAnalysisLibrary)
 
 add_subdirectory(src)
+
+if(FRAMEWORK_COMPILE_YarpDevices)
+  if(NOT FRAMEWORK_COMPILE_YarpImplementation)
+    message(FATAL_ERROR "FRAMEWORK_COMPILE_YarpDevices requires FRAMEWORK_COMPILE_YarpImplementation to be enabled")
+  endif()
+  add_subdirectory(devices)
+endif()
 
 #Creates the interface target BiomechanicalAnalysis::Framework that depends on all the targets.
 #By including the file "BiomechanicalAnalysis/Framework.h" it is possible to include all the headers automatically.

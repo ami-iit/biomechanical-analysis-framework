@@ -1,0 +1,250 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE robot PUBLIC "-//YARP//DTD yarprobotinterface 3.0//EN" "http://www.yarp.it/DTD/yarprobotinterfaceV3.0.dtd">
+<robot name="BAFStateProvider-Example" build=0 portprefix="">
+
+    <!--
+      This configuration file sets up the BAF human state estimation pipeline. Main sections:
+        - TransformClient / IFrameTransformToIWear / WearableRemapper: acquire frame transforms
+          (e.g. from a motion capture / tracking system) and expose them as wearable data sources.
+        - StateProvider (baf_state_provider): runs the BAF inverse kinematics (IK) solver.
+          * "tasks": list of IK tasks to enable, each mapped to a <group> defining its parameters.
+          * Per-link tasks (e.g. CHEST_TASK, L_UPPER_ARM_TASK, ROOT_LINK_TASK, ...): SO3Task/PoseTask
+            groups constraining specific model frames to tracked orientations/poses.
+          * Regularization/constraint tasks (JOINT_LIMITS_TASK, JOINT_REG_TASK,
+            JOINT_VEL_LIMITS_TASK, BASE_VEL_REG_TASK): keep the solution within joint/velocity
+            bounds and regularize the robot base and joint configuration.
+          * TASK_TO_SENSORS: maps each task name to the wearable sensor/source providing its target.
+        - HumanState_nws_yarp / WearableTargets_nws_yarp: optional YARP network wrapper servers
+          that stream the estimated human state and wearable targets on YARP ports.
+    -->
+
+    <device type="frameTransformClient" name="TransformClient">
+        <param name="period">0.01</param>
+        <param name="filexml_option">ftc_yarp_only.xml</param>
+        <param name="ft_client_prefix">/IFrameTransformToIWear/tf</param>
+        <param name="local_rpc">/IFrameTransformToIWear/tf/local_rpc</param>
+        <param name="ftc_storage_timeout">10.0</param>
+    </device>
+
+    <device type="iframetransform_to_iwear" name="IFrameTransformToIWear">
+        <param name="wearableName">WearableTransforms</param>
+        <param extern-name="rootFrame" name="rootFrameID">world_origin</param>
+        <param name="wearableSensorType">PoseSensor</param>
+        <param extern-name="frames" name="frameIDs">(head
+                                                     right_hand
+                                                     left_hand)</param>
+        <action phase="startup" level="5" type="attach">
+            <paramlist name="networks">
+                <elem name="IFrameTransformToIWearLabel">TransformClient</elem>
+           </paramlist>
+        </action>
+        <action phase="shutdown" level="5" type="detach"/>
+    </device>
+
+    <device type="iwear_remapper" name="WearableRemapper">
+        <param name="wearableDataPorts">(/Wearable/Data:o)</param>
+        <action phase="startup" level="5" type="attach">
+            <paramlist name="networks">
+                <elem name="IFrameTransformToIWear">IFrameTransformToIWear</elem>
+            </paramlist>
+        </action>
+    </device>
+
+    <device type="baf_state_provider" name="StateProvider">
+        <param name="period">0.01</param>
+        <param name="urdf">model.urdf</param>
+        <param name="floatingBaseFrame">root_link</param>
+        <param name="rpcPortPrefix">stateProvider</param>
+
+        <!-- BAF IK configuration: list the available tasks and map each one to a wearable sensor source. -->
+        <param name="tasks">(CHEST_TASK L_UPPER_ARM_TASK L_FOREARM_TASK R_UPPER_ARM_TASK R_FOREARM_TASK
+                             ROOT_LINK_TASK R_HAND_PALM_TASK L_HAND_PALM_TASK HEAD_TASK
+                             JOINT_LIMITS_TASK JOINT_REG_TASK
+                             JOINT_VEL_LIMITS_TASK BASE_VEL_REG_TASK)</param>
+
+        <group name="IK">
+            <param name="robot_velocity_variable_name">robot_velocity</param>
+            <param name="verbosity">false</param>
+        </group>
+
+        <group name="CHEST_TASK">
+            <param name="type">SO3Task</param>
+            <param name="robot_velocity_variable_name">robot_velocity</param>
+            <param name="frame_name">chest</param>
+            <param name="kp_angular">20.0</param>
+            <param name="node_number">6</param>
+            <param name="weight">(1.0 1.0 1.0)</param>
+            <param name="rotation_matrix">(0.0 1.0 0.0  0.0 0.0 -1.0  -1.0 0.0 0.0)</param>
+        </group>
+
+        <group name="L_UPPER_ARM_TASK">
+            <param name="type">SO3Task</param>
+            <param name="robot_velocity_variable_name">robot_velocity</param>
+            <param name="frame_name">l_upper_arm</param>
+            <param name="kp_angular">20.0</param>
+            <param name="node_number">5</param>
+            <param name="weight">(1.0 1.0 1.0)</param>
+            <param name="rotation_matrix">(-1.0 0.0 0.0  0.0 1.0 0.0  0.0 0.0 -1.0)</param>
+        </group>
+
+        <group name="L_FOREARM_TASK">
+            <param name="type">SO3Task</param>
+            <param name="robot_velocity_variable_name">robot_velocity</param>
+            <param name="frame_name">l_forearm</param>
+            <param name="kp_angular">20.0</param>
+            <param name="node_number">4</param>
+            <param name="weight">(1.0 1.0 1.0)</param>
+            <param name="rotation_matrix">(-1.0 0.0 0.0  0.0 1.0 0.0  0.0 0.0 -1.0)</param>
+        </group>
+
+        <group name="R_UPPER_ARM_TASK">
+            <param name="type">SO3Task</param>
+            <param name="robot_velocity_variable_name">robot_velocity</param>
+            <param name="frame_name">r_upper_arm</param>
+            <param name="kp_angular">20.0</param>
+            <param name="node_number">7</param>
+            <param name="weight">(1.0 1.0 1.0)</param>
+            <param name="rotation_matrix">(-1.0 0.0 0.0  0.0 1.0 0.0  0.0 0.0 -1.0)</param>
+        </group>
+
+        <group name="R_FOREARM_TASK">
+            <param name="type">SO3Task</param>
+            <param name="robot_velocity_variable_name">robot_velocity</param>
+            <param name="frame_name">r_forearm</param>
+            <param name="kp_angular">20.0</param>
+            <param name="node_number">8</param>
+            <param name="weight">(1.0 1.0 1.0)</param>
+            <param name="rotation_matrix">(-1.0 0.0 0.0  0.0 1.0 0.0  0.0 0.0 -1.0)</param>
+        </group>
+
+        <group name="ROOT_LINK_TASK">
+            <param name="type">PoseTask</param>
+            <param name="robot_velocity_variable_name">robot_velocity</param>
+            <param name="frame_name">root_link</param>
+            <param name="kp_angular">20.0</param>
+            <param name="kp_linear">20.0</param>
+            <param name="node_number">40</param>
+            <param name="weight">(1.0 1.0 1.0 1.0 1.0 1.0)</param>
+        </group>
+
+        <group name="R_HAND_PALM_TASK">
+            <param name="type">PoseTask</param>
+            <param name="robot_velocity_variable_name">robot_velocity</param>
+            <param name="frame_name">r_hand_palm</param>
+            <param name="kp_angular">20.0</param>
+            <param name="kp_linear">20.0</param>
+            <param name="node_number">41</param>
+            <param name="weight">(1.0 1.0 1.0 1.0 1.0 1.0)</param>
+        </group>
+
+        <group name="L_HAND_PALM_TASK">
+            <param name="type">PoseTask</param>
+            <param name="robot_velocity_variable_name">robot_velocity</param>
+            <param name="frame_name">l_hand_palm</param>
+            <param name="kp_angular">20.0</param>
+            <param name="kp_linear">20.0</param>
+            <param name="node_number">42</param>
+            <param name="weight">(1.0 1.0 1.0 1.0 1.0 1.0)</param>
+        </group>
+
+        <group name="HEAD_TASK">
+            <param name="type">PoseTask</param>
+            <param name="robot_velocity_variable_name">robot_velocity</param>
+            <param name="frame_name">head</param>
+            <param name="kp_angular">20.0</param>
+            <param name="kp_linear">20.0</param>
+            <param name="node_number">43</param>
+            <param name="weight">(1.0 1.0 1.0 1.0 1.0 1.0)</param>
+        </group>
+
+        <group name="JOINT_LIMITS_TASK">
+            <param name="type">JointConstraintTask</param>
+            <param name="robot_velocity_variable_name">robot_velocity</param>
+            <param name="use_model_limits">false</param>
+            <param name="sampling_time">0.01</param>
+            <param name="k_limits">1.0</param>
+            <param name="joints_list">(jLeftKnee_rotz jRightKnee_rotz
+                                       jLeftAnkle_rotz jRightAnkle_rotz
+                                       jLeftHip_rotx jRightHip_rotx)</param>
+            <param name="upper_bounds">(0.001 0.001 0.001 0.001 100.0 0.0)</param>
+            <param name="lower_bounds">(-0.001 -0.001 -0.001 -0.001 0.0 -100.0)</param>
+        </group>
+
+        <group name="JOINT_REG_TASK">
+            <param name="type">JointRegularizationTask</param>
+            <param name="robot_velocity_variable_name">robot_velocity</param>
+            <param name="weight">0.01</param>
+            <param name="joints_list">(jL5S1_rotx jL5S1_roty
+                                       jL4L3_rotx jL4L3_roty
+                                       jL1T12_rotx jL1T12_roty
+                                       jT9T8_roty
+                                       jC7RightShoulder_rotx jC7RightShoulder_roty jC7RightShoulder_rotz
+                                       jC7LeftShoulder_rotx  jC7LeftShoulder_roty  jC7LeftShoulder_rotz)</param>
+            <param name="joints_weights">(0.5 0.5 0.5 0.5 0.5 0.5 0.5 0.1 0.1 0.1 0.1 0.1 0.1)</param>
+            <param name="joints_list_kp">(jL5S1_rotx jL5S1_roty
+                                          jL4L3_rotx jL4L3_roty
+                                          jL1T12_rotx jL1T12_roty
+                                          jT9T8_roty
+                                          jC7RightShoulder_rotx jC7RightShoulder_roty jC7RightShoulder_rotz
+                                          jC7LeftShoulder_rotx  jC7LeftShoulder_roty  jC7LeftShoulder_rotz)</param>
+            <param name="joints_kp">(40.0 40.0 40.0 40.0 40.0 40.0 40.0 0.3 0.3 0.3 0.3 0.3 0.3)</param>
+        </group>
+
+        <group name="JOINT_VEL_LIMITS_TASK">
+            <param name="type">JointVelocityLimitsTask</param>
+            <param name="robot_velocity_variable_name">robot_velocity</param>
+            <param name="upper_limit">5.0</param>
+            <param name="lower_limit">-5.0</param>
+        </group>
+
+        <group name="BASE_VEL_REG_TASK">
+            <param name="type">BaseVelocityRegularizationTask</param>
+            <param name="robot_velocity_variable_name">robot_velocity</param>
+            <param name="weight_linear_velocity">(0.01 0.01 0.01)</param>
+            <param name="weight_angular_velocity">(0.01 0.01 0.01)</param>
+        </group>
+
+        <group name="TASK_TO_SENSORS">
+            <param name="ROOT_LINK_TASK">WearableTransforms::pose::root_link</param>
+            <param name="CHEST_TASK">WearableSuit::vLink::chest</param>
+            <param name="R_HAND_PALM_TASK">WearableTransforms::pose::right_hand</param>
+            <param name="L_HAND_PALM_TASK">WearableTransforms::pose::left_hand</param>
+            <param name="HEAD_TASK">WearableTransforms::pose::head</param>
+            <param name="L_UPPER_ARM_TASK">WearableSuit::vLink::left_upper_arm</param>
+            <param name="L_FOREARM_TASK">WearableSuit::vLink::left_forearm</param>
+            <param name="R_UPPER_ARM_TASK">WearableSuit::vLink::right_upper_arm</param>
+            <param name="R_FOREARM_TASK">WearableSuit::vLink::right_forearm</param>
+        </group>
+
+        <action phase="startup" level="5" type="attach">
+            <paramlist name="networks">
+                <elem name="HumanStateProviderLabel">WearableRemapper</elem>
+            </paramlist>
+        </action>
+        <action phase="shutdown" level="5" type="detach"/>
+    </device>
+
+    <!-- Uncomment to stream the output of the state provider on a YARP port -->
+    <device type="human_state_nws_yarp" name="HumanState_nws_yarp">
+        <param name="period">0.01</param>
+        <param name="outputPort">/stateProvider/HumanStateServer/state:o</param>
+        <action phase="startup" level="5" type="attach">
+            <paramlist name="networks">
+                <elem name="HumanStateServerLabel">StateProvider</elem>
+            </paramlist>
+        </action>
+        <action phase="shutdown" level="5" type="detach"/>
+    </device>
+
+    <device type="wearable_targets_nws_yarp" name="WearableTargets_nws_yarp">
+        <param name="period">0.01</param>
+        <param name="outputPort">/stateProvider/WearableTargetsServer/state:o</param>
+        <action phase="startup" level="5" type="attach">
+            <paramlist name="networks">
+                <elem name="HumanStateServerLabel">StateProvider</elem>
+            </paramlist>
+        </action>
+        <action phase="shutdown" level="5" type="detach"/>
+    </device>
+
+</robot>

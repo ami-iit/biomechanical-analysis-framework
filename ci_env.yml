@@ -16,4 +16,5 @@ dependencies:
   - pybind11
   - cmake-package-check
   - libresolve-robotics-uri-cpp
+  - human-dynamics-estimation<6.0.0
 

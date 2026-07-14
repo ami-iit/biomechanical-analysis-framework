@@ -92,6 +92,7 @@ jobs:
                   -DCMAKE_PREFIX_PATH=${GITHUB_WORKSPACE}/install/deps \
                   -DCMAKE_BUILD_TYPE=${{matrix.build_type}} \
                   -DFRAMEWORK_COMPILE_YarpImplementation=ON \
+                  -DFRAMEWORK_COMPILE_YarpDevices=ON \
                   -DBUILD_TESTING:BOOL=ON \
                   -DBUILD_EXAMPLES:BOOL=ON \
                   -DFRAMEWORK_COMPILE_PYTHON_BINDINGS:BOOL=ON \
@@ -108,6 +109,7 @@ jobs:
                   -DCMAKE_PREFIX_PATH=${GITHUB_WORKSPACE}/install/deps \
                   -DCMAKE_BUILD_TYPE=${{matrix.build_type}} \
                   -DFRAMEWORK_COMPILE_YarpImplementation=ON \
+                  -DFRAMEWORK_COMPILE_YarpDevices=ON \
                   -DBUILD_TESTING:BOOL=ON \
                   -DBUILD_EXAMPLES:BOOL=ON \
                   -DFRAMEWORK_COMPILE_PYTHON_BINDINGS:BOOL=ON \
