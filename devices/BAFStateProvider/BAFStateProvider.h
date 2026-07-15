@@ -13,8 +13,10 @@
 
 #include <memory>
 
-namespace baf {
-namespace devices {
+namespace baf
+{
+namespace devices
+{
 class BAFStateProvider;
 } // namespace devices
 } // namespace baf
@@ -48,15 +50,22 @@ class BAFStateProvider;
  *       PoseTask               -> IVirtualLinkKinSensor (preferred) or IPoseSensor
  *       FloorContactTask       -> IForceTorque6DSensor (mandatory)
  *
+ * Optional configuration group:
+ *   [JOINT_TO_SENSORS]
+ *     Each parameter maps a model joint name (key) to an IWear virtual joint sensor name (value).
+ *     Example:
+ *       <param name="r_knee">vJoint::r_knee_encoder</param>
+ *     The reading of each mapped IVirtualJointKinSensor (position and velocity) overrides,
+ *     a posteriori, the corresponding joint in the IK-estimated solution every cycle.
+ *
  * Runtime calibration RPC port: /<rpcPortPrefix>/BAFStateProvider/rpc:i
  *   Commands: calibrateAll [refFrame]  |  resetAll
  */
-class baf::devices::BAFStateProvider final
-    : public yarp::dev::DeviceDriver
-    , public yarp::dev::IMultipleWrapper
-    , private yarp::os::PeriodicThread
-    , public hde::interfaces::IHumanState
-    , public hde::interfaces::IWearableTargets
+class baf::devices::BAFStateProvider final : public yarp::dev::DeviceDriver,
+                                             public yarp::dev::IMultipleWrapper,
+                                             private yarp::os::PeriodicThread,
+                                             public hde::interfaces::IHumanState,
+                                             public hde::interfaces::IWearableTargets
 {
 private:
     class impl;
@@ -92,8 +101,7 @@ public:
 
     // ── IWearableTargets ──────────────────────────────────────────────────────
     std::vector<hde::TargetName> getAllTargetsName() const override;
-    std::shared_ptr<hde::WearableSensorTarget>
-    getTarget(const hde::TargetName name) const override;
+    std::shared_ptr<hde::WearableSensorTarget> getTarget(const hde::TargetName name) const override;
 };
 
 #endif // BAF_STATE_PROVIDER_H
