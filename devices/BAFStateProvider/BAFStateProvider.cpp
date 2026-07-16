@@ -1001,7 +1001,7 @@ void baf::devices::BAFStateProvider::run()
         {
             if (tgt.sensor->getSensorStatus() != SensorStatus::Ok)
             {
-                yCWarningThrottle(1.0, LogPrefix) << "Virtual joint sensor" << tgt.sensorName << "not Ok, skipping joint" << tgt.jointName;
+                yWarningThrottle(1.0) << LogPrefix << "Virtual joint sensor" << tgt.sensorName << "not Ok, skipping joint" << tgt.jointName;
                 continue;
             }
 
