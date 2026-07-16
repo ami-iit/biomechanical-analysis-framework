@@ -8,6 +8,8 @@
           (e.g. from a motion capture / tracking system) and expose them as wearable data sources.
         - StateProvider (baf_state_provider): runs the BAF inverse kinematics (IK) solver.
           * "tasks": list of IK tasks to enable, each mapped to a <group> defining its parameters.
+          * "jointList" (optional): restricts the model to a subset of joints; all other joints
+            are locked/fixed. If omitted, all the joints of the URDF model are used.
           * Per-link tasks (e.g. CHEST_TASK, L_UPPER_ARM_TASK, ROOT_LINK_TASK, ...): SO3Task/PoseTask
             groups constraining specific model frames to tracked orientations/poses.
           * Regularization/constraint tasks (JOINT_LIMITS_TASK, JOINT_REG_TASK,
@@ -55,6 +57,9 @@
         <param name="urdf">model.urdf</param>
         <param name="floatingBaseFrame">root_link</param>
         <param name="rpcPortPrefix">stateProvider</param>
+        <!-- Optional: restrict the model to a subset of joints (all others are locked/fixed).
+             If omitted, all the joints of the URDF model are used. -->
+        <!-- <param name="jointList">(jLeftKnee_rotz jRightKnee_rotz jLeftAnkle_rotz jRightAnkle_rotz)</param> -->
 
         <!-- BAF IK configuration: list the available tasks and map each one to a wearable sensor source. -->
         <param name="tasks">(CHEST_TASK L_UPPER_ARM_TASK L_FOREARM_TASK R_UPPER_ARM_TASK R_FOREARM_TASK

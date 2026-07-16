@@ -354,6 +354,20 @@ bool baf::devices::BAFStateProvider::open(yarp::os::Searchable& config)
         return false;
     }
 
+    // ── Joint list (optional model reduction) ─────────────────────────────────
+    std::vector<std::string> jointList;
+    if (!config.check("jointList") || !config.find("jointList").isList())
+    {
+        yInfo() << LogPrefix << "jointList option not found or not valid, all the model joints are selected.";
+    } else
+    {
+        yarp::os::Bottle* jointListBottle = config.find("jointList").asList();
+        for (int i = 0; i < jointListBottle->size(); ++i)
+        {
+            jointList.push_back(jointListBottle->get(i).asString());
+        }
+    }
+
     // ── IK configuration ────────────────────────
     auto ikParams = std::make_shared<BipedalLocomotion::ParametersHandler::YarpImplementation>(config);
 
@@ -423,10 +437,20 @@ bool baf::devices::BAFStateProvider::open(yarp::os::Searchable& config)
 
     // ── Load URDF model ───────────────────────────────────────────────────────
     iDynTree::ModelLoader mdlLoader;
-    if (!mdlLoader.loadModelFromFile(urdfFilePath))
+    if (jointList.empty())
     {
-        yError() << LogPrefix << "Failed to load URDF from:" << urdfFilePath;
-        return false;
+        if (!mdlLoader.loadModelFromFile(urdfFilePath))
+        {
+            yError() << LogPrefix << "Failed to load URDF from:" << urdfFilePath;
+            return false;
+        }
+    } else
+    {
+        if (!mdlLoader.loadReducedModelFromFile(urdfFilePath, jointList))
+        {
+            yError() << LogPrefix << "Failed to load reduced URDF from:" << urdfFilePath;
+            return false;
+        }
     }
 
     // ── KinDynComputations ────────────────────────────────────────────────────
