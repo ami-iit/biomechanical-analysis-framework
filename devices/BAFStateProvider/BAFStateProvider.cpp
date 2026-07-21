@@ -12,6 +12,7 @@
 #include <Wearable/IWear/Sensors/IForceTorque6DSensor.h>
 #include <Wearable/IWear/Sensors/IOrientationSensor.h>
 #include <Wearable/IWear/Sensors/IPoseSensor.h>
+#include <Wearable/IWear/Sensors/IVirtualJointKinSensor.h>
 #include <Wearable/IWear/Sensors/IVirtualLinkKinSensor.h>
 
 #include <hde/interfaces/IWearableTargets.h>
@@ -27,6 +28,7 @@
 
 #include <Eigen/Core>
 
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <deque>
@@ -67,6 +69,19 @@ struct SensorTarget
     double contactThreshold{0.0}; ///< only meaningful for FloorContact targets
     KinematicTaskKind kind{KinematicTaskKind::Orientation};
     SensorVariant sensor; ///< resolved in attachAll(); monostate until then
+};
+
+/**
+ * Binds one model joint to one IWear virtual joint sensor. Used to override, a posteriori,
+ * the joint position/velocity computed by the IK solver with a value coming directly from
+ * an external device (e.g. an encoder exposed as a wearable virtual joint sensor).
+ */
+struct JointSensorTarget
+{
+    wearable::WearableName sensorName;
+    std::string jointName; ///< model joint name (matches an entry of BAFStateEstimator::getJointNames())
+    size_t jointIndex{0}; ///< resolved index into the joint position/velocity vectors
+    wearable::SensorPtr<const IVirtualJointKinSensor> sensor; ///< resolved in attachAll(); nullptr until then
 };
 
 /**
@@ -114,6 +129,7 @@ public:
     std::vector<std::string> jointNames;
 
     std::vector<SensorTarget> sensorTargets;
+    std::vector<JointSensorTarget> jointSensorTargets;
 
     // ── Core estimator ────────────────────────────────────────────────────────
     BAFStateEstimator estimator;
@@ -471,6 +487,47 @@ bool baf::devices::BAFStateProvider::open(yarp::os::Searchable& config)
     pImpl->jointNames = pImpl->estimator.getJointNames();
     pImpl->wearableTargets.clear();
 
+    // ── JOINT_TO_SENSORS group (optional) ─────────────────────────────────────
+    // Maps a model joint name to an IWear virtual joint sensor whose reading overrides,
+    // a posteriori, the IK-solved position/velocity for that joint.
+    pImpl->jointSensorTargets.clear();
+    if (config.check("JOINT_TO_SENSORS"))
+    {
+        yarp::os::Bottle& group = config.findGroup("JOINT_TO_SENSORS");
+        std::unordered_set<std::string> configuredJointNames;
+        // group.get(0) is the group name; joint-sensor pairs start at index 1
+        for (int i = 1; i < static_cast<int>(group.size()); ++i)
+        {
+            yarp::os::Bottle* entry = group.get(i).asList();
+            if (!entry || entry->size() < 2)
+            {
+                yWarning() << LogPrefix << "JOINT_TO_SENSORS: skipping malformed entry at index" << i;
+                continue;
+            }
+
+            const std::string jointName = entry->get(0).asString();
+            const std::string sensorName = entry->get(1).asString();
+
+            auto jointIt = std::find(pImpl->jointNames.begin(), pImpl->jointNames.end(), jointName);
+            if (jointIt == pImpl->jointNames.end())
+            {
+                yWarning() << LogPrefix << "JOINT_TO_SENSORS: joint '" << jointName << "' not found in the model. Ignoring it.";
+                continue;
+            }
+            if (!configuredJointNames.insert(jointName).second)
+            {
+                yError() << LogPrefix << "JOINT_TO_SENSORS: duplicate joint name '" << jointName << "'";
+                return false;
+            }
+
+            JointSensorTarget t;
+            t.sensorName = sensorName;
+            t.jointName = jointName;
+            t.jointIndex = static_cast<size_t>(std::distance(pImpl->jointNames.begin(), jointIt));
+            pImpl->jointSensorTargets.push_back(std::move(t));
+        }
+    }
+
     // ── Initialize WearableSensorTarget objects for IWearableTargets ─────────────
     for (const auto& tgt : pImpl->sensorTargets)
     {
@@ -639,6 +696,19 @@ bool baf::devices::BAFStateProvider::attachAll(const yarp::dev::PolyDriverList& 
 
         yError() << LogPrefix << "Sensor" << tgt.sensorName << "not found as VirtualLinkKinSensor, OrientationSensor or PoseSensor";
         return false;
+    }
+
+    // ── Resolve virtual joint sensors ─────────────────────────────────────────
+    for (auto& tgt : pImpl->jointSensorTargets)
+    {
+        auto jointSensor = pImpl->iWear->getVirtualJointKinSensor(tgt.sensorName);
+        if (!jointSensor)
+        {
+            yError() << LogPrefix << "Virtual joint sensor" << tgt.sensorName << "not found in IWear";
+            return false;
+        }
+        tgt.sensor = jointSensor;
+        yInfo() << LogPrefix << "Sensor" << tgt.sensorName << "resolved as VirtualJointKinSensor for joint" << tgt.jointName;
     }
 
     // ── Start the periodic loop ───────────────────────────────────────────────
@@ -925,6 +995,29 @@ void baf::devices::BAFStateProvider::run()
         pImpl->solution.baseVelocity = {blv(0), blv(1), blv(2), bav(0), bav(1), bav(2)};
         pImpl->solution.comPosition = {comP(0), comP(1), comP(2)};
         pImpl->solution.comVelocity = {comV(0), comV(1), comV(2)};
+
+        // ── Step 6: override mapped joints with virtual joint sensor readings ──
+        for (const auto& tgt : pImpl->jointSensorTargets)
+        {
+            if (tgt.sensor->getSensorStatus() != SensorStatus::Ok)
+            {
+                yWarningThrottle(1.0) << LogPrefix << "Virtual joint sensor" << tgt.sensorName << "not Ok, skipping joint" << tgt.jointName;
+                continue;
+            }
+
+            double position = 0.0;
+            double velocity = 0.0;
+            const bool okPosition = tgt.sensor->getJointPosition(position);
+            const bool okVelocity = tgt.sensor->getJointVelocity(velocity);
+            if (!okPosition || !okVelocity)
+            {
+                yWarning() << LogPrefix << "Failed to read from virtual joint sensor" << tgt.sensorName;
+                continue;
+            }
+
+            pImpl->solution.jointPositions[tgt.jointIndex] = position;
+            pImpl->solution.jointVelocities[tgt.jointIndex] = velocity;
+        }
     }
 }
 

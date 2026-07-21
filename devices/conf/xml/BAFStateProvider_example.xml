@@ -14,6 +14,9 @@
             JOINT_VEL_LIMITS_TASK, BASE_VEL_REG_TASK): keep the solution within joint/velocity
             bounds and regularize the robot base and joint configuration.
           * TASK_TO_SENSORS: maps each task name to the wearable sensor/source providing its target.
+          * JOINT_TO_SENSORS (optional): maps model joint names directly to IWear
+            IVirtualJointKinSensor sources; mapped joints are overwritten a posteriori in the
+            estimated solution on every cycle, overriding the IK-solved value.
         - HumanState_nws_yarp / WearableTargets_nws_yarp: optional YARP network wrapper servers
           that stream the estimated human state and wearable targets on YARP ports.
     -->
@@ -214,6 +217,14 @@
             <param name="L_FOREARM_TASK">WearableSuit::vLink::left_forearm</param>
             <param name="R_UPPER_ARM_TASK">WearableSuit::vLink::right_upper_arm</param>
             <param name="R_FOREARM_TASK">WearableSuit::vLink::right_forearm</param>
+        </group>
+
+        <!-- Optional: map model joints directly to IWear IVirtualJointKinSensor sources.
+             Mapped joints are overwritten a posteriori in the estimated solution, overriding
+             the IK-solved value for those joints on every cycle. -->
+        <group name="JOINT_TO_SENSORS">
+            <param name="jLeftKnee_rotz">WearableSuit::vJoint::jLeftKnee_rotz</param>
+            <param name="jRightKnee_rotz">WearableSuit::vJoint::jRightKnee_rotz</param>
         </group>
 
         <action phase="startup" level="5" type="attach">
