@@ -57,6 +57,7 @@
         <param name="period">0.01</param>
         <param name="urdf">model.urdf</param>
         <param name="floatingBaseFrame">root_link</param>
+        <param name="forceFixedBase">false</param>
         <param name="rpcPortPrefix">stateProvider</param>
 
         <!-- BAF IK configuration: list the available tasks and map each one to a wearable sensor source. -->

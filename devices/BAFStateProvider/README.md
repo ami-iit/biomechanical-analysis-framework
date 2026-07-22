@@ -9,6 +9,7 @@
 | `period` | float [s] | Control loop period (default `0.017`) |
 | `urdf` | string | URDF filename (resolved via YARP ResourceFinder) |
 | `floatingBaseFrame` | string | Floating base link name (default `"Pelvis"`) |
+| `forceFixedBase` | bool | If `true`, force output base orientation to identity quaternion and base velocity to zero (default `false`) |
 | `rpcPortPrefix` | string | Prefix used for the RPC port and other device ports |
 | `tasks` | list | IK tasks to enable, each defined by a corresponding `<group>`/section in the config |
 

@@ -33,6 +33,7 @@ class BAFStateProvider;
  *   period          [s]     Control loop period (default 0.017)
  *   urdf            [str]   URDF filename (resolved via YARP ResourceFinder)
  *   floatingBaseFrame [str] Floating base link name (default "Pelvis")
+ *   forceFixedBase  [bool]  If true, force output base orientation to identity and base velocity to zero (default false)
  *
  * BAF IK configuration is embedded directly in the device config. See the
  * BAF IK documentation for the expected task groups and solver parameters.

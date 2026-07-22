@@ -126,6 +126,7 @@ public:
 
     // ── Configuration ─────────────────────────────────────────────────────────
     std::string baseName{"Pelvis"};
+    bool forceFixedBase{false};
     std::vector<std::string> jointNames;
 
     std::vector<SensorTarget> sensorTargets;
@@ -354,6 +355,9 @@ bool baf::devices::BAFStateProvider::open(yarp::os::Searchable& config)
 
     // ── Floating base frame ───────────────────────────────────────────────────
     pImpl->baseName = config.check("floatingBaseFrame", yarp::os::Value("Pelvis")).asString();
+    yInfo() << LogPrefix << "Using base name:" << pImpl->baseName;
+    pImpl->forceFixedBase = config.check("forceFixedBase", yarp::os::Value(false)).asBool();
+    yInfo() << LogPrefix << "Forcing fixed base ? " << (pImpl->forceFixedBase ? "yes" : "no");
 
     // ── URDF ──────────────────────────────────────────────────────────────────
     if (!config.check("urdf"))
@@ -1017,6 +1021,12 @@ void baf::devices::BAFStateProvider::run()
 
             pImpl->solution.jointPositions[tgt.jointIndex] = position;
             pImpl->solution.jointVelocities[tgt.jointIndex] = velocity;
+        }
+
+        if (pImpl->forceFixedBase)
+        {
+            pImpl->solution.baseOrientation = {1, 0, 0, 0}; // Temporary fix: override base orientation to identity
+            pImpl->solution.baseVelocity = {0, 0, 0, 0, 0, 0}; // Temporary fix: override base velocity to zero
         }
     }
 }
