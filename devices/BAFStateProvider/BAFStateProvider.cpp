@@ -1025,8 +1025,9 @@ void baf::devices::BAFStateProvider::run()
 
         if (pImpl->forceFixedBase)
         {
-            pImpl->solution.baseOrientation = {1, 0, 0, 0}; // Temporary fix: override base orientation to identity
-            pImpl->solution.baseVelocity = {0, 0, 0, 0, 0, 0}; // Temporary fix: override base velocity to zero
+            pImpl->solution.baseOrientation = {1, 0, 0, 0};
+            pImpl->solution.baseVelocity = {0, 0, 0, 0, 0, 0};
+            pImpl->solution.basePosition = {0, 0, 0};
         }
     }
 }
