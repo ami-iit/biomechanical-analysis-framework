@@ -1,0 +1,111 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE robot PUBLIC "-//YARP//DTD yarprobotinterface 3.0//EN" "http://www.yarp.it/DTD/yarprobotinterface/yarp-3.0.dtd">
+<robot name="BAFStateProvider_with_fixed_tasks" build="1">
+
+    <device type="BAFStateProvider" name="baf_state_provider">
+
+        <param name="period">0.01</param>
+        <param name="urdf">model.urdf</param>
+        <param name="floatingBaseFrame">pelvis</param>
+        <param name="rpcPortPrefix">/Example</param>
+
+        <!--
+            tasks: kinematic tasks solved by IK (sensor-driven or with inline fixed_* fallback)
+            fixed_tasks: fixed-only kinematic targets, separated from TASK_TO_SENSORS
+        -->
+        <param name="tasks">(
+            JOINT_REG_TASK
+            CHEST_ORIENTATION_TASK
+            LEFT_FOOT_CONTACT_TASK
+            LEFT_HAND_POSE_TASK
+        )</param>
+
+        <param name="fixed_tasks">(
+            HEAD_ORIENTATION_FIXED
+            RIGHT_FOOT_CONTACT_FIXED
+            RIGHT_HAND_POSE_FIXED
+        )</param>
+
+        <group name="IK">
+            <param name="robot_velocity_variable_name">robot_velocity</param>
+            <param name="verbosity">false</param>
+        </group>
+
+        <!-- Standard IK task: non-kinematic, not mapped in TASK_TO_SENSORS -->
+        <group name="JOINT_REG_TASK">
+            <param name="type">JointRegularizationTask</param>
+            <param name="robot_velocity_variable_name">robot_velocity</param>
+            <param name="weight">0.01</param>
+            <param name="joints_list">( )</param>
+            <param name="joints_weights">( )</param>
+            <param name="joints_list_kp">( )</param>
+            <param name="joints_kp">( )</param>
+        </group>
+
+        <!-- Sensor-driven SO3 task (in tasks + TASK_TO_SENSORS) -->
+        <group name="CHEST_ORIENTATION_TASK">
+            <param name="type">SO3Task</param>
+            <param name="robot_velocity_variable_name">robot_velocity</param>
+            <param name="frame_name">chest</param>
+            <param name="kp_angular">20.0</param>
+            <param name="node_number">30</param>
+            <param name="weight">(10.0 10.0 10.0)</param>
+        </group>
+
+        <!-- Sensor-driven FloorContact task (in tasks + TASK_TO_SENSORS) -->
+        <group name="LEFT_FOOT_CONTACT_TASK">
+            <param name="type">FloorContactTask</param>
+            <param name="robot_velocity_variable_name">robot_velocity</param>
+            <param name="frame_name">l_sole</param>
+            <param name="kp_linear">60.0</param>
+            <param name="floor_contact_task">200</param>
+            <param name="weight">(1.0 1.0 1.0)</param>
+            <param name="vertical_force_threshold">50.0</param>
+        </group>
+
+        <!-- Sensor-driven Pose task (in tasks + TASK_TO_SENSORS) -->
+        <group name="LEFT_HAND_POSE_TASK">
+            <param name="type">PoseTask</param>
+            <param name="robot_velocity_variable_name">robot_velocity</param>
+            <param name="frame_name">l_wrist_3</param>
+            <param name="kp_angular">20.0</param>
+            <param name="kp_linear">20.0</param>
+            <param name="node_number">40</param>
+            <param name="weight">(1.0 1.0 1.0 1.0 1.0 1.0)</param>
+        </group>
+
+        <!-- fixed_tasks entry: minimal fixed SO3 target, not in tasks, not in TASK_TO_SENSORS -->
+        <group name="HEAD_ORIENTATION_FIXED">
+            <param name="type">SO3Task</param>
+            <param name="frame_name">head</param>
+            <param name="fixed_quaternion">(1.0 0.0 0.0 0.0)</param>
+            <param name="fixed_angular_velocity">(0.0 0.0 0.0)</param>
+        </group>
+
+        <!-- fixed_tasks entry: minimal fixed FloorContact target -->
+        <group name="RIGHT_FOOT_CONTACT_FIXED">
+            <param name="type">FloorContactTask</param>
+            <param name="frame_name">r_sole</param>
+            <param name="fixed_wrench">(0.0 0.0 100.0 0.0 0.0 0.0)</param>
+        </group>
+
+        <!-- fixed_tasks entry: minimal fixed Pose target -->
+        <group name="RIGHT_HAND_POSE_FIXED">
+            <param name="type">PoseTask</param>
+            <param name="frame_name">r_wrist_3</param>
+            <param name="fixed_position">(0.3 -0.2 0.8)</param>
+            <param name="fixed_rotation_matrix">(1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0)</param>
+            <param name="fixed_linear_velocity">(0.0 0.0 0.0)</param>
+            <param name="fixed_angular_velocity">(0.0 0.0 0.0)</param>
+        </group>
+
+        <!-- Only tasks in "tasks" that are kinematic and sensor-driven go here -->
+        <group name="TASK_TO_SENSORS">
+            <param name="CHEST_ORIENTATION_TASK">wearable::IMU::chest</param>
+            <param name="LEFT_FOOT_CONTACT_TASK">wearable::FT::l_foot</param>
+            <param name="LEFT_HAND_POSE_TASK">wearable::MocapMarkers::l_hand</param>
+        </group>
+
+    </device>
+
+</robot>
