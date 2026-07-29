@@ -224,7 +224,7 @@ public:
                                       manif::SO3d& rotation,
                                       bool& foundRotation) -> bool {
             std::vector<double> fixedRotationMatrix;
-            if (readSizedVector(taskGroup, "fixed_rotation_matrix", 9, fixedRotationMatrix, taskName))
+            if (readSizedVector(taskGroup, "const_rotation_matrix", 9, fixedRotationMatrix, taskName))
             {
                 const auto matrix
                     = Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(fixedRotationMatrix.data());
@@ -234,7 +234,7 @@ public:
             }
 
             std::vector<double> fixedQuaternion;
-            if (readSizedVector(taskGroup, "fixed_quaternion", 4, fixedQuaternion, taskName))
+            if (readSizedVector(taskGroup, "const_quaternion", 4, fixedQuaternion, taskName))
             {
                 // The quaternion layout is [w, x, y, z].
                 const Eigen::Quaterniond quat(fixedQuaternion[0],
@@ -258,14 +258,14 @@ public:
         }
 
         std::vector<std::string> fixedTasks;
-        ikParams->getParameter("fixed_tasks", fixedTasks);
+        ikParams->getParameter("const_tasks", fixedTasks);
 
         fixedOnlyTaskNames.clear();
         for (const auto& fixedTaskName : fixedTasks)
         {
             if (!fixedOnlyTaskNames.insert(fixedTaskName).second)
             {
-                yError() << LogPrefix << "The task" << fixedTaskName << "appears multiple times in 'fixed_tasks'";
+                yError() << LogPrefix << "The task" << fixedTaskName << "appears multiple times in 'const_tasks'";
                 return false;
             }
         }
@@ -275,7 +275,7 @@ public:
             if (fixedOnlyTaskNames.find(taskName) != fixedOnlyTaskNames.end())
             {
                 yError() << LogPrefix << "Task" << taskName
-                         << "cannot appear in both 'tasks' and 'fixed_tasks'. Fixed-only tasks must be listed only in 'fixed_tasks'";
+                         << "cannot appear in both 'tasks' and 'const_tasks'. Fixed-only tasks must be listed only in 'const_tasks'";
                 return false;
             }
         }
@@ -318,7 +318,7 @@ public:
 
                 std::vector<double> fixedAngularVelocity;
                 const bool hasFixedAngularVelocity
-                    = readSizedVector(taskGroup, "fixed_angular_velocity", 3, fixedAngularVelocity, taskName);
+                    = readSizedVector(taskGroup, "const_angular_velocity", 3, fixedAngularVelocity, taskName);
 
                 if (hasFixedRotation)
                 {
@@ -335,7 +335,7 @@ public:
                 } else if (hasFixedAngularVelocity)
                 {
                     yError() << LogPrefix << "Task" << taskName
-                             << "defines fixed_angular_velocity but no fixed_rotation_matrix/fixed_quaternion";
+                             << "defines const_angular_velocity but no const_rotation_matrix/const_quaternion";
                     return false;
                 }
             } else if (type == "GravityTask")
@@ -356,7 +356,7 @@ public:
 
                 std::vector<double> fixedAngularVelocity;
                 const bool hasFixedAngularVelocity
-                    = readSizedVector(taskGroup, "fixed_angular_velocity", 3, fixedAngularVelocity, taskName);
+                    = readSizedVector(taskGroup, "const_angular_velocity", 3, fixedAngularVelocity, taskName);
 
                 if (hasFixedRotation)
                 {
@@ -373,7 +373,7 @@ public:
                 } else if (hasFixedAngularVelocity)
                 {
                     yError() << LogPrefix << "Task" << taskName
-                             << "defines fixed_angular_velocity but no fixed_rotation_matrix/fixed_quaternion";
+                             << "defines const_angular_velocity but no const_rotation_matrix/const_quaternion";
                     return false;
                 }
             } else if (type == "FloorContactTask")
@@ -392,7 +392,7 @@ public:
                 info.kind = KinematicTaskKind::FloorContact;
 
                 std::vector<double> fixedWrench;
-                if (readSizedVector(taskGroup, "fixed_wrench", 6, fixedWrench, taskName))
+                if (readSizedVector(taskGroup, "const_wrench", 6, fixedWrench, taskName))
                 {
                     FixedTaskReference fixedRef;
                     fixedRef.kind = KinematicTaskKind::FloorContact;
@@ -414,11 +414,11 @@ public:
                 info.kind = KinematicTaskKind::Position;
 
                 std::vector<double> fixedPosition;
-                const bool hasFixedPosition = readSizedVector(taskGroup, "fixed_position", 3, fixedPosition, taskName);
+                const bool hasFixedPosition = readSizedVector(taskGroup, "const_position", 3, fixedPosition, taskName);
 
                 std::vector<double> fixedLinearVelocity;
                 const bool hasFixedLinearVelocity
-                    = readSizedVector(taskGroup, "fixed_linear_velocity", 3, fixedLinearVelocity, taskName);
+                    = readSizedVector(taskGroup, "const_linear_velocity", 3, fixedLinearVelocity, taskName);
 
                 if (hasFixedPosition)
                 {
@@ -433,7 +433,7 @@ public:
                     info.fixedReference = fixedRef;
                 } else if (hasFixedLinearVelocity)
                 {
-                    yError() << LogPrefix << "Task" << taskName << "defines fixed_linear_velocity but no fixed_position";
+                    yError() << LogPrefix << "Task" << taskName << "defines const_linear_velocity but no const_position";
                     return false;
                 }
             } else if (type == "PoseTask")
@@ -446,7 +446,7 @@ public:
                 info.kind = KinematicTaskKind::Pose;
 
                 std::vector<double> fixedPosition;
-                const bool hasFixedPosition = readSizedVector(taskGroup, "fixed_position", 3, fixedPosition, taskName);
+                const bool hasFixedPosition = readSizedVector(taskGroup, "const_position", 3, fixedPosition, taskName);
 
                 bool hasFixedRotation{false};
                 manif::SO3d fixedRotation;
@@ -457,18 +457,18 @@ public:
 
                 std::vector<double> fixedLinearVelocity;
                 const bool hasFixedLinearVelocity
-                    = readSizedVector(taskGroup, "fixed_linear_velocity", 3, fixedLinearVelocity, taskName);
+                    = readSizedVector(taskGroup, "const_linear_velocity", 3, fixedLinearVelocity, taskName);
 
                 std::vector<double> fixedAngularVelocity;
                 const bool hasFixedAngularVelocity
-                    = readSizedVector(taskGroup, "fixed_angular_velocity", 3, fixedAngularVelocity, taskName);
+                    = readSizedVector(taskGroup, "const_angular_velocity", 3, fixedAngularVelocity, taskName);
 
                 if (hasFixedPosition || hasFixedRotation)
                 {
                     if (!(hasFixedPosition && hasFixedRotation))
                     {
                         yError() << LogPrefix << "Task" << taskName
-                                 << "must define both fixed_position and fixed_rotation_matrix/fixed_quaternion";
+                                 << "must define both const_position and const_rotation_matrix/const_quaternion";
                         return false;
                     }
 
@@ -492,7 +492,7 @@ public:
                 } else if (hasFixedLinearVelocity || hasFixedAngularVelocity)
                 {
                     yError() << LogPrefix << "Task" << taskName
-                             << "defines fixed velocities but no fixed_position/fixed_rotation_matrix/fixed_quaternion";
+                             << "defines fixed velocities but no const_position/const_rotation_matrix/const_quaternion";
                     return false;
                 }
             } else
@@ -505,7 +505,7 @@ public:
                 if (requiresFixedReference)
                 {
                     yError() << LogPrefix << "Task" << taskName
-                             << "listed in 'fixed_tasks' has unsupported type. Only SO3Task, GravityTask, PositionTask, PoseTask and FloorContactTask are supported.";
+                             << "listed in 'const_tasks' has unsupported type. Only SO3Task, GravityTask, PositionTask, PoseTask and FloorContactTask are supported.";
                     return false;
                 }
                 return true;
@@ -514,7 +514,7 @@ public:
             if (requiresFixedReference && !info.fixedReference.has_value())
             {
                 yError() << LogPrefix << "Task" << taskName
-                         << "listed in 'fixed_tasks' must define a fixed reference (fixed_* parameters).";
+                         << "listed in 'const_tasks' must define a fixed reference (const_* parameters).";
                 return false;
             }
 
@@ -701,7 +701,7 @@ bool baf::devices::BAFStateProvider::open(yarp::os::Searchable& config)
             if (fixedOnlyTaskNames.find(taskName) != fixedOnlyTaskNames.end())
             {
                 yError() << LogPrefix << "TASK_TO_SENSORS: task '" << taskName
-                         << "' is listed in 'fixed_tasks' and cannot be mapped to a sensor";
+                         << "' is listed in 'const_tasks' and cannot be mapped to a sensor";
                 return false;
             }
             if (!configuredTaskNames.insert(taskName).second)
