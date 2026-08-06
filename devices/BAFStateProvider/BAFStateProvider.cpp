@@ -120,14 +120,6 @@ public:
         std::optional<FixedTaskReference> fixedReference;
     };
 
-    struct FixedOnlyTaskInfo
-    {
-        std::string taskName;
-        std::string modelLinkName;
-        KinematicTaskKind kind{KinematicTaskKind::Orientation};
-        FixedTaskReference fixedReference;
-    };
-
     enum class RpcCommandType
     {
         CalibrateAll,
@@ -175,11 +167,6 @@ public:
     std::unordered_map<std::string, Eigen::Matrix<double, 6, 1>> ftDataMap;
     std::unordered_map<std::string, BiomechanicalAnalysis::IK::positionData> positionDataMap;
     std::unordered_map<std::string, BiomechanicalAnalysis::IK::poseData> poseDataMap;
-    std::unordered_map<std::string, BiomechanicalAnalysis::IK::nodeData> fixedNodeDataMap;
-    std::unordered_map<std::string, Eigen::Matrix<double, 6, 1>> fixedFtDataMap;
-    std::unordered_map<std::string, BiomechanicalAnalysis::IK::positionData> fixedPositionDataMap;
-    std::unordered_map<std::string, BiomechanicalAnalysis::IK::poseData> fixedPoseDataMap;
-    std::vector<FixedOnlyTaskInfo> fixedOnlyTasks;
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     /** Convert a wearable Quaternion [w,x,y,z] to manif::SO3d. */
@@ -198,8 +185,7 @@ public:
     }
 
     static bool buildTaskInfoMap(const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler>& ikParams,
-                                 std::unordered_map<std::string, TaskInfo>& taskInfoMap,
-                                 std::unordered_set<std::string>& fixedOnlyTaskNames)
+                                 std::unordered_map<std::string, TaskInfo>& taskInfoMap)
     {
         auto readSizedVector = [](const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler>& taskGroup,
                                   const std::string& parameterName,
@@ -212,8 +198,8 @@ public:
             }
             if (out.size() != expectedSize)
             {
-                yError() << LogPrefix << "Task" << taskName << "parameter" << parameterName << "has size" << out.size()
-                         << "but expected" << expectedSize;
+                yError() << LogPrefix << "Task" << taskName << "parameter" << parameterName << "has size" << out.size() << "but expected"
+                         << expectedSize;
                 return false;
             }
             return true;
@@ -226,8 +212,7 @@ public:
             std::vector<double> fixedRotationMatrix;
             if (readSizedVector(taskGroup, "const_rotation_matrix", 9, fixedRotationMatrix, taskName))
             {
-                const auto matrix
-                    = Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(fixedRotationMatrix.data());
+                const auto matrix = Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(fixedRotationMatrix.data());
                 rotation = manif::SO3d(Eigen::Quaterniond(matrix));
                 foundRotation = true;
                 return true;
@@ -237,10 +222,7 @@ public:
             if (readSizedVector(taskGroup, "const_quaternion", 4, fixedQuaternion, taskName))
             {
                 // The quaternion layout is [w, x, y, z].
-                const Eigen::Quaterniond quat(fixedQuaternion[0],
-                                              fixedQuaternion[1],
-                                              fixedQuaternion[2],
-                                              fixedQuaternion[3]);
+                const Eigen::Quaterniond quat(fixedQuaternion[0], fixedQuaternion[1], fixedQuaternion[2], fixedQuaternion[3]);
                 rotation = manif::SO3d(quat);
                 foundRotation = true;
                 return true;
@@ -257,31 +239,8 @@ public:
             return false;
         }
 
-        std::vector<std::string> fixedTasks;
-        ikParams->getParameter("const_tasks", fixedTasks);
-
-        fixedOnlyTaskNames.clear();
-        for (const auto& fixedTaskName : fixedTasks)
-        {
-            if (!fixedOnlyTaskNames.insert(fixedTaskName).second)
-            {
-                yError() << LogPrefix << "The task" << fixedTaskName << "appears multiple times in 'const_tasks'";
-                return false;
-            }
-        }
-
-        for (const auto& taskName : tasks)
-        {
-            if (fixedOnlyTaskNames.find(taskName) != fixedOnlyTaskNames.end())
-            {
-                yError() << LogPrefix << "Task" << taskName
-                         << "cannot appear in both 'tasks' and 'const_tasks'. Fixed-only tasks must be listed only in 'const_tasks'";
-                return false;
-            }
-        }
-
         taskInfoMap.clear();
-        auto parseTask = [&](const std::string& taskName, bool requiresFixedReference) -> bool {
+        auto parseTask = [&](const std::string& taskName) -> bool {
             auto taskGroupWeak = ikParams->getGroup(taskName);
             auto taskGroup = taskGroupWeak.lock();
             if (!taskGroup)
@@ -327,8 +286,7 @@ public:
                     fixedRef.orientationData.I_R_IMU = fixedRotation;
                     if (hasFixedAngularVelocity)
                     {
-                        fixedRef.orientationData.I_omega_IMU.coeffs() << fixedAngularVelocity[0],
-                            fixedAngularVelocity[1],
+                        fixedRef.orientationData.I_omega_IMU.coeffs() << fixedAngularVelocity[0], fixedAngularVelocity[1],
                             fixedAngularVelocity[2];
                     }
                     info.fixedReference = fixedRef;
@@ -365,8 +323,7 @@ public:
                     fixedRef.orientationData.I_R_IMU = fixedRotation;
                     if (hasFixedAngularVelocity)
                     {
-                        fixedRef.orientationData.I_omega_IMU.coeffs() << fixedAngularVelocity[0],
-                            fixedAngularVelocity[1],
+                        fixedRef.orientationData.I_omega_IMU.coeffs() << fixedAngularVelocity[0], fixedAngularVelocity[1],
                             fixedAngularVelocity[2];
                     }
                     info.fixedReference = fixedRef;
@@ -383,8 +340,7 @@ public:
                     yError() << LogPrefix << "FloorContactTask" << taskName << "is missing 'frame_name'";
                     return false;
                 }
-                if (!requiresFixedReference
-                    && !taskGroup->getParameter("vertical_force_threshold", info.contactThreshold))
+                if (!taskGroup->getParameter("vertical_force_threshold", info.contactThreshold))
                 {
                     yError() << LogPrefix << "FloorContactTask" << taskName << "is missing 'vertical_force_threshold'";
                     return false;
@@ -396,12 +352,7 @@ public:
                 {
                     FixedTaskReference fixedRef;
                     fixedRef.kind = KinematicTaskKind::FloorContact;
-                    fixedRef.wrench << fixedWrench[0],
-                        fixedWrench[1],
-                        fixedWrench[2],
-                        fixedWrench[3],
-                        fixedWrench[4],
-                        fixedWrench[5];
+                    fixedRef.wrench << fixedWrench[0], fixedWrench[1], fixedWrench[2], fixedWrench[3], fixedWrench[4], fixedWrench[5];
                     info.fixedReference = fixedRef;
                 }
             } else if (type == "PositionTask")
@@ -417,8 +368,7 @@ public:
                 const bool hasFixedPosition = readSizedVector(taskGroup, "const_position", 3, fixedPosition, taskName);
 
                 std::vector<double> fixedLinearVelocity;
-                const bool hasFixedLinearVelocity
-                    = readSizedVector(taskGroup, "const_linear_velocity", 3, fixedLinearVelocity, taskName);
+                const bool hasFixedLinearVelocity = readSizedVector(taskGroup, "const_linear_velocity", 3, fixedLinearVelocity, taskName);
 
                 if (hasFixedPosition)
                 {
@@ -456,8 +406,7 @@ public:
                 }
 
                 std::vector<double> fixedLinearVelocity;
-                const bool hasFixedLinearVelocity
-                    = readSizedVector(taskGroup, "const_linear_velocity", 3, fixedLinearVelocity, taskName);
+                const bool hasFixedLinearVelocity = readSizedVector(taskGroup, "const_linear_velocity", 3, fixedLinearVelocity, taskName);
 
                 std::vector<double> fixedAngularVelocity;
                 const bool hasFixedAngularVelocity
@@ -474,19 +423,15 @@ public:
 
                     FixedTaskReference fixedRef;
                     fixedRef.kind = KinematicTaskKind::Pose;
-                    fixedRef.poseData.S_H_M = manif::SE3d(Eigen::Vector3d(fixedPosition[0], fixedPosition[1], fixedPosition[2]),
-                                                          fixedRotation.quat());
+                    fixedRef.poseData.S_H_M
+                        = manif::SE3d(Eigen::Vector3d(fixedPosition[0], fixedPosition[1], fixedPosition[2]), fixedRotation.quat());
                     if (hasFixedLinearVelocity)
                     {
-                        fixedRef.poseData.S_v_M.lin() << fixedLinearVelocity[0],
-                            fixedLinearVelocity[1],
-                            fixedLinearVelocity[2];
+                        fixedRef.poseData.S_v_M.lin() << fixedLinearVelocity[0], fixedLinearVelocity[1], fixedLinearVelocity[2];
                     }
                     if (hasFixedAngularVelocity)
                     {
-                        fixedRef.poseData.S_v_M.ang() << fixedAngularVelocity[0],
-                            fixedAngularVelocity[1],
-                            fixedAngularVelocity[2];
+                        fixedRef.poseData.S_v_M.ang() << fixedAngularVelocity[0], fixedAngularVelocity[1], fixedAngularVelocity[2];
                     }
                     info.fixedReference = fixedRef;
                 } else if (hasFixedLinearVelocity || hasFixedAngularVelocity)
@@ -502,20 +447,7 @@ public:
 
             if (!isSupportedKinematicTask)
             {
-                if (requiresFixedReference)
-                {
-                    yError() << LogPrefix << "Task" << taskName
-                             << "listed in 'const_tasks' has unsupported type. Only SO3Task, GravityTask, PositionTask, PoseTask and FloorContactTask are supported.";
-                    return false;
-                }
                 return true;
-            }
-
-            if (requiresFixedReference && !info.fixedReference.has_value())
-            {
-                yError() << LogPrefix << "Task" << taskName
-                         << "listed in 'const_tasks' must define a fixed reference (const_* parameters).";
-                return false;
             }
 
             taskInfoMap[taskName] = std::move(info);
@@ -524,15 +456,7 @@ public:
 
         for (const auto& taskName : tasks)
         {
-            if (!parseTask(taskName, false))
-            {
-                return false;
-            }
-        }
-
-        for (const auto& taskName : fixedTasks)
-        {
-            if (!parseTask(taskName, true))
+            if (!parseTask(taskName))
             {
                 return false;
             }
@@ -657,8 +581,7 @@ bool baf::devices::BAFStateProvider::open(yarp::os::Searchable& config)
     auto ikParams = std::make_shared<BipedalLocomotion::ParametersHandler::YarpImplementation>(config);
 
     std::unordered_map<std::string, impl::TaskInfo> taskInfoMap;
-    std::unordered_set<std::string> fixedOnlyTaskNames;
-    if (!impl::buildTaskInfoMap(ikParams, taskInfoMap, fixedOnlyTaskNames))
+    if (!impl::buildTaskInfoMap(ikParams, taskInfoMap))
     {
         return false;
     }
@@ -672,11 +595,6 @@ bool baf::devices::BAFStateProvider::open(yarp::os::Searchable& config)
         return false;
     }
     pImpl->sensorTargets.clear();
-    pImpl->fixedNodeDataMap.clear();
-    pImpl->fixedFtDataMap.clear();
-    pImpl->fixedPositionDataMap.clear();
-    pImpl->fixedPoseDataMap.clear();
-    pImpl->fixedOnlyTasks.clear();
     {
         yarp::os::Bottle& group = config.findGroup("TASK_TO_SENSORS");
         // group.get(0) is the group name; task-sensor pairs start at index 1
@@ -698,12 +616,6 @@ bool baf::devices::BAFStateProvider::open(yarp::os::Searchable& config)
                 yWarning() << LogPrefix << "TASK_TO_SENSORS: task '" << taskName << "' not found in IK config, ignoring mapping";
                 continue;
             }
-            if (fixedOnlyTaskNames.find(taskName) != fixedOnlyTaskNames.end())
-            {
-                yError() << LogPrefix << "TASK_TO_SENSORS: task '" << taskName
-                         << "' is listed in 'const_tasks' and cannot be mapped to a sensor";
-                return false;
-            }
             if (!configuredTaskNames.insert(taskName).second)
             {
                 yError() << LogPrefix << "TASK_TO_SENSORS: duplicate task name '" << taskName << "'";
@@ -720,50 +632,9 @@ bool baf::devices::BAFStateProvider::open(yarp::os::Searchable& config)
         }
     }
 
-    for (const auto& [taskName, info] : taskInfoMap)
-    {
-        if (!info.fixedReference.has_value())
-        {
-            continue;
-        }
-
-        const bool isFixedOnlyTask = fixedOnlyTaskNames.find(taskName) != fixedOnlyTaskNames.end();
-
-        if (isFixedOnlyTask)
-        {
-            impl::FixedOnlyTaskInfo fixedOnlyInfo;
-            fixedOnlyInfo.taskName = taskName;
-            fixedOnlyInfo.modelLinkName = info.modelLinkName;
-            fixedOnlyInfo.kind = info.kind;
-            fixedOnlyInfo.fixedReference = info.fixedReference.value();
-            pImpl->fixedOnlyTasks.push_back(std::move(fixedOnlyInfo));
-            continue;
-        }
-
-        const auto& fixedRef = info.fixedReference.value();
-        if (fixedRef.kind == KinematicTaskKind::Orientation)
-        {
-            pImpl->fixedNodeDataMap[taskName] = fixedRef.orientationData;
-        } else if (fixedRef.kind == KinematicTaskKind::Position)
-        {
-            pImpl->fixedPositionDataMap[taskName] = fixedRef.positionData;
-        } else if (fixedRef.kind == KinematicTaskKind::Pose)
-        {
-            pImpl->fixedPoseDataMap[taskName] = fixedRef.poseData;
-        } else if (fixedRef.kind == KinematicTaskKind::FloorContact)
-        {
-            pImpl->fixedFtDataMap[taskName] = fixedRef.wrench;
-        }
-    }
-
     // ── Error if a task has neither sensor mapping nor fixed reference ───────
     for (const auto& [name, info] : taskInfoMap)
     {
-        if (fixedOnlyTaskNames.find(name) != fixedOnlyTaskNames.end())
-        {
-            continue;
-        }
-
         if (configuredTaskNames.find(name) == configuredTaskNames.end() && !info.fixedReference.has_value())
         {
             yError() << LogPrefix << "Task '" << name
@@ -885,31 +756,6 @@ bool baf::devices::BAFStateProvider::open(yarp::os::Searchable& config)
         }
         auto target = std::make_shared<hde::WearableSensorTarget>(tgt.sensorName, tgt.modelLinkName, targetType);
         pImpl->wearableTargets[tgt.taskName] = target;
-    }
-
-    for (const auto& fixedTask : pImpl->fixedOnlyTasks)
-    {
-        hde::KinematicTargetType targetType;
-        switch (fixedTask.kind)
-        {
-        case KinematicTaskKind::Position:
-            targetType = hde::KinematicTargetType::position;
-            break;
-        case KinematicTaskKind::Pose:
-            targetType = hde::KinematicTargetType::pose;
-            break;
-        case KinematicTaskKind::FloorContact:
-            targetType = hde::KinematicTargetType::floorContact;
-            break;
-        default:
-            targetType = hde::KinematicTargetType::orientationAndVelocity;
-            break;
-        }
-
-        auto target = std::make_shared<hde::WearableSensorTarget>(fixedTask.taskName,
-                                                                   fixedTask.modelLinkName,
-                                                                   targetType);
-        pImpl->wearableTargets[fixedTask.taskName] = target;
     }
 
     // ── Allocate solution ─────────────────────────────────────────────────────
@@ -1102,12 +948,6 @@ void baf::devices::BAFStateProvider::run()
     pImpl->positionDataMap.clear();
     pImpl->poseDataMap.clear();
     pImpl->ftDataMap.clear();
-
-    // Seed runtime inputs with fixed references from config.
-    pImpl->nodeDataMap = pImpl->fixedNodeDataMap;
-    pImpl->positionDataMap = pImpl->fixedPositionDataMap;
-    pImpl->poseDataMap = pImpl->fixedPoseDataMap;
-    pImpl->ftDataMap = pImpl->fixedFtDataMap;
 
     for (const auto& tgt : pImpl->sensorTargets)
     {
@@ -1329,38 +1169,6 @@ void baf::devices::BAFStateProvider::run()
             }
         }
         // FloorContact: no solver setpoint to expose
-    }
-
-    for (const auto& fixedTask : pImpl->fixedOnlyTasks)
-    {
-        auto it = pImpl->wearableTargets.find(fixedTask.taskName);
-        if (it == pImpl->wearableTargets.end())
-        {
-            continue;
-        }
-
-        auto& wTarget = it->second;
-        const auto& fixedRef = fixedTask.fixedReference;
-
-        if (fixedTask.kind == KinematicTaskKind::Orientation)
-        {
-            std::lock_guard<std::mutex> lock(wTarget->mutex);
-            iDynTree::toEigen(wTarget->rotation) = fixedRef.orientationData.I_R_IMU.rotation();
-            iDynTree::toEigen(wTarget->angularVelocity) = fixedRef.orientationData.I_omega_IMU.coeffs();
-        } else if (fixedTask.kind == KinematicTaskKind::Position)
-        {
-            std::lock_guard<std::mutex> lock(wTarget->mutex);
-            iDynTree::toEigen(wTarget->position) = fixedRef.positionData.S_p_M;
-            iDynTree::toEigen(wTarget->linearVelocity) = fixedRef.positionData.S_v_M;
-        } else if (fixedTask.kind == KinematicTaskKind::Pose)
-        {
-            std::lock_guard<std::mutex> lock(wTarget->mutex);
-            iDynTree::toEigen(wTarget->position) = fixedRef.poseData.S_H_M.translation();
-            iDynTree::toEigen(wTarget->rotation) = fixedRef.poseData.S_H_M.rotation();
-            iDynTree::toEigen(wTarget->linearVelocity) = fixedRef.poseData.S_v_M.lin();
-            iDynTree::toEigen(wTarget->angularVelocity) = fixedRef.poseData.S_v_M.ang();
-        }
-        // FloorContact: no setpoint fields to expose in WearableSensorTarget.
     }
 
     // ── Step 5: copy results into solution (mutex-protected) ──────────────────

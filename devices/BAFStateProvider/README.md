@@ -11,9 +11,10 @@
 | `floatingBaseFrame` | string | Floating base link name (default `"Pelvis"`) |
 | `rpcPortPrefix` | string | Prefix used for the RPC port and other device ports |
 | `tasks` | list | IK tasks to enable, each defined by a corresponding `<group>`/section in the config |
-| `const_tasks` | list | Optional fixed-only kinematic tasks. They must define `const_*` parameters and are not mapped in `TASK_TO_SENSORS`. |
 
 The device forwards its whole configuration to the underlying `BiomechanicalAnalysis::IK::HumanIK` solver (via `BipedalLocomotion::ParametersHandler`), so BAF IK task groups (`SO3Task`, `PositionTask`, `PoseTask`, `FloorContactTask`, `GravityTask`, ...) are configured directly in the device config, there is no separate IK config file.
+
+Constant tasks are owned by the IK library: if a task group defines `const_*` parameters, HumanIK treats it as a world-frame constant and the device does not need to map it to a sensor.
 
 ### `TASK_TO_SENSORS` group
 
@@ -26,27 +27,9 @@ L_UPPER_ARM_TASK "iFeelSuit::vLink::Node#5"
 L_HAND_PALM_TASK "TransformServer::pose::left_glove"
 ```
 
-Tasks listed in `const_tasks` must not appear in this group.
-
-### `const_tasks` list
-
-Use `const_tasks` to define kinematic targets that are configured with static `const_*` values and kept separate from sensor mapping. Each task name in `const_tasks` must have a corresponding task group and must define a valid fixed reference.
-
-Validation rules for `const_tasks`:
-
-- A task cannot appear in both `tasks` and `const_tasks`.
-- A task in `const_tasks` cannot appear in `TASK_TO_SENSORS`.
-- A task in `const_tasks` must define a valid `const_*` reference.
-- Supported task types are `SO3Task`, `GravityTask`, `PositionTask`, `PoseTask`, `FloorContactTask`.
-
 ### Optional fixed references (`const_*`)
 
-For supported kinematic tasks, you can define a static target directly in the task group using `const_*` parameters.
-
-This can be used in two ways:
-
-- Inside `tasks`: the task remains an IK task and can still use a fixed target as input.
-- Inside `const_tasks`: the task is configured as fixed-only and is not sensor-mapped.
+For supported kinematic tasks, you can define a static target directly in the task group using `const_*` parameters. HumanIK interprets those values as world-frame constants and applies them at the beginning of each IK advance cycle.
 
 Supported parameters by task type:
 

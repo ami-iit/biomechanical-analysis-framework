@@ -233,6 +233,11 @@ bool HumanIK::updateOrientationTask(const int node, const manif::SO3d& I_R_IMU, 
         return false;
     }
 
+    if (m_OrientationTasks[node].isConstant)
+    {
+        return true;
+    }
+
     // Compute the rotation matrix from the world to the link frame as:
     // W_R_link = W_R_WIMU * WIMU_R_IMU * IMU_R_link
     m_OrientationTasks[node].W_R_link = m_OrientationTasks[node].calibrationMatrix * I_R_IMU * m_OrientationTasks[node].IMU_R_link;
@@ -253,6 +258,11 @@ bool HumanIK::updateGravityTask(const int node, const manif::SO3d& I_R_IMU)
     {
         BiomechanicalAnalysis::log()->error("[HumanIK::setNodeSetPoint] Invalid node number {}.", node);
         return false;
+    }
+
+    if (m_GravityTasks[node].isConstant)
+    {
+        return true;
     }
 
     // compute the rotation matrix from the world to the link frame as:
@@ -276,6 +286,11 @@ bool HumanIK::updateFloorContactTask(const int node, const double verticalForce,
     {
         BiomechanicalAnalysis::log()->error("[HumanIK::updateFloorContactTask] Invalid node number.");
         return false;
+    }
+
+    if (m_FloorContactTasks[node].isConstant)
+    {
+        return true;
     }
 
     // if the vertical force is greater than the threshold and if the foot is not yet in contact,
@@ -627,6 +642,8 @@ bool HumanIK::advance()
     // Initialize ok flag to true
     bool ok{true};
 
+    ok = ok && applyConstantTaskSetpoints();
+
     // Advance the QP solver
     ok = ok && m_qpIK.advance();
     // Check if the output of the QP solver is valid
@@ -764,7 +781,12 @@ const manif::SO3d& HumanIK::getCalibratedIMURotation(int node) const
 bool HumanIK::getOrientationTaskSetPoint(int node, manif::SO3d& W_R_link, Eigen::Vector3d& W_omega_link) const
 {
     const auto it = m_OrientationTasks.find(node);
-    if (it == m_OrientationTasks.end() || !it->second.hasSetPoint)
+    if (it == m_OrientationTasks.end())
+    {
+        return false;
+    }
+
+    if (!it->second.hasSetPoint)
     {
         return false;
     }
@@ -777,7 +799,12 @@ bool HumanIK::getOrientationTaskSetPoint(int node, manif::SO3d& W_R_link, Eigen:
 bool HumanIK::getGravityTaskSetPoint(int node, Eigen::Vector3d& gravityDirection) const
 {
     const auto it = m_GravityTasks.find(node);
-    if (it == m_GravityTasks.end() || !it->second.hasSetPoint)
+    if (it == m_GravityTasks.end())
+    {
+        return false;
+    }
+
+    if (!it->second.hasSetPoint)
     {
         return false;
     }
@@ -789,7 +816,12 @@ bool HumanIK::getGravityTaskSetPoint(int node, Eigen::Vector3d& gravityDirection
 bool HumanIK::getPositionTaskSetPoint(int node, Eigen::Vector3d& W_p_frame, Eigen::Vector3d& W_v_frame) const
 {
     const auto it = m_PositionTasks.find(node);
-    if (it == m_PositionTasks.end() || !it->second.hasSetPoint)
+    if (it == m_PositionTasks.end())
+    {
+        return false;
+    }
+
+    if (!it->second.hasSetPoint)
     {
         return false;
     }
@@ -802,7 +834,12 @@ bool HumanIK::getPositionTaskSetPoint(int node, Eigen::Vector3d& W_p_frame, Eige
 bool HumanIK::getPoseTaskSetPoint(int node, manif::SE3d& W_H_frame, manif::SE3d::Tangent& W_v_frame) const
 {
     const auto it = m_PoseTasks.find(node);
-    if (it == m_PoseTasks.end() || !it->second.hasSetPoint)
+    if (it == m_PoseTasks.end())
+    {
+        return false;
+    }
+
+    if (!it->second.hasSetPoint)
     {
         return false;
     }
@@ -933,6 +970,72 @@ bool HumanIK::initializeOrientationTask(const std::string& taskName,
     m_OrientationTasks[nodeNumber].IMU_R_link = m_OrientationTasks[nodeNumber].IMU_R_link_init;
     //*****************************************************************************************************
 
+    std::vector<double> constantRotationMatrix;
+    std::vector<double> constantQuaternion;
+    manif::SO3d constantRotation = manif::SO3d::Identity();
+    bool hasConstantRotation{false};
+    if (taskHandler->getParameter("const_rotation_matrix", constantRotationMatrix))
+    {
+        if (constantRotationMatrix.size() != 9)
+        {
+            BiomechanicalAnalysis::log()->error("{} The size of const_rotation_matrix of the {} task is {}, it should be 9",
+                                                logPrefix,
+                                                taskName,
+                                                constantRotationMatrix.size());
+            return false;
+        }
+        constantRotation = BipedalLocomotion::Conversions::toManifRot(
+            Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(constantRotationMatrix.data()));
+        hasConstantRotation = true;
+    } else if (taskHandler->getParameter("const_quaternion", constantQuaternion))
+    {
+        if (constantQuaternion.size() != 4)
+        {
+            BiomechanicalAnalysis::log()->error("{} The size of const_quaternion of the {} task is {}, it should be 4",
+                                                logPrefix,
+                                                taskName,
+                                                constantQuaternion.size());
+            return false;
+        }
+        constantRotation
+            = manif::SO3d(Eigen::Quaterniond(constantQuaternion[0], constantQuaternion[1], constantQuaternion[2], constantQuaternion[3]));
+        hasConstantRotation = true;
+    }
+
+    std::vector<double> constantAngularVelocity;
+    const bool hasConstantAngularVelocity = taskHandler->getParameter("const_angular_velocity", constantAngularVelocity);
+    if (hasConstantAngularVelocity && !hasConstantRotation)
+    {
+        BiomechanicalAnalysis::log()->error("{} Task {} defines const_angular_velocity but no const_rotation_matrix/const_quaternion",
+                                            logPrefix,
+                                            taskName);
+        return false;
+    }
+
+    if (hasConstantRotation)
+    {
+        m_OrientationTasks[nodeNumber].isConstant = true;
+        m_OrientationTasks[nodeNumber].W_R_link = constantRotation;
+        m_OrientationTasks[nodeNumber].W_R_link_setPoint = constantRotation;
+        if (hasConstantAngularVelocity)
+        {
+            if (constantAngularVelocity.size() != 3)
+            {
+                BiomechanicalAnalysis::log()->error("{} The size of const_angular_velocity of the {} task is {}, it should be 3",
+                                                    logPrefix,
+                                                    taskName,
+                                                    constantAngularVelocity.size());
+                return false;
+            }
+            m_OrientationTasks[nodeNumber].W_omega_link_setPoint << constantAngularVelocity[0], constantAngularVelocity[1],
+                constantAngularVelocity[2];
+        } else
+        {
+            m_OrientationTasks[nodeNumber].W_omega_link_setPoint.setZero();
+        }
+        m_OrientationTasks[nodeNumber].hasSetPoint = true;
+    }
+
     // Initialize the SO3Task object
     ok = ok && m_OrientationTasks[nodeNumber].task->setKinDyn(m_kinDyn);
     ok = ok && m_OrientationTasks[nodeNumber].task->initialize(taskHandler);
@@ -1032,6 +1135,56 @@ bool HumanIK::initializeGravityTask(const std::string& taskName,
     m_GravityTasks[nodeNumber].IMU_R_link = m_GravityTasks[nodeNumber].IMU_R_link_init;
 
     //*****************************************************************************************************
+
+    std::vector<double> constantRotationMatrix;
+    std::vector<double> constantQuaternion;
+    manif::SO3d constantRotation = manif::SO3d::Identity();
+    bool hasConstantRotation{false};
+    if (taskHandler->getParameter("const_rotation_matrix", constantRotationMatrix))
+    {
+        if (constantRotationMatrix.size() != 9)
+        {
+            BiomechanicalAnalysis::log()->error("{} The size of const_rotation_matrix of the {} task is {}, it should be 9",
+                                                logPrefix,
+                                                taskName,
+                                                constantRotationMatrix.size());
+            return false;
+        }
+        constantRotation = BipedalLocomotion::Conversions::toManifRot(
+            Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(constantRotationMatrix.data()));
+        hasConstantRotation = true;
+    } else if (taskHandler->getParameter("const_quaternion", constantQuaternion))
+    {
+        if (constantQuaternion.size() != 4)
+        {
+            BiomechanicalAnalysis::log()->error("{} The size of const_quaternion of the {} task is {}, it should be 4",
+                                                logPrefix,
+                                                taskName,
+                                                constantQuaternion.size());
+            return false;
+        }
+        constantRotation
+            = manif::SO3d(Eigen::Quaterniond(constantQuaternion[0], constantQuaternion[1], constantQuaternion[2], constantQuaternion[3]));
+        hasConstantRotation = true;
+    }
+
+    std::vector<double> constantAngularVelocity;
+    const bool hasConstantAngularVelocity = taskHandler->getParameter("const_angular_velocity", constantAngularVelocity);
+    if (hasConstantAngularVelocity && !hasConstantRotation)
+    {
+        BiomechanicalAnalysis::log()->error("{} Task {} defines const_angular_velocity but no const_rotation_matrix/const_quaternion",
+                                            logPrefix,
+                                            taskName);
+        return false;
+    }
+
+    if (hasConstantRotation)
+    {
+        m_GravityTasks[nodeNumber].isConstant = true;
+        m_GravityTasks[nodeNumber].W_R_link = constantRotation;
+        m_GravityTasks[nodeNumber].gravityDirectionSetPoint = constantRotation.rotation().transpose().rightCols(1);
+        m_GravityTasks[nodeNumber].hasSetPoint = true;
+    }
 
     // Map weight vector to Eigen::Vector2d and assign it to the corresponding task
     m_GravityTasks[nodeNumber].weight = Eigen::Map<Eigen::Vector2d>(weight.data());
@@ -1149,6 +1302,22 @@ bool HumanIK::initializeFloorContactTask(const std::string& taskName,
         }
 
         m_FloorContactTasks[taskNumber].M_R_L = toManifRot(Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(rotationMatrix.data()));
+    }
+
+    std::vector<double> constWrench;
+    if (taskHandler->getParameter("const_wrench", constWrench))
+    {
+        if (constWrench.size() != 6)
+        {
+            BiomechanicalAnalysis::log()->error("{} The size of const_wrench of the {} task is {}, it should be 6",
+                                                logPrefix,
+                                                taskName,
+                                                constWrench.size());
+            return false;
+        }
+        m_FloorContactTasks[taskNumber].isConstant = true;
+        m_FloorContactTasks[taskNumber].constantWrench << constWrench[0], constWrench[1], constWrench[2], constWrench[3], constWrench[4],
+            constWrench[5];
     }
 
     // Map weight vector to Eigen::Vector3d and assign it to the corresponding FloorContactTask
@@ -1647,6 +1816,46 @@ bool HumanIK::initializePositionTask(const std::string& taskName,
                                            taskName);
     }
 
+    std::vector<double> constantPosition;
+    std::vector<double> constantLinearVelocity;
+    const bool hasConstantPosition = taskHandler->getParameter("const_position", constantPosition);
+    const bool hasConstantLinearVelocity = taskHandler->getParameter("const_linear_velocity", constantLinearVelocity);
+    if (hasConstantLinearVelocity && !hasConstantPosition)
+    {
+        BiomechanicalAnalysis::log()->error("{} Task {} defines const_linear_velocity but no const_position", logPrefix, taskName);
+        return false;
+    }
+    if (hasConstantPosition)
+    {
+        if (constantPosition.size() != 3)
+        {
+            BiomechanicalAnalysis::log()->error("{} The size of const_position of the {} task is {}, it should be 3",
+                                                logPrefix,
+                                                taskName,
+                                                constantPosition.size());
+            return false;
+        }
+        m_PositionTasks[nodeNumber].isConstant = true;
+        m_PositionTasks[nodeNumber].W_p_frame_setPoint << constantPosition[0], constantPosition[1], constantPosition[2];
+        if (hasConstantLinearVelocity)
+        {
+            if (constantLinearVelocity.size() != 3)
+            {
+                BiomechanicalAnalysis::log()->error("{} The size of const_linear_velocity of the {} task is {}, it should be 3",
+                                                    logPrefix,
+                                                    taskName,
+                                                    constantLinearVelocity.size());
+                return false;
+            }
+            m_PositionTasks[nodeNumber].W_v_frame_setPoint << constantLinearVelocity[0], constantLinearVelocity[1],
+                constantLinearVelocity[2];
+        } else
+        {
+            m_PositionTasks[nodeNumber].W_v_frame_setPoint.setZero();
+        }
+        m_PositionTasks[nodeNumber].hasSetPoint = true;
+    }
+
     // Read optional position_offset (fixed translational extrinsic M_p_L expressed in M)
     std::vector<double> position_offset;
     if (taskHandler->getParameter("position_offset", position_offset))
@@ -1739,6 +1948,106 @@ bool HumanIK::initializePoseTask(const std::string& taskName,
     }
     m_PoseTasks[nodeNumber].M_R_L = m_PoseTasks[nodeNumber].M_R_L_init;
 
+    std::vector<double> constantPosition;
+    std::vector<double> constantRotationMatrix;
+    std::vector<double> constantQuaternion;
+    std::vector<double> constantLinearVelocity;
+    std::vector<double> constantAngularVelocity;
+    const bool hasConstantPosition = taskHandler->getParameter("const_position", constantPosition);
+    bool hasConstantRotation{false};
+    manif::SO3d constantRotation = manif::SO3d::Identity();
+    if (taskHandler->getParameter("const_rotation_matrix", constantRotationMatrix))
+    {
+        if (constantRotationMatrix.size() != 9)
+        {
+            BiomechanicalAnalysis::log()->error("{} The size of const_rotation_matrix of the {} task is {}, it should be 9",
+                                                logPrefix,
+                                                taskName,
+                                                constantRotationMatrix.size());
+            return false;
+        }
+        constantRotation = BipedalLocomotion::Conversions::toManifRot(
+            Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(constantRotationMatrix.data()));
+        hasConstantRotation = true;
+    } else if (taskHandler->getParameter("const_quaternion", constantQuaternion))
+    {
+        if (constantQuaternion.size() != 4)
+        {
+            BiomechanicalAnalysis::log()->error("{} The size of const_quaternion of the {} task is {}, it should be 4",
+                                                logPrefix,
+                                                taskName,
+                                                constantQuaternion.size());
+            return false;
+        }
+        constantRotation
+            = manif::SO3d(Eigen::Quaterniond(constantQuaternion[0], constantQuaternion[1], constantQuaternion[2], constantQuaternion[3]));
+        hasConstantRotation = true;
+    }
+    const bool hasConstantLinearVelocity = taskHandler->getParameter("const_linear_velocity", constantLinearVelocity);
+    const bool hasConstantAngularVelocity = taskHandler->getParameter("const_angular_velocity", constantAngularVelocity);
+    if ((hasConstantLinearVelocity || hasConstantAngularVelocity) && !(hasConstantPosition && hasConstantRotation))
+    {
+        BiomechanicalAnalysis::log()->error("{} Task {} defines fixed velocities but no "
+                                            "const_position/const_rotation_matrix/const_quaternion",
+                                            logPrefix,
+                                            taskName);
+        return false;
+    }
+    if (hasConstantPosition != hasConstantRotation && (hasConstantPosition || hasConstantRotation))
+    {
+        BiomechanicalAnalysis::log()->error("{} Task {} must define both const_position and const_rotation_matrix/const_quaternion",
+                                            logPrefix,
+                                            taskName);
+        return false;
+    }
+    if (hasConstantPosition)
+    {
+        if (constantPosition.size() != 3)
+        {
+            BiomechanicalAnalysis::log()->error("{} The size of const_position of the {} task is {}, it should be 3",
+                                                logPrefix,
+                                                taskName,
+                                                constantPosition.size());
+            return false;
+        }
+        m_PoseTasks[nodeNumber].isConstant = true;
+        m_PoseTasks[nodeNumber].W_H_frame_setPoint
+            = manif::SE3d(Eigen::Vector3d(constantPosition[0], constantPosition[1], constantPosition[2]), constantRotation.quat());
+        if (hasConstantLinearVelocity)
+        {
+            if (constantLinearVelocity.size() != 3)
+            {
+                BiomechanicalAnalysis::log()->error("{} The size of const_linear_velocity of the {} task is {}, it should be 3",
+                                                    logPrefix,
+                                                    taskName,
+                                                    constantLinearVelocity.size());
+                return false;
+            }
+            m_PoseTasks[nodeNumber].W_v_frame_setPoint.lin() << constantLinearVelocity[0], constantLinearVelocity[1],
+                constantLinearVelocity[2];
+        } else
+        {
+            m_PoseTasks[nodeNumber].W_v_frame_setPoint.lin().setZero();
+        }
+        if (hasConstantAngularVelocity)
+        {
+            if (constantAngularVelocity.size() != 3)
+            {
+                BiomechanicalAnalysis::log()->error("{} The size of const_angular_velocity of the {} task is {}, it should be 3",
+                                                    logPrefix,
+                                                    taskName,
+                                                    constantAngularVelocity.size());
+                return false;
+            }
+            m_PoseTasks[nodeNumber].W_v_frame_setPoint.ang() << constantAngularVelocity[0], constantAngularVelocity[1],
+                constantAngularVelocity[2];
+        } else
+        {
+            m_PoseTasks[nodeNumber].W_v_frame_setPoint.ang().setZero();
+        }
+        m_PoseTasks[nodeNumber].hasSetPoint = true;
+    }
+
     // Read optional position_offset (fixed translational extrinsic M_p_L expressed in M)
     std::vector<double> position_offset;
     if (taskHandler->getParameter("position_offset", position_offset))
@@ -1776,6 +2085,11 @@ bool HumanIK::updatePositionTask(const int node, const positionData& data)
         BiomechanicalAnalysis::log()->error("[HumanIK::updatePositionTask] Invalid node number {}.", node);
         return false;
     }
+
+    if (m_PositionTasks[node].isConstant)
+    {
+        return true;
+    }
     const Eigen::Vector3d S_p_L = data.S_p_M + m_PositionTasks[node].S_R_M.rotation() * m_PositionTasks[node].M_p_L;
     const Eigen::Vector3d W_p_frame = m_PositionTasks[node].W_R_S.rotation() * S_p_L + m_worldAnchorTranslation;
     const Eigen::Vector3d W_v_frame = m_PositionTasks[node].W_R_S.rotation() * data.S_v_M;
@@ -1808,6 +2122,11 @@ bool HumanIK::updatePoseTask(const int node, const poseData& data)
         BiomechanicalAnalysis::log()->error("[HumanIK::updatePoseTask] Invalid node number {}.", node);
         return false;
     }
+
+    if (m_PoseTasks[node].isConstant)
+    {
+        return true;
+    }
     const manif::SO3d S_R_M(data.S_H_M.quat());
     m_PoseTasks[node].W_R_link = m_PoseTasks[node].W_R_S * S_R_M * m_PoseTasks[node].M_R_L;
     const Eigen::Vector3d S_p_L = data.S_H_M.translation() + S_R_M.rotation() * m_PoseTasks[node].M_p_L;
@@ -1837,5 +2156,158 @@ bool HumanIK::updatePoseTasks(const std::unordered_map<int, poseData>& poseMap)
             ok = false;
         }
     }
+    return ok;
+}
+
+bool HumanIK::applyConstantOrientationTask(int node)
+{
+    auto taskIt = m_OrientationTasks.find(node);
+    if (taskIt == m_OrientationTasks.end())
+    {
+        return false;
+    }
+
+    auto& task = taskIt->second;
+    if (!task.isConstant)
+    {
+        return true;
+    }
+
+    task.hasSetPoint = true;
+    return task.task->setSetPoint(task.W_R_link_setPoint, task.W_omega_link_setPoint);
+}
+
+bool HumanIK::applyConstantGravityTask(int node)
+{
+    auto taskIt = m_GravityTasks.find(node);
+    if (taskIt == m_GravityTasks.end())
+    {
+        return false;
+    }
+
+    auto& task = taskIt->second;
+    if (!task.isConstant)
+    {
+        return true;
+    }
+
+    task.hasSetPoint = true;
+    return task.task->setSetPoint(task.gravityDirectionSetPoint);
+}
+
+bool HumanIK::applyConstantFloorContactTask(int node)
+{
+    auto taskIt = m_FloorContactTasks.find(node);
+    if (taskIt == m_FloorContactTasks.end())
+    {
+        return false;
+    }
+
+    auto& task = taskIt->second;
+    if (!task.isConstant)
+    {
+        return true;
+    }
+
+    const Eigen::Vector3d forceInMeasurementFrame = task.constantWrench.segment<3>(WRENCH_FORCE_X);
+    const Eigen::Vector3d forceInLinkFrame = task.M_R_L.rotation() * forceInMeasurementFrame;
+    bool ok{true};
+
+    if (forceInLinkFrame(WRENCH_FORCE_Z) > task.verticalForceThreshold && !task.footInContact)
+    {
+        m_qpIK.setTaskWeight(task.taskName, task.weight);
+        task.footInContact = true;
+        task.setPointPosition = iDynTree::toEigen(m_kinDyn->getWorldTransform(task.frameName).getPosition());
+        task.setPointPosition(2) = 0.0;
+    } else if (forceInLinkFrame(WRENCH_FORCE_Z) < task.verticalForceThreshold && task.footInContact)
+    {
+        m_qpIK.setTaskWeight(task.taskName, Eigen::Vector3d::Zero());
+        task.footInContact = false;
+    }
+
+    ok = ok && task.task->setSetPoint(task.setPointPosition);
+    return ok;
+}
+
+bool HumanIK::applyConstantPositionTask(int node)
+{
+    auto taskIt = m_PositionTasks.find(node);
+    if (taskIt == m_PositionTasks.end())
+    {
+        return false;
+    }
+
+    auto& task = taskIt->second;
+    if (!task.isConstant)
+    {
+        return true;
+    }
+
+    task.hasSetPoint = true;
+    return task.task->setSetPoint(task.W_p_frame_setPoint, task.W_v_frame_setPoint);
+}
+
+bool HumanIK::applyConstantPoseTask(int node)
+{
+    auto taskIt = m_PoseTasks.find(node);
+    if (taskIt == m_PoseTasks.end())
+    {
+        return false;
+    }
+
+    auto& task = taskIt->second;
+    if (!task.isConstant)
+    {
+        return true;
+    }
+
+    task.hasSetPoint = true;
+    return task.task->setSetPoint(task.W_H_frame_setPoint, task.W_v_frame_setPoint);
+}
+
+bool HumanIK::applyConstantTaskSetpoints()
+{
+    bool ok{true};
+
+    for (const auto& [node, task] : m_OrientationTasks)
+    {
+        if (task.isConstant)
+        {
+            ok = ok && applyConstantOrientationTask(node);
+        }
+    }
+
+    for (const auto& [node, task] : m_GravityTasks)
+    {
+        if (task.isConstant)
+        {
+            ok = ok && applyConstantGravityTask(node);
+        }
+    }
+
+    for (const auto& [node, task] : m_FloorContactTasks)
+    {
+        if (task.isConstant)
+        {
+            ok = ok && applyConstantFloorContactTask(node);
+        }
+    }
+
+    for (const auto& [node, task] : m_PositionTasks)
+    {
+        if (task.isConstant)
+        {
+            ok = ok && applyConstantPositionTask(node);
+        }
+    }
+
+    for (const auto& [node, task] : m_PoseTasks)
+    {
+        if (task.isConstant)
+        {
+            ok = ok && applyConstantPoseTask(node);
+        }
+    }
+
     return ok;
 }

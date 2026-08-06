@@ -8,7 +8,7 @@ YARP device plugins built on top of the BiomechanicalAnalysis Framework (BAF).
 
 ## Fixed Kinematic Tasks
 
-The `baf_state_provider` device supports **fixed kinematic references** for IK tasks. Instead of mapping all tasks to wearable sensors via the `TASK_TO_SENSORS` mapping, you can define static targets using `const_*` parameters directly within task groups.
+The `baf_state_provider` device supports **fixed kinematic references** for IK tasks through the `BiomechanicalAnalysis::IK::HumanIK` library.
 
 Each task type supports specific fixed parameters:
 - **SO3Task / GravityTask**: `const_rotation_matrix` or `const_quaternion`, optional `const_angular_velocity`
@@ -16,4 +16,4 @@ Each task type supports specific fixed parameters:
 - **PoseTask**: `const_position` + (`const_rotation_matrix` or `const_quaternion`), optional velocities
 - **FloorContactTask**: `const_wrench`
 
-For configuration examples, see [conf/xml/BAFStateProvider_example_with_const_references.xml](conf/xml/BAFStateProvider_example_with_const_references.xml) and refer to the `const_tasks` parameter documentation in [BAFStateProvider/README.md](BAFStateProvider/README.md).
+For configuration examples, see [conf/xml/BAFStateProvider_example_with_const_references.xml](conf/xml/BAFStateProvider_example_with_const_references.xml) and refer to the fixed-reference documentation in [BAFStateProvider/README.md](BAFStateProvider/README.md).

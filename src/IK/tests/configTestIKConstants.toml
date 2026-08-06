@@ -1,0 +1,152 @@
+tasks = [
+    "PELVIS_TASK", "T8_TASK", "RIGHT_UPPER_ARM_TASK", "GRAVITY_TASK_1", 
+    "FLOOR_CONTACT_TASK_1", "JOINT_LIMITS_TASK", "JOINT_REG_TASK", "JOINT_VEL_LIMITS_TASK",
+    "BASE_VEL_REG_TASK", "POSITION_TASK_1", "POSE_TASK_1",
+    "CONST_PELVIS_TASK", "CONST_GRAVITY_TASK", "CONST_POSITION_TASK", "CONST_POSE_TASK"
+]
+
+[IK]
+robot_velocity_variable_name = "robot_velocity"
+verbosity = false
+
+[PELVIS_TASK]
+type = "SO3Task"
+robot_velocity_variable_name = "robot_velocity"
+frame_name = "Pelvis"
+kp_angular = 1.0
+node_number = 3
+weight = [1.0, 1.0, 1.0]
+
+[T8_TASK]
+type = "SO3Task"
+robot_velocity_variable_name = "robot_velocity"
+frame_name = "RightUpperArm"
+kp_angular = 1.0
+node_number = 6
+weight = [1.0, 1.0, 1.0]
+
+[RIGHT_UPPER_ARM_TASK]
+type = "SO3Task"
+robot_velocity_variable_name = "robot_velocity"
+frame_name = "RightForeArm"
+kp_angular = 1.0
+node_number = 7
+weight = [1.0, 1.0, 1.0]
+
+[GRAVITY_TASK_1]
+type = "GravityTask"
+robot_velocity_variable_name = "robot_velocity"
+target_frame_name = "LeftFoot"
+kp = 1.0
+node_number = 10
+weight = [1.0, 1.0]
+
+[FLOOR_CONTACT_TASK_1]
+type = "FloorContactTask"
+robot_velocity_variable_name = "robot_velocity"
+frame_name = "LeftFoot"
+kp_linear = 1.0
+floor_contact_task = 11
+weight = [10.0, 10.0, 10.0]
+vertical_force_threshold = 60.0
+
+[JOINT_LIMITS_TASK]
+type = "JointConstraintTask"
+robot_velocity_variable_name = "robot_velocity"
+use_model_limits = false
+sampling_time = 0.01
+k_limits = 1.0
+joints_list = ["jLeftKnee_rotz", "jRightKnee_rotz"]
+upper_bounds = [0.001, 0.001]
+lower_bounds = [-0.001, -0.001]
+
+[JOINT_VEL_LIMITS_TASK]
+type = "JointVelocityLimitsTask"
+robot_velocity_variable_name = "robot_velocity"
+upper_limit = 5.0
+lower_limit = -5.0
+
+[BASE_VEL_REG_TASK]
+type = "BaseVelocityRegularizationTask"
+robot_velocity_variable_name = "robot_velocity"
+weight_linear_velocity = [0.01, 0.01, 0.01]
+weight_angular_velocity = [0.01, 0.01, 0.01]
+
+[POSITION_TASK_1]
+type = "PositionTask"
+robot_velocity_variable_name = "robot_velocity"
+frame_name = "RightHand"
+kp_linear = 5.0
+node_number = 20
+weight = [1.0, 1.0, 1.0]
+position_offset = [0.1, -0.2, 0.3]
+
+[POSE_TASK_1]
+type = "PoseTask"
+robot_velocity_variable_name = "robot_velocity"
+frame_name = "LeftHand"
+kp_linear = 5.0
+kp_angular = 5.0
+node_number = 21
+weight = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+position_offset = [0.4, 0.0, -0.1]
+
+[CONST_PELVIS_TASK]
+type = "SO3Task"
+robot_velocity_variable_name = "robot_velocity"
+frame_name = "Pelvis"
+kp_angular = 1.0
+node_number = 30
+weight = [1.0, 1.0, 1.0]
+const_rotation_matrix = [1.0, 0.0, 0.0,
+                         0.0, 1.0, 0.0,
+                         0.0, 0.0, 1.0]
+const_angular_velocity = [0.0, 0.0, 0.0]
+
+[CONST_GRAVITY_TASK]
+type = "GravityTask"
+robot_velocity_variable_name = "robot_velocity"
+target_frame_name = "LeftFoot"
+kp = 1.0
+node_number = 31
+weight = [1.0, 1.0]
+const_rotation_matrix = [1.0, 0.0, 0.0,
+                         0.0, 1.0, 0.0,
+                         0.0, 0.0, 1.0]
+
+[CONST_POSITION_TASK]
+type = "PositionTask"
+robot_velocity_variable_name = "robot_velocity"
+frame_name = "RightHand"
+kp_linear = 5.0
+node_number = 32
+weight = [1.0, 1.0, 1.0]
+position_offset = [0.1, -0.2, 0.3]
+const_position = [0.4, -0.1, 1.3]
+const_linear_velocity = [0.0, 0.0, 0.0]
+
+[CONST_POSE_TASK]
+type = "PoseTask"
+robot_velocity_variable_name = "robot_velocity"
+frame_name = "LeftHand"
+kp_linear = 5.0
+kp_angular = 5.0
+node_number = 33
+weight = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+position_offset = [0.4, 0.0, -0.1]
+const_position = [0.6, -0.3, 0.7]
+const_rotation_matrix = [1.0, 0.0, 0.0,
+                         0.0, 1.0, 0.0,
+                         0.0, 0.0, 1.0]
+const_linear_velocity = [0.0, 0.0, 0.0]
+const_angular_velocity = [0.0, 0.0, 0.0]
+
+[CONST_FLOOR_CONTACT_TASK]
+type = "FloorContactTask"
+robot_velocity_variable_name = "robot_velocity"
+frame_name = "LeftFoot"
+kp_linear = 1.0
+floor_contact_task = 34
+weight = [10.0, 10.0, 10.0]
+vertical_force_threshold = 60.0
+const_wrench = [0.0, 0.0, 100.0, 0.0, 0.0, 0.0]

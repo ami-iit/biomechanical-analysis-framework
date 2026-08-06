@@ -9,21 +9,14 @@
         <param name="floatingBaseFrame">pelvis</param>
         <param name="rpcPortPrefix">/Example</param>
 
-        <!--
-            tasks: kinematic tasks solved by IK (sensor-driven or with inline const_* fallback)
-            const_tasks: fixed-only kinematic targets, separated from TASK_TO_SENSORS
-        -->
         <param name="tasks">(
             JOINT_REG_TASK
             CHEST_ORIENTATION_TASK
             LEFT_FOOT_CONTACT_TASK
             LEFT_HAND_POSE_TASK
-        )</param>
-
-        <param name="const_tasks">(
-            HEAD_ORIENTATION_FIXED
-            RIGHT_FOOT_CONTACT_FIXED
-            RIGHT_HAND_POSE_FIXED
+            CONST_HEAD_ORIENTATION_TASK
+            CONST_RIGHT_FOOT_CONTACT_TASK
+            CONST_RIGHT_HAND_POSE_TASK
         )</param>
 
         <group name="IK">
@@ -74,23 +67,23 @@
             <param name="weight">(1.0 1.0 1.0 1.0 1.0 1.0)</param>
         </group>
 
-        <!-- const_tasks entry: minimal fixed SO3 target, not in tasks, not in TASK_TO_SENSORS -->
-        <group name="HEAD_ORIENTATION_FIXED">
+        <!-- Constant SO3 task: world-frame target handled by HumanIK -->
+        <group name="CONST_HEAD_ORIENTATION_TASK">
             <param name="type">SO3Task</param>
             <param name="frame_name">head</param>
             <param name="const_quaternion">(1.0 0.0 0.0 0.0)</param>
             <param name="const_angular_velocity">(0.0 0.0 0.0)</param>
         </group>
 
-        <!-- const_tasks entry: minimal fixed FloorContact target -->
-        <group name="RIGHT_FOOT_CONTACT_FIXED">
+        <!-- Constant FloorContact task: fixed wrench handled by HumanIK -->
+        <group name="CONST_RIGHT_FOOT_CONTACT_TASK">
             <param name="type">FloorContactTask</param>
             <param name="frame_name">r_sole</param>
             <param name="const_wrench">(0.0 0.0 100.0 0.0 0.0 0.0)</param>
         </group>
 
-        <!-- const_tasks entry: minimal fixed Pose target -->
-        <group name="RIGHT_HAND_POSE_FIXED">
+        <!-- Constant Pose task: world-frame pose target handled by HumanIK -->
+        <group name="CONST_RIGHT_HAND_POSE_TASK">
             <param name="type">PoseTask</param>
             <param name="frame_name">r_wrist_3</param>
             <param name="const_position">(0.3 -0.2 0.8)</param>
