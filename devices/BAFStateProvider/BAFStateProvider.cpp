@@ -589,12 +589,8 @@ bool baf::devices::BAFStateProvider::open(yarp::os::Searchable& config)
     std::unordered_set<std::string> configuredTaskNames;
 
     // ── TASK_TO_SENSORS group ─────────────────────────────────────────────────
-    if (!config.check("TASK_TO_SENSORS"))
-    {
-        yError() << LogPrefix << "Missing required group 'TASK_TO_SENSORS'";
-        return false;
-    }
     pImpl->sensorTargets.clear();
+    if (config.check("TASK_TO_SENSORS"))
     {
         yarp::os::Bottle& group = config.findGroup("TASK_TO_SENSORS");
         // group.get(0) is the group name; task-sensor pairs start at index 1
