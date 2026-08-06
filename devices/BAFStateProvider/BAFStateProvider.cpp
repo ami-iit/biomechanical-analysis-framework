@@ -558,6 +558,7 @@ bool baf::devices::BAFStateProvider::open(yarp::os::Searchable& config)
     // ── Period ────────────────────────────────────────────────────────────────
     double period = config.check("period", yarp::os::Value(0.017)).asFloat64();
     setPeriod(period);
+    const bool startAfterOpening = config.check("startAfterOpening", yarp::os::Value(false)).asBool();
 
     // ── Floating base frame ───────────────────────────────────────────────────
     pImpl->baseName = config.check("floatingBaseFrame", yarp::os::Value("Pelvis")).asString();
@@ -776,6 +777,16 @@ bool baf::devices::BAFStateProvider::open(yarp::os::Searchable& config)
         pImpl->rpcThread = std::thread([this]() { pImpl->rpcLoop(); });
     }
 
+    if (startAfterOpening)
+    {
+        if (!start())
+        {
+            yError() << LogPrefix << "Failed to start the periodic thread after open().";
+            return false;
+        }
+        yInfo() << LogPrefix << "Periodic thread started after open() because startAfterOpening=true";
+    }
+
     yInfo() << LogPrefix << "Device opened successfully";
     return true;
 }
@@ -914,11 +925,14 @@ bool baf::devices::BAFStateProvider::attachAll(const yarp::dev::PolyDriverList& 
         yInfo() << LogPrefix << "Sensor" << tgt.sensorName << "resolved as VirtualJointKinSensor for joint" << tgt.jointName;
     }
 
-    // ── Start the periodic loop ───────────────────────────────────────────────
-    if (!start())
+    // ── Start the periodic loop (if not already started in open()) ───────────
+    if (!isRunning())
     {
-        yError() << LogPrefix << "Failed to start the periodic thread";
-        return false;
+        if (!start())
+        {
+            yError() << LogPrefix << "Failed to start the periodic thread";
+            return false;
+        }
     }
 
     yInfo() << LogPrefix << "IWear interface attached successfully";
