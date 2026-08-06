@@ -337,14 +337,13 @@ bool HumanIK::updateJointRegularizationTask()
 
 bool HumanIK::updateJointConstraintsTask()
 {
-    // check if the joint constraints task is initialized
-    if (m_jointConstraintsTask == nullptr)
-    {
-        BiomechanicalAnalysis::log()->error("[HumanIK::updateJointConstraintsTask] Joint constraints task not initialized.");
-        return false;
-    }
-    // Update the joint constraints task
-    return m_jointConstraintsTask->update();
+    static std::once_flag deprecationWarningFlag;
+    std::call_once(deprecationWarningFlag, []() {
+        BiomechanicalAnalysis::log()->warn("[HumanIK::updateJointConstraintsTask] Deprecated API. "
+                                           "Joint constraints are updated automatically in HumanIK::advance().");
+    });
+
+    return true;
 }
 
 bool HumanIK::updateOrientationAndGravityTasks(const std::unordered_map<int, nodeData>& nodeStruct)
@@ -641,6 +640,11 @@ bool HumanIK::advance()
 {
     // Initialize ok flag to true
     bool ok{true};
+
+    if (m_jointConstraintsTask != nullptr)
+    {
+        ok = ok && m_jointConstraintsTask->update();
+    }
 
     ok = ok && applyConstantTaskSetpoints();
 
