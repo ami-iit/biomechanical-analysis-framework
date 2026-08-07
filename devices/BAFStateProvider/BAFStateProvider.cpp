@@ -103,21 +103,12 @@ struct HumanStateSolution
 class baf::devices::BAFStateProvider::impl
 {
 public:
-    struct FixedTaskReference
-    {
-        KinematicTaskKind kind{KinematicTaskKind::Orientation};
-        BiomechanicalAnalysis::IK::nodeData orientationData;
-        BiomechanicalAnalysis::IK::positionData positionData;
-        BiomechanicalAnalysis::IK::poseData poseData;
-        Eigen::Matrix<double, 6, 1> wrench{Eigen::Matrix<double, 6, 1>::Zero()};
-    };
-
     struct TaskInfo
     {
         KinematicTaskKind kind;
         std::string modelLinkName;
         double contactThreshold{0.0};
-        std::optional<FixedTaskReference> fixedReference;
+        bool isConstant{false};
     };
 
     enum class RpcCommandType
@@ -187,51 +178,6 @@ public:
     static bool buildTaskInfoMap(const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler>& ikParams,
                                  std::unordered_map<std::string, TaskInfo>& taskInfoMap)
     {
-        auto readSizedVector = [](const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler>& taskGroup,
-                                  const std::string& parameterName,
-                                  std::size_t expectedSize,
-                                  std::vector<double>& out,
-                                  const std::string& taskName) -> bool {
-            if (!taskGroup->getParameter(parameterName, out))
-            {
-                return false;
-            }
-            if (out.size() != expectedSize)
-            {
-                yError() << LogPrefix << "Task" << taskName << "parameter" << parameterName << "has size" << out.size() << "but expected"
-                         << expectedSize;
-                return false;
-            }
-            return true;
-        };
-
-        auto parseFixedRotation = [&](const std::shared_ptr<BipedalLocomotion::ParametersHandler::IParametersHandler>& taskGroup,
-                                      const std::string& taskName,
-                                      manif::SO3d& rotation,
-                                      bool& foundRotation) -> bool {
-            std::vector<double> fixedRotationMatrix;
-            if (readSizedVector(taskGroup, "const_rotation_matrix", 9, fixedRotationMatrix, taskName))
-            {
-                const auto matrix = Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(fixedRotationMatrix.data());
-                rotation = manif::SO3d(Eigen::Quaterniond(matrix));
-                foundRotation = true;
-                return true;
-            }
-
-            std::vector<double> fixedQuaternion;
-            if (readSizedVector(taskGroup, "const_quaternion", 4, fixedQuaternion, taskName))
-            {
-                // The quaternion layout is [w, x, y, z].
-                const Eigen::Quaterniond quat(fixedQuaternion[0], fixedQuaternion[1], fixedQuaternion[2], fixedQuaternion[3]);
-                rotation = manif::SO3d(quat);
-                foundRotation = true;
-                return true;
-            }
-
-            foundRotation = false;
-            return true;
-        };
-
         std::vector<std::string> tasks;
         if (!ikParams->getParameter("tasks", tasks))
         {
@@ -268,34 +214,17 @@ public:
                 }
                 info.kind = KinematicTaskKind::Orientation;
 
-                bool hasFixedRotation{false};
-                manif::SO3d fixedRotation;
-                if (!parseFixedRotation(taskGroup, taskName, fixedRotation, hasFixedRotation))
-                {
-                    return false;
-                }
-
-                std::vector<double> fixedAngularVelocity;
-                const bool hasFixedAngularVelocity
-                    = readSizedVector(taskGroup, "const_angular_velocity", 3, fixedAngularVelocity, taskName);
-
-                if (hasFixedRotation)
-                {
-                    FixedTaskReference fixedRef;
-                    fixedRef.kind = KinematicTaskKind::Orientation;
-                    fixedRef.orientationData.I_R_IMU = fixedRotation;
-                    if (hasFixedAngularVelocity)
-                    {
-                        fixedRef.orientationData.I_omega_IMU.coeffs() << fixedAngularVelocity[0], fixedAngularVelocity[1],
-                            fixedAngularVelocity[2];
-                    }
-                    info.fixedReference = fixedRef;
-                } else if (hasFixedAngularVelocity)
+                std::vector<double> tmp;
+                const bool hasConstRot = taskGroup->getParameter("const_rotation_matrix", tmp)
+                                         || taskGroup->getParameter("const_quaternion", tmp);
+                std::vector<double> angVelTmp;
+                if (!hasConstRot && taskGroup->getParameter("const_angular_velocity", angVelTmp))
                 {
                     yError() << LogPrefix << "Task" << taskName
                              << "defines const_angular_velocity but no const_rotation_matrix/const_quaternion";
                     return false;
                 }
+                info.isConstant = hasConstRot;
             } else if (type == "GravityTask")
             {
                 if (!taskGroup->getParameter("target_frame_name", info.modelLinkName))
@@ -305,34 +234,17 @@ public:
                 }
                 info.kind = KinematicTaskKind::Orientation;
 
-                bool hasFixedRotation{false};
-                manif::SO3d fixedRotation;
-                if (!parseFixedRotation(taskGroup, taskName, fixedRotation, hasFixedRotation))
-                {
-                    return false;
-                }
-
-                std::vector<double> fixedAngularVelocity;
-                const bool hasFixedAngularVelocity
-                    = readSizedVector(taskGroup, "const_angular_velocity", 3, fixedAngularVelocity, taskName);
-
-                if (hasFixedRotation)
-                {
-                    FixedTaskReference fixedRef;
-                    fixedRef.kind = KinematicTaskKind::Orientation;
-                    fixedRef.orientationData.I_R_IMU = fixedRotation;
-                    if (hasFixedAngularVelocity)
-                    {
-                        fixedRef.orientationData.I_omega_IMU.coeffs() << fixedAngularVelocity[0], fixedAngularVelocity[1],
-                            fixedAngularVelocity[2];
-                    }
-                    info.fixedReference = fixedRef;
-                } else if (hasFixedAngularVelocity)
+                std::vector<double> tmp;
+                const bool hasConstRot = taskGroup->getParameter("const_rotation_matrix", tmp)
+                                         || taskGroup->getParameter("const_quaternion", tmp);
+                std::vector<double> angVelTmp;
+                if (!hasConstRot && taskGroup->getParameter("const_angular_velocity", angVelTmp))
                 {
                     yError() << LogPrefix << "Task" << taskName
                              << "defines const_angular_velocity but no const_rotation_matrix/const_quaternion";
                     return false;
                 }
+                info.isConstant = hasConstRot;
             } else if (type == "FloorContactTask")
             {
                 if (!taskGroup->getParameter("frame_name", info.modelLinkName))
@@ -347,14 +259,8 @@ public:
                 }
                 info.kind = KinematicTaskKind::FloorContact;
 
-                std::vector<double> fixedWrench;
-                if (readSizedVector(taskGroup, "const_wrench", 6, fixedWrench, taskName))
-                {
-                    FixedTaskReference fixedRef;
-                    fixedRef.kind = KinematicTaskKind::FloorContact;
-                    fixedRef.wrench << fixedWrench[0], fixedWrench[1], fixedWrench[2], fixedWrench[3], fixedWrench[4], fixedWrench[5];
-                    info.fixedReference = fixedRef;
-                }
+                std::vector<double> tmp;
+                info.isConstant = taskGroup->getParameter("const_wrench", tmp);
             } else if (type == "PositionTask")
             {
                 if (!taskGroup->getParameter("frame_name", info.modelLinkName))
@@ -364,28 +270,15 @@ public:
                 }
                 info.kind = KinematicTaskKind::Position;
 
-                std::vector<double> fixedPosition;
-                const bool hasFixedPosition = readSizedVector(taskGroup, "const_position", 3, fixedPosition, taskName);
-
-                std::vector<double> fixedLinearVelocity;
-                const bool hasFixedLinearVelocity = readSizedVector(taskGroup, "const_linear_velocity", 3, fixedLinearVelocity, taskName);
-
-                if (hasFixedPosition)
-                {
-                    FixedTaskReference fixedRef;
-                    fixedRef.kind = KinematicTaskKind::Position;
-                    fixedRef.positionData.S_p_M = Eigen::Vector3d(fixedPosition[0], fixedPosition[1], fixedPosition[2]);
-                    if (hasFixedLinearVelocity)
-                    {
-                        fixedRef.positionData.S_v_M
-                            = Eigen::Vector3d(fixedLinearVelocity[0], fixedLinearVelocity[1], fixedLinearVelocity[2]);
-                    }
-                    info.fixedReference = fixedRef;
-                } else if (hasFixedLinearVelocity)
+                std::vector<double> tmp;
+                const bool hasConstPos = taskGroup->getParameter("const_position", tmp);
+                std::vector<double> velTmp;
+                if (!hasConstPos && taskGroup->getParameter("const_linear_velocity", velTmp))
                 {
                     yError() << LogPrefix << "Task" << taskName << "defines const_linear_velocity but no const_position";
                     return false;
                 }
+                info.isConstant = hasConstPos;
             } else if (type == "PoseTask")
             {
                 if (!taskGroup->getParameter("frame_name", info.modelLinkName))
@@ -395,51 +288,26 @@ public:
                 }
                 info.kind = KinematicTaskKind::Pose;
 
-                std::vector<double> fixedPosition;
-                const bool hasFixedPosition = readSizedVector(taskGroup, "const_position", 3, fixedPosition, taskName);
-
-                bool hasFixedRotation{false};
-                manif::SO3d fixedRotation;
-                if (!parseFixedRotation(taskGroup, taskName, fixedRotation, hasFixedRotation))
-                {
-                    return false;
-                }
-
-                std::vector<double> fixedLinearVelocity;
-                const bool hasFixedLinearVelocity = readSizedVector(taskGroup, "const_linear_velocity", 3, fixedLinearVelocity, taskName);
-
-                std::vector<double> fixedAngularVelocity;
-                const bool hasFixedAngularVelocity
-                    = readSizedVector(taskGroup, "const_angular_velocity", 3, fixedAngularVelocity, taskName);
-
-                if (hasFixedPosition || hasFixedRotation)
-                {
-                    if (!(hasFixedPosition && hasFixedRotation))
-                    {
-                        yError() << LogPrefix << "Task" << taskName
-                                 << "must define both const_position and const_rotation_matrix/const_quaternion";
-                        return false;
-                    }
-
-                    FixedTaskReference fixedRef;
-                    fixedRef.kind = KinematicTaskKind::Pose;
-                    fixedRef.poseData.S_H_M
-                        = manif::SE3d(Eigen::Vector3d(fixedPosition[0], fixedPosition[1], fixedPosition[2]), fixedRotation.quat());
-                    if (hasFixedLinearVelocity)
-                    {
-                        fixedRef.poseData.S_v_M.lin() << fixedLinearVelocity[0], fixedLinearVelocity[1], fixedLinearVelocity[2];
-                    }
-                    if (hasFixedAngularVelocity)
-                    {
-                        fixedRef.poseData.S_v_M.ang() << fixedAngularVelocity[0], fixedAngularVelocity[1], fixedAngularVelocity[2];
-                    }
-                    info.fixedReference = fixedRef;
-                } else if (hasFixedLinearVelocity || hasFixedAngularVelocity)
+                std::vector<double> tmp;
+                const bool hasConstPos = taskGroup->getParameter("const_position", tmp);
+                const bool hasConstRot = taskGroup->getParameter("const_rotation_matrix", tmp)
+                                         || taskGroup->getParameter("const_quaternion", tmp);
+                std::vector<double> velTmp;
+                const bool hasConstLinVel = taskGroup->getParameter("const_linear_velocity", velTmp);
+                const bool hasConstAngVel = taskGroup->getParameter("const_angular_velocity", velTmp);
+                if ((hasConstLinVel || hasConstAngVel) && !(hasConstPos && hasConstRot))
                 {
                     yError() << LogPrefix << "Task" << taskName
                              << "defines fixed velocities but no const_position/const_rotation_matrix/const_quaternion";
                     return false;
                 }
+                if (hasConstPos != hasConstRot)
+                {
+                    yError() << LogPrefix << "Task" << taskName
+                             << "must define both const_position and const_rotation_matrix/const_quaternion";
+                    return false;
+                }
+                info.isConstant = hasConstPos && hasConstRot;
             } else
             {
                 isSupportedKinematicTask = false;
@@ -632,7 +500,7 @@ bool baf::devices::BAFStateProvider::open(yarp::os::Searchable& config)
     // ── Error if a task has neither sensor mapping nor fixed reference ───────
     for (const auto& [name, info] : taskInfoMap)
     {
-        if (configuredTaskNames.find(name) == configuredTaskNames.end() && !info.fixedReference.has_value())
+        if (configuredTaskNames.find(name) == configuredTaskNames.end() && !info.isConstant)
         {
             yError() << LogPrefix << "Task '" << name
                      << "' is listed in the IK config 'tasks' parameter but has neither sensor mapping"
