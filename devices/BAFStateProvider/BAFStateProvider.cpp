@@ -383,6 +383,21 @@ bool baf::devices::BAFStateProvider::open(yarp::os::Searchable& config)
         return false;
     }
 
+    // FloorContact, Position and Pose tasks require a moving base to be meaningful
+    if (pImpl->forceFixedBase)
+    {
+        for (const auto& [taskName, info] : taskInfoMap)
+        {
+            if (info.kind == KinematicTaskKind::FloorContact || info.kind == KinematicTaskKind::Position
+                || info.kind == KinematicTaskKind::Pose)
+            {
+                yError() << LogPrefix << "Task '" << taskName
+                         << "' is a FloorContact, Position or Pose task, which is incompatible with 'forceFixedBase'";
+                return false;
+            }
+        }
+    }
+
     std::unordered_set<std::string> configuredTaskNames;
 
     // ── TASK_TO_SENSORS group ─────────────────────────────────────────────────
