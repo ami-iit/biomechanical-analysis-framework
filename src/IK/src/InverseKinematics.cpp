@@ -4,6 +4,8 @@
 #include <iDynTree/EigenHelpers.h>
 #include <iDynTree/Model.h>
 
+#include <algorithm>
+
 using namespace BiomechanicalAnalysis::IK;
 using namespace BipedalLocomotion::ContinuousDynamicalSystem;
 using namespace BipedalLocomotion::Conversions;
@@ -22,14 +24,12 @@ namespace
 Eigen::Vector3d
 mergeFloorContactDefaultPosition(const std::array<std::optional<double>, 3>& defaultPosition, const Eigen::Vector3d& current)
 {
-    Eigen::Vector3d result = current;
-    for (std::size_t i = 0; i < 3; ++i)
-    {
-        if (defaultPosition[i].has_value())
-        {
-            result[i] = defaultPosition[i].value();
-        }
-    }
+    Eigen::Vector3d result;
+    std::transform(defaultPosition.begin(),
+                   defaultPosition.end(),
+                   current.data(),
+                   result.data(),
+                   [](const std::optional<double>& override_, double curr) { return override_.value_or(curr); });
     return result;
 }
 } // namespace
