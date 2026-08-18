@@ -126,6 +126,7 @@ public:
 
     // ── Configuration ─────────────────────────────────────────────────────────
     std::string baseName{"Pelvis"};
+    bool forceFixedBase{false};
     std::vector<std::string> jointNames;
 
     std::vector<SensorTarget> sensorTargets;
@@ -354,6 +355,9 @@ bool baf::devices::BAFStateProvider::open(yarp::os::Searchable& config)
 
     // ── Floating base frame ───────────────────────────────────────────────────
     pImpl->baseName = config.check("floatingBaseFrame", yarp::os::Value("Pelvis")).asString();
+    yInfo() << LogPrefix << "Using base name:" << pImpl->baseName;
+    pImpl->forceFixedBase = config.check("forceFixedBase", yarp::os::Value(false)).asBool();
+    yInfo() << LogPrefix << "Forcing fixed base ? " << (pImpl->forceFixedBase ? "yes" : "no");
 
     // ── URDF ──────────────────────────────────────────────────────────────────
     if (!config.check("urdf"))
@@ -377,6 +381,21 @@ bool baf::devices::BAFStateProvider::open(yarp::os::Searchable& config)
     if (!impl::buildTaskInfoMap(ikParams, taskInfoMap))
     {
         return false;
+    }
+
+    // FloorContact, Position and Pose tasks require a moving base to be meaningful
+    if (pImpl->forceFixedBase)
+    {
+        for (const auto& [taskName, info] : taskInfoMap)
+        {
+            if (info.kind == KinematicTaskKind::FloorContact || info.kind == KinematicTaskKind::Position
+                || info.kind == KinematicTaskKind::Pose)
+            {
+                yError() << LogPrefix << "Task '" << taskName
+                         << "' is a FloorContact, Position or Pose task, which is incompatible with 'forceFixedBase'";
+                return false;
+            }
+        }
     }
 
     std::unordered_set<std::string> configuredTaskNames;
@@ -1017,6 +1036,13 @@ void baf::devices::BAFStateProvider::run()
 
             pImpl->solution.jointPositions[tgt.jointIndex] = position;
             pImpl->solution.jointVelocities[tgt.jointIndex] = velocity;
+        }
+
+        if (pImpl->forceFixedBase)
+        {
+            pImpl->solution.baseOrientation = {1, 0, 0, 0};
+            pImpl->solution.baseVelocity = {0, 0, 0, 0, 0, 0};
+            pImpl->solution.basePosition = {0, 0, 0};
         }
     }
 }
