@@ -379,9 +379,6 @@ TEST_CASE("InverseKinematics floor contact setpoint is recomputed with default_p
     Eigen::Vector3d setPointAfterCalibration;
     bool footInContactAfterCalibration{false};
     REQUIRE(ctx.ik->getFloorContactTaskSetPoint(11, setPointAfterCalibration, footInContactAfterCalibration));
-    // Regression: calibration redefines the world frame entirely, so every floor-contact setpoint
-    // is recomputed from the post-reset kinDyn state merged with default_position, regardless of
-    // whether the task was active beforehand (nothing pre-calibration remains meaningful).
     REQUIRE(std::abs(setPointAfterCalibration(2)) < 1e-8); // FLOOR_CONTACT_TASK_1 default_position z = 0.0
 }
 
