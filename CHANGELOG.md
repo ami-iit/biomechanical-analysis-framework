@@ -11,4 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The HumanIK class (https://github.com/ami-iit/biomechanical-analysis-framework/pull/15)
 - The `CHANGELOG.md` file
 - The `Logging` feature (https://github.com/ami-iit/biomechanical-analysis-framework/pull/10)
+- `FloorContactTask` config parameter `default_position`: per-component (x,y,z) override used when no real contact position is known yet, with `"*"` keeping the current kinDyn value. Fixes floor-contact setpoints being corrupted by the transient base-pose reset during calibration.
+
+### Changed
+- `FloorContactTask` setpoints for feet already in contact are no longer re-derived from kinDyn during `calibrateWorldYaw()`/`calibrateAllWithWorld()`; they are left untouched.
+
+### Removed
+- The `linkHeight` argument of `HumanIK::updateFloorContactTask()` and `HumanIK::updateFloorContactTasks()` (and the corresponding Python bindings argument), replaced by the per-task `default_position` config.
 

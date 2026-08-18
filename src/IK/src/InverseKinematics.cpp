@@ -16,6 +16,24 @@ constexpr size_t WRENCH_TORQUE_X = 3;
 constexpr size_t WRENCH_TORQUE_Y = 4;
 constexpr size_t WRENCH_TORQUE_Z = 5;
 
+namespace
+{
+// Merge a floor-contact task's per-component default_position override with the current frame position.
+Eigen::Vector3d
+mergeFloorContactDefaultPosition(const std::array<std::optional<double>, 3>& defaultPosition, const Eigen::Vector3d& current)
+{
+    Eigen::Vector3d result = current;
+    for (std::size_t i = 0; i < 3; ++i)
+    {
+        if (defaultPosition[i].has_value())
+        {
+            result[i] = defaultPosition[i].value();
+        }
+    }
+    return result;
+}
+} // namespace
+
 bool HumanIK::initialize(std::weak_ptr<const BipedalLocomotion::ParametersHandler::IParametersHandler> handler,
                          std::shared_ptr<iDynTree::KinDynComputations> kinDyn)
 {
@@ -278,7 +296,7 @@ bool HumanIK::updateGravityTask(const int node, const manif::SO3d& I_R_IMU)
     return m_GravityTasks[node].task->setSetPoint(gravityDirection);
 }
 
-bool HumanIK::updateFloorContactTask(const int node, const double verticalForce, const double linkHeight)
+bool HumanIK::updateFloorContactTask(const int node, const double verticalForce)
 {
     bool ok{true};
     // check if the node number is valid
@@ -302,7 +320,6 @@ bool HumanIK::updateFloorContactTask(const int node, const double verticalForce,
         m_FloorContactTasks[node].footInContact = true;
         m_FloorContactTasks[node].setPointPosition
             = iDynTree::toEigen(m_kinDyn->getWorldTransform(m_FloorContactTasks[node].frameName).getPosition());
-        m_FloorContactTasks[node].setPointPosition(2) = linkHeight;
     } else if (verticalForce < m_FloorContactTasks[node].verticalForceThreshold && m_FloorContactTasks[node].footInContact)
     {
         // if the foot is not more in contact, set the weight of the associated task to zero
@@ -381,7 +398,7 @@ bool HumanIK::updateOrientationAndGravityTasks(const std::unordered_map<int, nod
     return true;
 }
 
-bool HumanIK::updateFloorContactTasks(const std::unordered_map<int, Eigen::Matrix<double, 6, 1>>& wrenchMap, const double linkHeight)
+bool HumanIK::updateFloorContactTasks(const std::unordered_map<int, Eigen::Matrix<double, 6, 1>>& wrenchMap)
 {
     for (const auto& [node, data] : wrenchMap)
     {
@@ -395,7 +412,7 @@ bool HumanIK::updateFloorContactTasks(const std::unordered_map<int, Eigen::Matri
         const Eigen::Vector3d forceInMeasurementFrame = data.segment<3>(WRENCH_FORCE_X);
         const Eigen::Vector3d forceInLinkFrame = floorContactTask->second.M_R_L.rotation() * forceInMeasurementFrame;
 
-        if (!updateFloorContactTask(node, forceInLinkFrame(WRENCH_FORCE_Z), linkHeight))
+        if (!updateFloorContactTask(node, forceInLinkFrame(WRENCH_FORCE_Z)))
         {
             BiomechanicalAnalysis::log()->error("[HumanIK::updateFloorContactTasks] Error in updating "
                                                 "the floor contact task of node {}",
@@ -494,10 +511,12 @@ bool HumanIK::recenterWorldAnchor()
 
 void HumanIK::resetFloorContactTasksAfterCalibration()
 {
+    // Calibration redefines the world frame entirely, so every setpoint is recomputed here
+    // (not just inactive ones): nothing pre-calibration remains meaningful to preserve.
     for (auto& [node, data] : m_FloorContactTasks)
     {
-        // Preserve contact latch and weight mode, but refresh setpoint on the new calibrated state.
-        data.setPointPosition = iDynTree::toEigen(m_kinDyn->getWorldTransform(data.frameName).getPosition());
+        const Eigen::Vector3d currentPosition = iDynTree::toEigen(m_kinDyn->getWorldTransform(data.frameName).getPosition());
+        data.setPointPosition = mergeFloorContactDefaultPosition(data.defaultPosition, currentPosition);
 
         if (!data.task->setSetPoint(data.setPointPosition))
         {
@@ -814,6 +833,19 @@ bool HumanIK::getGravityTaskSetPoint(int node, Eigen::Vector3d& gravityDirection
     }
 
     gravityDirection = it->second.gravityDirectionSetPoint;
+    return true;
+}
+
+bool HumanIK::getFloorContactTaskSetPoint(int node, Eigen::Vector3d& setPointPosition, bool& footInContact) const
+{
+    const auto it = m_FloorContactTasks.find(node);
+    if (it == m_FloorContactTasks.end())
+    {
+        return false;
+    }
+
+    setPointPosition = it->second.setPointPosition;
+    footInContact = it->second.footInContact;
     return true;
 }
 
@@ -1324,12 +1356,50 @@ bool HumanIK::initializeFloorContactTask(const std::string& taskName,
             constWrench[5];
     }
 
+    // Retrieve the optional per-component default_position override ("*" means no override)
+    std::vector<std::string> defaultPosition;
+    if (taskHandler->getParameter("default_position", defaultPosition))
+    {
+        if (defaultPosition.size() != 3)
+        {
+            BiomechanicalAnalysis::log()->error("{} The size of default_position of the {} task is {}, it should be 3",
+                                                logPrefix,
+                                                taskName,
+                                                defaultPosition.size());
+            return false;
+        }
+        for (std::size_t i = 0; i < 3; ++i)
+        {
+            if (defaultPosition[i] == "*")
+            {
+                continue;
+            }
+            try
+            {
+                m_FloorContactTasks[taskNumber].defaultPosition[i] = std::stod(defaultPosition[i]);
+            } catch (const std::exception&)
+            {
+                BiomechanicalAnalysis::log()->error("{} Invalid entry '{}' in default_position of the {} task, expected '*' or a number",
+                                                    logPrefix,
+                                                    defaultPosition[i],
+                                                    taskName);
+                return false;
+            }
+        }
+    }
+
     // Map weight vector to Eigen::Vector3d and assign it to the corresponding FloorContactTask
     m_FloorContactTasks[taskNumber].weight = Eigen::Map<Eigen::Vector3d>(weight.data());
 
     // Set node number and task name for the FloorContactTask
     m_FloorContactTasks[taskNumber].taskNumber = taskNumber;
     m_FloorContactTasks[taskNumber].taskName = taskName;
+
+    // Seed the initial setpoint before any real contact measurement is available.
+    const Eigen::Vector3d currentPosition
+        = iDynTree::toEigen(m_kinDyn->getWorldTransform(m_FloorContactTasks[taskNumber].frameName).getPosition());
+    m_FloorContactTasks[taskNumber].setPointPosition
+        = mergeFloorContactDefaultPosition(m_FloorContactTasks[taskNumber].defaultPosition, currentPosition);
 
     // Create an R3Task object for the floor contact task
     m_FloorContactTasks[taskNumber].task = std::make_shared<BipedalLocomotion::IK::R3Task>();
@@ -1340,6 +1410,8 @@ bool HumanIK::initializeFloorContactTask(const std::string& taskName,
 
     // Add the floor contact task to the QP solver
     ok = ok && m_qpIK.addTask(m_FloorContactTasks[taskNumber].task, taskName, 1, m_FloorContactTasks[taskNumber].weight);
+
+    ok = ok && m_FloorContactTasks[taskNumber].task->setSetPoint(m_FloorContactTasks[taskNumber].setPointPosition);
 
     // Check if initialization was successful
     return ok;
@@ -2222,7 +2294,6 @@ bool HumanIK::applyConstantFloorContactTask(int node)
         m_qpIK.setTaskWeight(task.taskName, task.weight);
         task.footInContact = true;
         task.setPointPosition = iDynTree::toEigen(m_kinDyn->getWorldTransform(task.frameName).getPosition());
-        task.setPointPosition(2) = 0.0;
     } else if (forceInLinkFrame(WRENCH_FORCE_Z) < task.verticalForceThreshold && task.footInContact)
     {
         m_qpIK.setTaskWeight(task.taskName, Eigen::Vector3d::Zero());

@@ -10,6 +10,8 @@
 #include <iDynTree/KinDynComputations.h>
 
 // std
+#include <array>
+#include <optional>
 #include <unordered_set>
 
 // BipedalLocomotion
@@ -300,6 +302,7 @@ private:
         manif::SO3d M_R_L = manif::SO3d::Identity(); // Fixed rotation from force measurement frame M to link/task frame L.
         bool isConstant{false};
         Eigen::Matrix<double, 6, 1> constantWrench = Eigen::Matrix<double, 6, 1>::Zero();
+        std::array<std::optional<double>, 3> defaultPosition; // Per-component override (x,y,z); nullopt means use the current kinDyn value.
     };
 
     /**
@@ -462,6 +465,7 @@ public:
      * |`FloorContactTask`|   `vertical_force_threshold`   |  `double`  |                 Threshold of the vertical force to consider the foot in contact         |  Yes  |
      * |`FloorContactTask`|      `rotation_matrix`         |`vector<double>`|    Fixed rotation from force measurement frame to link frame. Default identity.     |  No   |
      * |`FloorContactTask`|           `weight`             |  `vector<double>`  |                           Weight of the task                                    |  Yes  |
+     * |`FloorContactTask`|      `default_position`        |`vector<string>`| Per-component (x,y,z) override used when no real contact position is known yet; `"*"` keeps the current kinDyn value. Default all `"*"`. |  No   |
      *
      * The "JointRegularizationTask" requires the following parameters:
      * |          Group          |         Parameter Name         |    Type    |                                         Description                                          | Mandatory |
@@ -613,7 +617,7 @@ public:
      * @param verticalForce vertical force
      * @return true if the orientation setpoint is set correctly
      */
-    bool updateFloorContactTask(const int node, const double verticalForce, const double linkHeight = 0.0);
+    bool updateFloorContactTask(const int node, const double verticalForce);
 
     /**
      * set the setpoint for the joint regularization task.
@@ -660,7 +664,7 @@ public:
      * @param footInContact unordered map containing the node number and the vertical force
      * @return true if the calibration matrix is set correctly
      */
-    bool updateFloorContactTasks(const std::unordered_map<int, Eigen::Matrix<double, 6, 1>>& wrenchMap, const double linkHeight = 0.0);
+    bool updateFloorContactTasks(const std::unordered_map<int, Eigen::Matrix<double, 6, 1>>& wrenchMap);
 
     /**
      * Set the position set-point for a given position task node.
@@ -816,6 +820,15 @@ public:
      * @return true if a setpoint is available and copied in output parameters
      */
     bool getGravityTaskSetPoint(int node, Eigen::Vector3d& gravityDirection) const;
+
+    /**
+     * get the floor-contact task setpoint and current contact state for a given node
+     * @param node node number
+     * @param setPointPosition last position setpoint passed to the R3 task
+     * @param footInContact whether the task is currently considered in contact
+     * @return true if the node number is valid
+     */
+    bool getFloorContactTaskSetPoint(int node, Eigen::Vector3d& setPointPosition, bool& footInContact) const;
 
     /**
      * Get the last setpoint passed to a R3 position task.

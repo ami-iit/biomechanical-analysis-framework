@@ -330,6 +330,76 @@ TEST_CASE("InverseKinematics calibration affects position and pose setpoints")
     REQUIRE(poseSetPointAfterClear.translation().isApprox(Eigen::Vector3d(-0.4, 0.2, 0.7)));
 }
 
+TEST_CASE("InverseKinematics floor contact default_position seeds the setpoint at initialization")
+{
+    auto ctx = makeContext();
+
+    Eigen::Vector3d expectedSetPoint = iDynTree::toEigen(ctx.kinDyn->getWorldTransform("LeftFoot").getPosition());
+    expectedSetPoint(2) = 0.0; // FLOOR_CONTACT_TASK_1 configures default_position = ["*", "*", "0.0"]
+
+    Eigen::Vector3d initialSetPointPosition;
+    bool initialFootInContact{true};
+    REQUIRE(ctx.ik->getFloorContactTaskSetPoint(11, initialSetPointPosition, initialFootInContact));
+    REQUIRE_FALSE(initialFootInContact);
+    REQUIRE(initialSetPointPosition.isApprox(expectedSetPoint, 1e-8));
+}
+
+TEST_CASE("InverseKinematics floor contact activation during normal operation uses raw kinDyn, not default_position")
+{
+    auto ctx = makeContext();
+
+    // default_position is only meant for initialization and post-calibration reset, not for
+    // regular runtime contact activation, which should always trust the real measured position.
+    Eigen::Vector3d expectedSetPoint = iDynTree::toEigen(ctx.kinDyn->getWorldTransform("LeftFoot").getPosition());
+
+    REQUIRE(ctx.ik->updateFloorContactTask(11, 61.0));
+
+    Eigen::Vector3d setPointPosition;
+    bool footInContact{false};
+    REQUIRE(ctx.ik->getFloorContactTaskSetPoint(11, setPointPosition, footInContact));
+    REQUIRE(footInContact);
+    REQUIRE(setPointPosition.isApprox(expectedSetPoint, 1e-8));
+}
+
+TEST_CASE("InverseKinematics floor contact setpoint is recomputed with default_position after calibration, even if active")
+{
+    auto ctx = makeContext();
+    updateCoreTasks(ctx);
+
+    REQUIRE(ctx.ik->updateFloorContactTask(11, 61.0));
+
+    bool footInContactBeforeCalibration{false};
+    Eigen::Vector3d setPointBeforeCalibration;
+    REQUIRE(ctx.ik->getFloorContactTaskSetPoint(11, setPointBeforeCalibration, footInContactBeforeCalibration));
+    REQUIRE(footInContactBeforeCalibration);
+
+    REQUIRE(ctx.ik->calibrateWorldYaw(ctx.mapNodeData));
+    REQUIRE(ctx.ik->calibrateAllWithWorld(ctx.mapNodeData, "Pelvis"));
+
+    Eigen::Vector3d setPointAfterCalibration;
+    bool footInContactAfterCalibration{false};
+    REQUIRE(ctx.ik->getFloorContactTaskSetPoint(11, setPointAfterCalibration, footInContactAfterCalibration));
+    // Regression: calibration redefines the world frame entirely, so every floor-contact setpoint
+    // is recomputed from the post-reset kinDyn state merged with default_position, regardless of
+    // whether the task was active beforehand (nothing pre-calibration remains meaningful).
+    REQUIRE(std::abs(setPointAfterCalibration(2)) < 1e-8); // FLOOR_CONTACT_TASK_1 default_position z = 0.0
+}
+
+TEST_CASE("InverseKinematics floor contact setpoint refresh after calibration applies default_position for inactive tasks")
+{
+    auto ctx = makeContext();
+    updateCoreTasks(ctx); // force 11.0 < vertical_force_threshold 60.0: task never activates
+
+    REQUIRE(ctx.ik->calibrateWorldYaw(ctx.mapNodeData));
+    REQUIRE(ctx.ik->calibrateAllWithWorld(ctx.mapNodeData, "Pelvis"));
+
+    Eigen::Vector3d setPointPosition;
+    bool footInContact{true};
+    REQUIRE(ctx.ik->getFloorContactTaskSetPoint(11, setPointPosition, footInContact));
+    REQUIRE_FALSE(footInContact);
+    REQUIRE(std::abs(setPointPosition(2)) < 1e-8);
+}
+
 TEST_CASE("InverseKinematics reset world anchor translation sets anchor to zero")
 {
     auto ctx = makeContext();

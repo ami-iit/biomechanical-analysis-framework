@@ -48,6 +48,7 @@ kp_linear = 1.0
 floor_contact_task = 11
 weight = [10.0, 10.0, 10.0]
 vertical_force_threshold = 60.0
+default_position = ["*", "*", "0.0"]
 
 [JOINT_LIMITS_TASK]
 type = "JointConstraintTask"
