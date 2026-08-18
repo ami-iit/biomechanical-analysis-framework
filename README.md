@@ -16,7 +16,7 @@ The dependencies can be installed in two ways; the first one is via `conda` crea
    cd biomechanical-analysis-framework
    conda env create -n <conda-environment-name> --file ci_env.yml
    ```
-* Note: if you are already inside an existing conda environment, you can type instead:
+* Note: if you are already inside an existing conda environment, you can type instead the command below AFTER OPENING THE ` ci_env.yml`  FILE AND SUBSTITUTING THE ` name`  FIELD WITH YOUR ENV NAME:
   ```
    cd biomechanical-analysis-framework
    conda env update --file ci_env.yml
