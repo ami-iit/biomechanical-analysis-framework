@@ -1,0 +1,104 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE robot PUBLIC "-//YARP//DTD yarprobotinterface 3.0//EN" "http://www.yarp.it/DTD/yarprobotinterface/yarp-3.0.dtd">
+<robot name="BAFStateProvider_with_const_tasks" build="1">
+
+    <device type="BAFStateProvider" name="baf_state_provider">
+
+        <param name="period">0.01</param>
+        <param name="urdf">model.urdf</param>
+        <param name="floatingBaseFrame">pelvis</param>
+        <param name="rpcPortPrefix">/Example</param>
+
+        <param name="tasks">(
+            JOINT_REG_TASK
+            CHEST_ORIENTATION_TASK
+            LEFT_FOOT_CONTACT_TASK
+            LEFT_HAND_POSE_TASK
+            CONST_HEAD_ORIENTATION_TASK
+            CONST_RIGHT_FOOT_CONTACT_TASK
+            CONST_RIGHT_HAND_POSE_TASK
+        )</param>
+
+        <group name="IK">
+            <param name="robot_velocity_variable_name">robot_velocity</param>
+            <param name="verbosity">false</param>
+        </group>
+
+        <!-- Standard IK task: non-kinematic, not mapped in TASK_TO_SENSORS -->
+        <group name="JOINT_REG_TASK">
+            <param name="type">JointRegularizationTask</param>
+            <param name="robot_velocity_variable_name">robot_velocity</param>
+            <param name="weight">0.01</param>
+            <param name="joints_list">( )</param>
+            <param name="joints_weights">( )</param>
+            <param name="joints_list_kp">( )</param>
+            <param name="joints_kp">( )</param>
+        </group>
+
+        <!-- Sensor-driven SO3 task (in tasks + TASK_TO_SENSORS) -->
+        <group name="CHEST_ORIENTATION_TASK">
+            <param name="type">SO3Task</param>
+            <param name="robot_velocity_variable_name">robot_velocity</param>
+            <param name="frame_name">chest</param>
+            <param name="kp_angular">20.0</param>
+            <param name="node_number">30</param>
+            <param name="weight">(10.0 10.0 10.0)</param>
+        </group>
+
+        <!-- Sensor-driven FloorContact task (in tasks + TASK_TO_SENSORS) -->
+        <group name="LEFT_FOOT_CONTACT_TASK">
+            <param name="type">FloorContactTask</param>
+            <param name="robot_velocity_variable_name">robot_velocity</param>
+            <param name="frame_name">l_sole</param>
+            <param name="kp_linear">60.0</param>
+            <param name="floor_contact_task">200</param>
+            <param name="weight">(1.0 1.0 1.0)</param>
+            <param name="vertical_force_threshold">50.0</param>
+        </group>
+
+        <!-- Sensor-driven Pose task (in tasks + TASK_TO_SENSORS) -->
+        <group name="LEFT_HAND_POSE_TASK">
+            <param name="type">PoseTask</param>
+            <param name="robot_velocity_variable_name">robot_velocity</param>
+            <param name="frame_name">l_wrist_3</param>
+            <param name="kp_angular">20.0</param>
+            <param name="kp_linear">20.0</param>
+            <param name="node_number">40</param>
+            <param name="weight">(1.0 1.0 1.0 1.0 1.0 1.0)</param>
+        </group>
+
+        <!-- Constant SO3 task: world-frame target handled by HumanIK -->
+        <group name="CONST_HEAD_ORIENTATION_TASK">
+            <param name="type">SO3Task</param>
+            <param name="frame_name">head</param>
+            <param name="const_quaternion">(1.0 0.0 0.0 0.0)</param>
+            <param name="const_angular_velocity">(0.0 0.0 0.0)</param>
+        </group>
+
+        <!-- Constant FloorContact task: fixed wrench handled by HumanIK -->
+        <group name="CONST_RIGHT_FOOT_CONTACT_TASK">
+            <param name="type">FloorContactTask</param>
+            <param name="frame_name">r_sole</param>
+            <param name="const_wrench">(0.0 0.0 100.0 0.0 0.0 0.0)</param>
+        </group>
+
+        <!-- Constant Pose task: world-frame pose target handled by HumanIK -->
+        <group name="CONST_RIGHT_HAND_POSE_TASK">
+            <param name="type">PoseTask</param>
+            <param name="frame_name">r_wrist_3</param>
+            <param name="const_position">(0.3 -0.2 0.8)</param>
+            <param name="const_rotation_matrix">(1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0)</param>
+            <param name="const_linear_velocity">(0.0 0.0 0.0)</param>
+            <param name="const_angular_velocity">(0.0 0.0 0.0)</param>
+        </group>
+
+        <!-- Only tasks in "tasks" that are kinematic and sensor-driven go here -->
+        <group name="TASK_TO_SENSORS">
+            <param name="CHEST_ORIENTATION_TASK">wearable::IMU::chest</param>
+            <param name="LEFT_FOOT_CONTACT_TASK">wearable::FT::l_foot</param>
+            <param name="LEFT_HAND_POSE_TASK">wearable::MocapMarkers::l_hand</param>
+        </group>
+
+    </device>
+
+</robot>

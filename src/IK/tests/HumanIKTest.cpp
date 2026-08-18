@@ -15,6 +15,10 @@ using namespace BipedalLocomotion::ParametersHandler;
 
 namespace
 {
+
+constexpr auto CORE_CONFIG_FILE = "configTestIK.toml";
+constexpr auto CONST_TASKS_CONFIG_FILE = "configTestIKConstants.toml";
+
 struct IKTestContext
 {
     std::shared_ptr<iDynTree::KinDynComputations> kinDyn;
@@ -26,7 +30,7 @@ struct IKTestContext
 };
 
 /// Create and initialize a complete IK test context with model, parameters, and IMU inputs.
-IKTestContext makeContext()
+IKTestContext makeContext(const std::string& configFile = CORE_CONFIG_FILE)
 {
     IKTestContext ctx;
     ctx.kinDyn = std::make_shared<iDynTree::KinDynComputations>();
@@ -36,7 +40,7 @@ IKTestContext makeContext()
     ctx.kinDyn->loadRobotModel(mdlLoader.model());
 
     ctx.paramHandler = std::make_shared<BipedalLocomotion::ParametersHandler::TomlImplementation>();
-    REQUIRE(ctx.paramHandler->setFromFile(getConfigPath() + "/configTestIK.toml"));
+    REQUIRE(ctx.paramHandler->setFromFile(getConfigPath() + "/" + configFile));
 
     std::vector<std::string> joints_list_kp;
     std::vector<std::string> joints_list;
@@ -87,6 +91,13 @@ void updateCoreTasks(IKTestContext& ctx)
     REQUIRE(ctx.ik->updateOrientationTask(3, ctx.I_R_IMU, ctx.I_omega_IMU));
     REQUIRE(ctx.ik->updateFloorContactTask(11, 11.0));
     REQUIRE(ctx.ik->updateGravityTask(10, ctx.I_R_IMU));
+    BiomechanicalAnalysis::IK::positionData positionData;
+    positionData.S_p_M = Eigen::Vector3d(0.3, 0.1, 1.0);
+    REQUIRE(ctx.ik->updatePositionTask(20, positionData));
+
+    BiomechanicalAnalysis::IK::poseData poseData;
+    poseData.S_H_M = manif::SE3d(Eigen::Vector3d(0.2, -0.3, 0.8), manif::SO3d::Identity().quat());
+    REQUIRE(ctx.ik->updatePoseTask(21, poseData));
     REQUIRE(ctx.ik->updateOrientationAndGravityTasks(ctx.mapNodeData));
     REQUIRE(ctx.ik->updateJointConstraintsTask());
     Eigen::VectorXd jointPositionSetPoint = ctx.ik->getJointPositionSetPoint();
@@ -125,6 +136,32 @@ BiomechanicalAnalysis::IK::poseData makePoseData()
     BiomechanicalAnalysis::IK::poseData poseData;
     poseData.S_H_M = manif::SE3d(Eigen::Vector3d(0.2, -0.3, 0.8), manif::SO3d::Identity().quat());
     return poseData;
+}
+
+void expectConstantWorldFrameSetpoints(IKTestContext& ctx)
+{
+    manif::SO3d orientationSetPoint;
+    Eigen::Vector3d orientationOmegaSetPoint;
+    REQUIRE(ctx.ik->getOrientationTaskSetPoint(30, orientationSetPoint, orientationOmegaSetPoint));
+    REQUIRE(orientationSetPoint.rotation().isApprox(Eigen::Matrix3d::Identity(), 1e-12));
+    REQUIRE(orientationOmegaSetPoint.isApprox(Eigen::Vector3d::Zero(), 1e-12));
+
+    Eigen::Vector3d gravitySetPoint;
+    REQUIRE(ctx.ik->getGravityTaskSetPoint(31, gravitySetPoint));
+    REQUIRE(gravitySetPoint.isApprox(Eigen::Vector3d::UnitZ(), 1e-12));
+
+    Eigen::Vector3d positionSetPoint;
+    Eigen::Vector3d positionVelSetPoint;
+    REQUIRE(ctx.ik->getPositionTaskSetPoint(32, positionSetPoint, positionVelSetPoint));
+    REQUIRE(positionSetPoint.isApprox(Eigen::Vector3d(0.4, -0.1, 1.3), 1e-12));
+    REQUIRE(positionVelSetPoint.isApprox(Eigen::Vector3d::Zero(), 1e-12));
+
+    manif::SE3d poseSetPoint;
+    manif::SE3d::Tangent poseVelSetPoint;
+    REQUIRE(ctx.ik->getPoseTaskSetPoint(33, poseSetPoint, poseVelSetPoint));
+    REQUIRE(poseSetPoint.translation().isApprox(Eigen::Vector3d(0.6, -0.3, 0.7), 1e-12));
+    REQUIRE(poseSetPoint.rotation().isApprox(Eigen::Matrix3d::Identity(), 1e-12));
+    REQUIRE(poseVelSetPoint.coeffs().isApprox(manif::SE3d::Tangent::Zero().coeffs(), 1e-12));
 }
 } // namespace
 
@@ -208,6 +245,24 @@ TEST_CASE("InverseKinematics pose task setpoint")
     REQUIRE(ctx.ik->getPoseTaskSetPoint(21, poseSetPoint, poseVelSetPoint));
     REQUIRE(poseSetPoint.translation().isApprox(Eigen::Vector3d(0.6, -0.3, 0.7)));
     REQUIRE(poseVelSetPoint.coeffs().isApprox(manif::SE3d::Tangent::Zero().coeffs()));
+}
+
+TEST_CASE("InverseKinematics constant tasks stay in world frame across advance and calibration")
+{
+    auto ctx = makeContext(CONST_TASKS_CONFIG_FILE);
+    updateCoreTasks(ctx);
+
+    REQUIRE(ctx.ik->advance());
+    expectConstantWorldFrameSetpoints(ctx);
+
+    REQUIRE(ctx.ik->calibrateWorldYaw(ctx.mapNodeData));
+    REQUIRE(ctx.ik->calibrateAllWithWorld(ctx.mapNodeData, "Pelvis"));
+    REQUIRE(ctx.ik->recenterWorldAnchor());
+    REQUIRE(ctx.ik->resetWorldAnchorTranslation());
+    REQUIRE(ctx.ik->clearCalibrationMatrices());
+
+    REQUIRE(ctx.ik->advance());
+    expectConstantWorldFrameSetpoints(ctx);
 }
 
 TEST_CASE("InverseKinematics world calibration sets anchor")

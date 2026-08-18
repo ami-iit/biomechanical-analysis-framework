@@ -173,6 +173,17 @@ private:
                             std::unordered_set<int>& usedNodeNumbers);
 
     /**
+     * Apply constant task setpoints before advancing the solver.
+     */
+    bool applyConstantTaskSetpoints();
+
+    bool applyConstantOrientationTask(int node);
+    bool applyConstantGravityTask(int node);
+    bool applyConstantFloorContactTask(int node);
+    bool applyConstantPositionTask(int node);
+    bool applyConstantPoseTask(int node);
+
+    /**
      * Accumulate the current base xy translation in the world anchor used by pose/position tasks.
      */
     void updateWorldAnchorTranslationFromCurrentBaseXY();
@@ -245,7 +256,8 @@ private:
         manif::SO3d W_R_link; // Calibrated orientation of the link in the inertial frame
         manif::SO3d W_R_link_setPoint = manif::SO3d::Identity(); // Last orientation setpoint passed to the SO3 task
         Eigen::Vector3d W_omega_link_setPoint = Eigen::Vector3d::Zero(); // Last angular velocity setpoint passed to the SO3 task
-        bool hasSetPoint{false}; // True once updateOrientationTask() has passed a setpoint to the solver
+        bool hasSetPoint{false}; // True once a setpoint has been initialized or passed to the solver
+        bool isConstant{false};
         Eigen::Vector3d weight; // Weight of the task
         std::string frameName; // Name of the frame in which the task is expressed
     };
@@ -263,7 +275,8 @@ private:
         manif::SO3d calibrationMatrix = manif::SO3d::Identity();
         manif::SO3d W_R_link; // Calibrated orientation of the link in the inertial frame
         Eigen::Vector3d gravityDirectionSetPoint = Eigen::Vector3d::Zero(); // Last direction setpoint passed to the gravity task
-        bool hasSetPoint{false}; // True once updateGravityTask() has passed a setpoint to the solver
+        bool hasSetPoint{false}; // True once a setpoint has been initialized or passed to the solver
+        bool isConstant{false};
         Eigen::Vector2d weight;
         int nodeNumber;
         std::string taskName;
@@ -285,6 +298,8 @@ private:
         std::string frameName;
         double verticalForceThreshold;
         manif::SO3d M_R_L = manif::SO3d::Identity(); // Fixed rotation from force measurement frame M to link/task frame L.
+        bool isConstant{false};
+        Eigen::Matrix<double, 6, 1> constantWrench = Eigen::Matrix<double, 6, 1>::Zero();
     };
 
     /**
@@ -304,7 +319,8 @@ private:
                                                          // task/link point L, expressed in M and loaded from config.
         Eigen::Vector3d W_p_frame_setPoint = Eigen::Vector3d::Zero(); // Last position setpoint passed to the R3 task
         Eigen::Vector3d W_v_frame_setPoint = Eigen::Vector3d::Zero(); // Last linear velocity setpoint passed to the R3 task
-        bool hasSetPoint{false}; // True once updatePositionTask() has passed a setpoint to the solver
+        bool hasSetPoint{false}; // True once a setpoint has been initialized or passed to the solver
+        bool isConstant{false};
     };
 
     /**
@@ -325,7 +341,8 @@ private:
         manif::SO3d W_R_link; // Calibrated orientation of the link in the inertial frame
         manif::SE3d W_H_frame_setPoint = manif::SE3d::Identity(); // Last pose setpoint passed to the SE3 task
         manif::SE3d::Tangent W_v_frame_setPoint = manif::SE3d::Tangent::Zero(); // Last mixed velocity setpoint passed to the SE3 task
-        bool hasSetPoint{false}; // True once updatePoseTask() has passed a setpoint to the solver
+        bool hasSetPoint{false}; // True once a setpoint has been initialized or passed to the solver
+        bool isConstant{false};
     };
 
     std::shared_ptr<BipedalLocomotion::IK::JointTrackingTask> m_jointRegularizationTask; /** Joint

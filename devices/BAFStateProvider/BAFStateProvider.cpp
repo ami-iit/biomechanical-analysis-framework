@@ -33,6 +33,7 @@
 #include <atomic>
 #include <deque>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -107,6 +108,7 @@ public:
         KinematicTaskKind kind;
         std::string modelLinkName;
         double contactThreshold{0.0};
+        bool isConstant{false};
     };
 
     enum class RpcCommandType
@@ -185,8 +187,7 @@ public:
         }
 
         taskInfoMap.clear();
-        for (const auto& taskName : tasks)
-        {
+        auto parseTask = [&](const std::string& taskName) -> bool {
             auto taskGroupWeak = ikParams->getGroup(taskName);
             auto taskGroup = taskGroupWeak.lock();
             if (!taskGroup)
@@ -203,6 +204,8 @@ public:
             }
 
             TaskInfo info;
+            bool isSupportedKinematicTask{true};
+
             if (type == "SO3Task")
             {
                 if (!taskGroup->getParameter("frame_name", info.modelLinkName))
@@ -211,6 +214,18 @@ public:
                     return false;
                 }
                 info.kind = KinematicTaskKind::Orientation;
+
+                std::vector<double> tmp;
+                const bool hasConstRot = taskGroup->getParameter("const_rotation_matrix", tmp)
+                                         || taskGroup->getParameter("const_quaternion", tmp);
+                std::vector<double> angVelTmp;
+                if (!hasConstRot && taskGroup->getParameter("const_angular_velocity", angVelTmp))
+                {
+                    yError() << LogPrefix << "Task" << taskName
+                             << "defines const_angular_velocity but no const_rotation_matrix/const_quaternion";
+                    return false;
+                }
+                info.isConstant = hasConstRot;
             } else if (type == "GravityTask")
             {
                 if (!taskGroup->getParameter("target_frame_name", info.modelLinkName))
@@ -219,6 +234,18 @@ public:
                     return false;
                 }
                 info.kind = KinematicTaskKind::Orientation;
+
+                std::vector<double> tmp;
+                const bool hasConstRot = taskGroup->getParameter("const_rotation_matrix", tmp)
+                                         || taskGroup->getParameter("const_quaternion", tmp);
+                std::vector<double> angVelTmp;
+                if (!hasConstRot && taskGroup->getParameter("const_angular_velocity", angVelTmp))
+                {
+                    yError() << LogPrefix << "Task" << taskName
+                             << "defines const_angular_velocity but no const_rotation_matrix/const_quaternion";
+                    return false;
+                }
+                info.isConstant = hasConstRot;
             } else if (type == "FloorContactTask")
             {
                 if (!taskGroup->getParameter("frame_name", info.modelLinkName))
@@ -232,6 +259,9 @@ public:
                     return false;
                 }
                 info.kind = KinematicTaskKind::FloorContact;
+
+                std::vector<double> tmp;
+                info.isConstant = taskGroup->getParameter("const_wrench", tmp);
             } else if (type == "PositionTask")
             {
                 if (!taskGroup->getParameter("frame_name", info.modelLinkName))
@@ -240,6 +270,16 @@ public:
                     return false;
                 }
                 info.kind = KinematicTaskKind::Position;
+
+                std::vector<double> tmp;
+                const bool hasConstPos = taskGroup->getParameter("const_position", tmp);
+                std::vector<double> velTmp;
+                if (!hasConstPos && taskGroup->getParameter("const_linear_velocity", velTmp))
+                {
+                    yError() << LogPrefix << "Task" << taskName << "defines const_linear_velocity but no const_position";
+                    return false;
+                }
+                info.isConstant = hasConstPos;
             } else if (type == "PoseTask")
             {
                 if (!taskGroup->getParameter("frame_name", info.modelLinkName))
@@ -248,12 +288,47 @@ public:
                     return false;
                 }
                 info.kind = KinematicTaskKind::Pose;
+
+                std::vector<double> tmp;
+                const bool hasConstPos = taskGroup->getParameter("const_position", tmp);
+                const bool hasConstRot = taskGroup->getParameter("const_rotation_matrix", tmp)
+                                         || taskGroup->getParameter("const_quaternion", tmp);
+                std::vector<double> velTmp;
+                const bool hasConstLinVel = taskGroup->getParameter("const_linear_velocity", velTmp);
+                const bool hasConstAngVel = taskGroup->getParameter("const_angular_velocity", velTmp);
+                if ((hasConstLinVel || hasConstAngVel) && !(hasConstPos && hasConstRot))
+                {
+                    yError() << LogPrefix << "Task" << taskName
+                             << "defines fixed velocities but no const_position/const_rotation_matrix/const_quaternion";
+                    return false;
+                }
+                if (hasConstPos != hasConstRot)
+                {
+                    yError() << LogPrefix << "Task" << taskName
+                             << "must define both const_position and const_rotation_matrix/const_quaternion";
+                    return false;
+                }
+                info.isConstant = hasConstPos && hasConstRot;
             } else
             {
-                continue;
+                isSupportedKinematicTask = false;
+            }
+
+            if (!isSupportedKinematicTask)
+            {
+                return true;
             }
 
             taskInfoMap[taskName] = std::move(info);
+            return true;
+        };
+
+        for (const auto& taskName : tasks)
+        {
+            if (!parseTask(taskName))
+            {
+                return false;
+            }
         }
 
         return true;
@@ -352,6 +427,7 @@ bool baf::devices::BAFStateProvider::open(yarp::os::Searchable& config)
     // ── Period ────────────────────────────────────────────────────────────────
     double period = config.check("period", yarp::os::Value(0.017)).asFloat64();
     setPeriod(period);
+    const bool startAfterOpening = config.check("startAfterOpening", yarp::os::Value(false)).asBool();
 
     // ── Floating base frame ───────────────────────────────────────────────────
     pImpl->baseName = config.check("floatingBaseFrame", yarp::os::Value("Pelvis")).asString();
@@ -401,12 +477,8 @@ bool baf::devices::BAFStateProvider::open(yarp::os::Searchable& config)
     std::unordered_set<std::string> configuredTaskNames;
 
     // ── TASK_TO_SENSORS group ─────────────────────────────────────────────────
-    if (!config.check("TASK_TO_SENSORS"))
-    {
-        yError() << LogPrefix << "Missing required group 'TASK_TO_SENSORS'";
-        return false;
-    }
     pImpl->sensorTargets.clear();
+    if (config.check("TASK_TO_SENSORS"))
     {
         yarp::os::Bottle& group = config.findGroup("TASK_TO_SENSORS");
         // group.get(0) is the group name; task-sensor pairs start at index 1
@@ -444,14 +516,14 @@ bool baf::devices::BAFStateProvider::open(yarp::os::Searchable& config)
         }
     }
 
-    // ── Error if a sensor task in the IK config has no sensor mapping ────────
+    // ── Error if a task has neither sensor mapping nor fixed reference ───────
     for (const auto& [name, info] : taskInfoMap)
     {
-        if (configuredTaskNames.find(name) == configuredTaskNames.end())
+        if (configuredTaskNames.find(name) == configuredTaskNames.end() && !info.isConstant)
         {
             yError() << LogPrefix << "Task '" << name
-                     << "' is listed in the IK config 'tasks' parameter but has no sensor mapping"
-                        " in TASK_TO_SENSORS";
+                     << "' is listed in the IK config 'tasks' parameter but has neither sensor mapping"
+                        " in TASK_TO_SENSORS nor a fixed reference";
             return false;
         }
     }
@@ -592,6 +664,16 @@ bool baf::devices::BAFStateProvider::open(yarp::os::Searchable& config)
         pImpl->rpcThread = std::thread([this]() { pImpl->rpcLoop(); });
     }
 
+    if (startAfterOpening)
+    {
+        if (!start())
+        {
+            yError() << LogPrefix << "Failed to start the periodic thread after open().";
+            return false;
+        }
+        yInfo() << LogPrefix << "Periodic thread started after open() because startAfterOpening=true";
+    }
+
     yInfo() << LogPrefix << "Device opened successfully";
     return true;
 }
@@ -730,11 +812,14 @@ bool baf::devices::BAFStateProvider::attachAll(const yarp::dev::PolyDriverList& 
         yInfo() << LogPrefix << "Sensor" << tgt.sensorName << "resolved as VirtualJointKinSensor for joint" << tgt.jointName;
     }
 
-    // ── Start the periodic loop ───────────────────────────────────────────────
-    if (!start())
+    // ── Start the periodic loop (if not already started in open()) ───────────
+    if (!isRunning())
     {
-        yError() << LogPrefix << "Failed to start the periodic thread";
-        return false;
+        if (!start())
+        {
+            yError() << LogPrefix << "Failed to start the periodic thread";
+            return false;
+        }
     }
 
     yInfo() << LogPrefix << "IWear interface attached successfully";

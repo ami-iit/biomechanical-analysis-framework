@@ -15,9 +15,11 @@
 
 The device forwards its whole configuration to the underlying `BiomechanicalAnalysis::IK::HumanIK` solver (via `BipedalLocomotion::ParametersHandler`), so BAF IK task groups (`SO3Task`, `PositionTask`, `PoseTask`, `FloorContactTask`, `GravityTask`, ...) are configured directly in the device config, there is no separate IK config file.
 
+Constant tasks are owned by the IK library: if a task group defines `const_*` parameters, HumanIK treats it as a world-frame constant and the device does not need to map it to a sensor.
+
 ### `TASK_TO_SENSORS` group
 
-Maps each IK task name to the wearable sensor providing its target. Task names must match those listed in `tasks` and are conventionally uppercase and end with `_TASK`.
+Maps each sensor-driven kinematic task name to the wearable sensor providing its target. Task names must match those listed in `tasks` and are conventionally uppercase and end with `_TASK`.
 
 ```ini
 [TASK_TO_SENSORS]
@@ -25,6 +27,24 @@ CHEST_TASK "iFeelSuit::vLink::Node#6"
 L_UPPER_ARM_TASK "iFeelSuit::vLink::Node#5"
 L_HAND_PALM_TASK "TransformServer::pose::left_glove"
 ```
+
+### Optional fixed references (`const_*`)
+
+For supported kinematic tasks, you can define a static target directly in the task group using `const_*` parameters. HumanIK interprets those values as world-frame constants and applies them at the beginning of each IK advance cycle.
+
+Supported parameters by task type:
+
+| Task type | Fixed parameters |
+|-----------|------------------|
+| `SO3Task`, `GravityTask` | `const_rotation_matrix` (9 values, row-major) or `const_quaternion` (`[w x y z]`), optional `const_angular_velocity` (3) |
+| `PositionTask` | `const_position` (3), optional `const_linear_velocity` (3) |
+| `PoseTask` | `const_position` (3) and `const_rotation_matrix` (9) or `const_quaternion` (`[w x y z]`), optional `const_linear_velocity` (3), optional `const_angular_velocity` (3) |
+| `FloorContactTask` | `const_wrench` (6 values: force then torque) |
+
+Validation rules:
+
+- `PoseTask`: position and orientation must be both present.
+- Velocity-only fixed parameters are rejected (for example, `const_linear_velocity` without `const_position`).
 
 ## RPC
 

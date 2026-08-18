@@ -445,12 +445,7 @@ bool BAFStateEstimator::advance()
         }
     }
 
-    // ── Step 3: update regularization and constraint tasks ───────────────────
-    if (!m_impl->humanIK.updateJointConstraintsTask())
-    {
-        BiomechanicalAnalysis::log()->error("[BAFStateEstimator] updateJointConstraintsTask failed");
-        return false;
-    }
+    // ── Step 3: update regularization task ───────────────────────────────────
     if (!m_impl->humanIK.updateJointRegularizationTask(m_impl->jointPositionSetPoint))
     {
         BiomechanicalAnalysis::log()->error("[BAFStateEstimator] updateJointRegularizationTask failed");
