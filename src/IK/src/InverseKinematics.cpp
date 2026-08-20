@@ -351,11 +351,13 @@ bool HumanIK::updateFloorContactTask(const int node, const double verticalForce)
     {
         return true;
     }
+    
+    const auto absVerticalForce = std::abs(verticalForce);
 
     // if the vertical force is greater than the threshold and if the foot is not yet in contact,
     // set the weight of the associated task to the weight of the task and set the set point of the
     // task to the position of the frame computed with the legged odometry
-    if (verticalForce > m_FloorContactTasks[node].verticalForceThreshold && !m_FloorContactTasks[node].footInContact)
+    if (absVerticalForce > m_FloorContactTasks[node].verticalForceThreshold && !m_FloorContactTasks[node].footInContact)
     {
         m_qpIK.setTaskWeight(m_FloorContactTasks[node].taskName, m_FloorContactTasks[node].weight);
         m_FloorContactTasks[node].footInContact = true;
@@ -363,7 +365,7 @@ bool HumanIK::updateFloorContactTask(const int node, const double verticalForce)
             = iDynTree::toEigen(m_kinDyn->getWorldTransform(m_FloorContactTasks[node].frameName).getPosition());
         m_FloorContactTasks[node].setPointPosition
             = mergeFloorContactPositionOverride(m_FloorContactTasks[node].contactPosition, currentPosition);
-    } else if (verticalForce < m_FloorContactTasks[node].verticalForceThreshold && m_FloorContactTasks[node].footInContact)
+    } else if (absVerticalForce < m_FloorContactTasks[node].verticalForceThreshold && m_FloorContactTasks[node].footInContact)
     {
         // if the foot is not more in contact, set the weight of the associated task to zero
         m_qpIK.setTaskWeight(m_FloorContactTasks[node].taskName, Eigen::Vector3d::Zero());
