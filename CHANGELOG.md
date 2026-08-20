@@ -17,3 +17,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - The `linkHeight` argument of `HumanIK::updateFloorContactTask()` and `HumanIK::updateFloorContactTasks()` (and the corresponding Python bindings argument), replaced by the per-task `default_position` config.
 
+### Changed
+- The `FloorContactTask` now uses absolute vertical force for the activation instead of the signed value.
