@@ -344,13 +344,13 @@ TEST_CASE("InverseKinematics floor contact default_position seeds the setpoint a
     REQUIRE(initialSetPointPosition.isApprox(expectedSetPoint, 1e-8));
 }
 
-TEST_CASE("InverseKinematics floor contact activation during normal operation uses raw kinDyn, not default_position")
+TEST_CASE("InverseKinematics floor contact activation uses default contact_position when omitted")
 {
     auto ctx = makeContext();
 
-    // default_position is only meant for initialization and post-calibration reset, not for
-    // regular runtime contact activation, which should always trust the real measured position.
+    // contact_position defaults to ["*", "*", "0.0"], so activation keeps x/y and clamps z.
     Eigen::Vector3d expectedSetPoint = iDynTree::toEigen(ctx.kinDyn->getWorldTransform("LeftFoot").getPosition());
+    expectedSetPoint(2) = 0.0;
 
     REQUIRE(ctx.ik->updateFloorContactTask(11, 61.0));
 
@@ -359,6 +359,20 @@ TEST_CASE("InverseKinematics floor contact activation during normal operation us
     REQUIRE(ctx.ik->getFloorContactTaskSetPoint(11, setPointPosition, footInContact));
     REQUIRE(footInContact);
     REQUIRE(setPointPosition.isApprox(expectedSetPoint, 1e-8));
+}
+
+TEST_CASE("InverseKinematics constant floor contact activation applies configured contact_position")
+{
+    auto ctx = makeContext(CONST_TASKS_CONFIG_FILE);
+    updateCoreTasks(ctx);
+
+    REQUIRE(ctx.ik->advance());
+
+    Eigen::Vector3d setPointPosition;
+    bool footInContact{false};
+    REQUIRE(ctx.ik->getFloorContactTaskSetPoint(34, setPointPosition, footInContact));
+    REQUIRE(footInContact);
+    REQUIRE(setPointPosition.isApprox(Eigen::Vector3d(0.2, -0.1, 0.0), 1e-8));
 }
 
 TEST_CASE("InverseKinematics floor contact setpoint is recomputed with default_position after calibration, even if active")

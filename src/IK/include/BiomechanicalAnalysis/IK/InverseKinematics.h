@@ -303,6 +303,8 @@ private:
         bool isConstant{false};
         Eigen::Matrix<double, 6, 1> constantWrench = Eigen::Matrix<double, 6, 1>::Zero();
         std::array<std::optional<double>, 3> defaultPosition; // Per-component override (x,y,z); nullopt means use the current kinDyn value.
+        // Activation-time override. Default equals ["*", "*", "0.0"].
+        std::array<std::optional<double>, 3> contactPosition = {std::nullopt, std::nullopt, std::optional<double>(0.0)};
     };
 
     /**
@@ -466,6 +468,7 @@ public:
      * |`FloorContactTask`|      `rotation_matrix`         |`vector<double>`|    Fixed rotation from force measurement frame to link frame. Default identity.     |  No   |
      * |`FloorContactTask`|           `weight`             |  `vector<double>`  |                           Weight of the task                                    |  Yes  |
      * |`FloorContactTask`|      `default_position`        |`vector<string>`| Per-component (x,y,z) override used when no real contact position is known yet; `"*"` keeps the current kinDyn value. Default all `"*"`. |  No   |
+     * |`FloorContactTask`|      `contact_position`        |`vector<string>`| Per-component (x,y,z) override applied when contact becomes active; `"*"` keeps the current kinDyn value. Default is `["*", "*", "0.0"]`. |  No   |
      *
      * The "JointRegularizationTask" requires the following parameters:
      * |          Group          |         Parameter Name         |    Type    |                                         Description                                          | Mandatory |
