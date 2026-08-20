@@ -1414,6 +1414,12 @@ bool HumanIK::initializeFloorContactTask(const std::string& taskName,
             return false;
         }
     }
+    else
+    {
+        BiomechanicalAnalysis::log()->warn("{} Parameter default_position of the {} task is missing, using default (*,*,*)",
+                                           logPrefix,
+                                           taskName);
+    }
 
     // Retrieve the optional per-component contact_position override used when contact activates.
     std::vector<std::string> contactPosition;
@@ -1427,6 +1433,12 @@ bool HumanIK::initializeFloorContactTask(const std::string& taskName,
         {
             return false;
         }
+    }
+    else
+    {
+        BiomechanicalAnalysis::log()->warn("{} Parameter contact_position of the {} task is missing, using default (*,*,0)",
+                                           logPrefix,
+                                           taskName);
     }
 
     // Map weight vector to Eigen::Vector3d and assign it to the corresponding FloorContactTask

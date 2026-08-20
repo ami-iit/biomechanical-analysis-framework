@@ -302,7 +302,7 @@ private:
         manif::SO3d M_R_L = manif::SO3d::Identity(); // Fixed rotation from force measurement frame M to link/task frame L.
         bool isConstant{false};
         Eigen::Matrix<double, 6, 1> constantWrench = Eigen::Matrix<double, 6, 1>::Zero();
-        std::array<std::optional<double>, 3> defaultPosition; // Per-component override (x,y,z); nullopt means use the current kinDyn value.
+        std::array<std::optional<double>, 3> defaultPosition = {std::nullopt, std::nullopt, std::nullopt}; // Per-component override (x,y,z); nullopt means use the current kinDyn value.
         // Activation-time override. Default equals ["*", "*", "0.0"].
         std::array<std::optional<double>, 3> contactPosition = {std::nullopt, std::nullopt, std::optional<double>(0.0)};
     };
