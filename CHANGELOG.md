@@ -11,4 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The HumanIK class (https://github.com/ami-iit/biomechanical-analysis-framework/pull/15)
 - The `CHANGELOG.md` file
 - The `Logging` feature (https://github.com/ami-iit/biomechanical-analysis-framework/pull/10)
+- `FloorContactTask` config parameter `default_position`: per-component (x,y,z) override used when no real contact position is known yet; default is `["*", "*", "*"]`.
+- `FloorContactTask` config parameter `contact_position`: per-component (x,y,z) override applied when contact becomes active; default is `["*", "*", "0.0"]`.
 
+### Removed
+- The `linkHeight` argument of `HumanIK::updateFloorContactTask()` and `HumanIK::updateFloorContactTasks()` (and the corresponding Python bindings argument), replaced by the per-task `default_position` config.
+
+### Changed
+- The `FloorContactTask` now uses absolute vertical force for the activation instead of the signed value.

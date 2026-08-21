@@ -2,7 +2,7 @@ tasks = [
     "PELVIS_TASK", "T8_TASK", "RIGHT_UPPER_ARM_TASK", "GRAVITY_TASK_1", 
     "FLOOR_CONTACT_TASK_1", "JOINT_LIMITS_TASK", "JOINT_REG_TASK", "JOINT_VEL_LIMITS_TASK",
     "BASE_VEL_REG_TASK", "POSITION_TASK_1", "POSE_TASK_1",
-    "CONST_PELVIS_TASK", "CONST_GRAVITY_TASK", "CONST_POSITION_TASK", "CONST_POSE_TASK"
+    "CONST_PELVIS_TASK", "CONST_GRAVITY_TASK", "CONST_POSITION_TASK", "CONST_POSE_TASK", "CONST_FLOOR_CONTACT_TASK"
 ]
 
 [IK]
@@ -149,4 +149,5 @@ kp_linear = 1.0
 floor_contact_task = 34
 weight = [10.0, 10.0, 10.0]
 vertical_force_threshold = 60.0
+contact_position = ["0.2", "-0.1", "0.0"]
 const_wrench = [0.0, 0.0, 100.0, 0.0, 0.0, 0.0]
